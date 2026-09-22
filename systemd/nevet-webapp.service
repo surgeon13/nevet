@@ -1,0 +1,17 @@
+[Unit]
+Description=Nevet Web Console (gallery + game stats)
+After=network.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__REPO_DIR__/webapp
+EnvironmentFile=__REPO_DIR__/.env
+Environment=CAMERA_BASE_DIR=__HOME__/camera_captures
+Environment=STATS_DB=__HOME__/camera_captures/game_stats.db
+ExecStart=/usr/bin/python3 __REPO_DIR__/webapp/app.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

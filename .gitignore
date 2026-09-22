@@ -1,0 +1,17 @@
+# Captured media and runtime data — never part of the repo
+camera_captures/
+logs/
+*.db
+*.log
+
+# Local secrets rendered from config/.env.example
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS / editor cruft
+.DS_Store
+*.swp

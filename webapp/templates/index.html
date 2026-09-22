@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Gallery{% endblock %}
+{% block content %}
+<section class="summary-bar">
+  <div class="stat-card"><span class="num">{{ assets.total_photos }}</span><span class="label">Photos</span></div>
+  <div class="stat-card"><span class="num">{{ assets.total_videos }}</span><span class="label">Videos</span></div>
+  <div class="stat-card"><span class="num">{{ assets.total_size }}</span><span class="label">Storage used</span></div>
+</section>
+
+{% for day, media in assets.days.items() %}
+<h2 class="day-heading">{{ day }}</h2>
+<div class="grid">
+  {% for p in media.photos %}
+  <a class="tile" href="{{ url_for('media', filepath=p.path) }}" target="_blank">
+    <img loading="lazy" src="{{ url_for('media', filepath=p.path) }}">
+    <span class="tile-meta">{{ p.name }} · {{ p.size }}</span>
+  </a>
+  {% endfor %}
+  {% for v in media.videos %}
+  <a class="tile video" href="{{ url_for('media', filepath=v.path) }}" target="_blank">
+    <div class="video-placeholder">▶ Video</div>
+    <span class="tile-meta">{{ v.name }} · {{ v.size }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p>No captures yet.</p>
+{% endfor %}
+{% endblock %}

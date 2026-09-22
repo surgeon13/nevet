@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Nevet{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<nav class="topnav">
+  <a href="{{ url_for('index') }}" class="brand">📷 Nevet</a>
+  <div class="nav-links">
+    <a href="{{ url_for('index') }}">Gallery</a>
+    <a href="{{ url_for('stats') }}">Stats</a>
+    <a href="{{ url_for('logs_page') }}">Logs</a>
+    {% if session.get('logged_in') %}
+      <a href="{{ url_for('logout') }}">Logout</a>
+    {% else %}
+      <a href="{{ url_for('login') }}">Login</a>
+    {% endif %}
+  </div>
+</nav>
+<main>
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

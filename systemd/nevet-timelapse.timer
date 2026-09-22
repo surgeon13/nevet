@@ -1,0 +1,10 @@
+[Unit]
+Description=Run nevet-timelapse.service periodically
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=__INTERVAL__min
+Unit=nevet-timelapse.service
+
+[Install]
+WantedBy=timers.target

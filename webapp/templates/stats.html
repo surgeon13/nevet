@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Game Stats{% endblock %}
+{% block content %}
+<h2>Latest Stats</h2>
+{% if latest %}
+<section class="summary-bar">
+  <div class="stat-card"><span class="num">{{ latest.xp or 0 }}</span><span class="label">XP</span></div>
+  <div class="stat-card"><span class="num">{{ latest.time_played or 0 }}</span><span class="label">Time played</span></div>
+  <div class="stat-card"><span class="num">{{ latest.compost or 0 }}</span><span class="label">Compost</span></div>
+  <div class="stat-card"><span class="num">{{ latest.credits or 0 }}</span><span class="label">Credits</span></div>
+  <div class="stat-card"><span class="num">{{ latest.plant_growth or 0 }}</span><span class="label">Plant growth</span></div>
+</section>
+<p class="timestamp">as of {{ latest.timestamp }}</p>
+{% else %}
+<p>No stats logged yet.</p>
+{% endif %}
+
+<h2>History</h2>
+<table class="history-table">
+<tr><th>Time</th><th>XP</th><th>Time played</th><th>Compost</th><th>Credits</th><th>Plant growth</th></tr>
+{% for row in history %}
+<tr>
+  <td>{{ row.timestamp }}</td>
+  <td>{{ row.xp }}</td>
+  <td>{{ row.time_played }}</td>
+  <td>{{ row.compost }}</td>
+  <td>{{ row.credits }}</td>
+  <td>{{ row.plant_growth }}</td>
+</tr>
+{% endfor %}
+</table>
+{% endblock %}

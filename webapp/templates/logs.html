@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Logs{% endblock %}
+{% block content %}
+<h2>Live Logs</h2>
+<p class="timestamp">Refreshes automatically every 5 seconds.</p>
+
+<div class="log-grid">
+  <div class="log-panel">
+    <div class="log-panel-title">Watchdog (WiFi + health)</div>
+    <pre id="log-watchdog" class="log-console"></pre>
+  </div>
+  <div class="log-panel">
+    <div class="log-panel-title">Capture (photo/video)</div>
+    <pre id="log-capture" class="log-console"></pre>
+  </div>
+  <div class="log-panel">
+    <div class="log-panel-title">Web app</div>
+    <pre id="log-webapp" class="log-console"></pre>
+  </div>
+</div>
+
+<script>
+function colorize(line) {
+  const lower = line.toLowerCase();
+  if (lower.includes('fail') || lower.includes('error') || lower.includes('missing')) return 'log-line log-fail';
+  if (lower.includes('retry') || lower.includes('reconnect') || lower.includes('corrupt') || lower.includes('rejected')) return 'log-line log-warn';
+  return 'log-line';
+}
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function render(id, lines) {
+  const el = document.getElementById(id);
+  const wasAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 10;
+  el.innerHTML = lines.length
+    ? lines.map(l => '<div class="' + colorize(l) + '">' + escapeHtml(l) + '</div>').join('')
+    : '<div class="log-line" style="opacity:0.5">No entries yet.</div>';
+  if (wasAtBottom) el.scrollTop = el.scrollHeight;
+}
+function refresh() {
+  fetch('/api/logs').then(r => r.json()).then(data => {
+    render('log-watchdog', data.watchdog || []);
+    render('log-capture', data.capture || []);
+    render('log-webapp', data.webapp || []);
+  }).catch(() => {});
+}
+refresh();
+setInterval(refresh, 5000);
+</script>
+{% endblock %}

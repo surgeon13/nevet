@@ -1,0 +1,10 @@
+[Unit]
+Description=Run nevet-watchdog.service every 2 minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=2min
+Unit=nevet-watchdog.service
+
+[Install]
+WantedBy=timers.target

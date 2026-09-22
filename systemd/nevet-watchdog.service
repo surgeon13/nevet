@@ -1,0 +1,7 @@
+[Unit]
+Description=Nevet WiFi + health watchdog
+
+[Service]
+Type=oneshot
+User=__USER__
+ExecStart=__REPO_DIR__/scripts/wifi_watchdog.sh
