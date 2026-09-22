@@ -66,3 +66,8 @@ part of this initial release.
   `install.sh`, rather than generated ad hoc.
 - `config/.env.example` — secrets template; `.env` itself git-ignored.
 - `docs/ARCHITECTURE.md`, `docs/API.md`, `docs/TROUBLESHOOTING.md`.
+
+## Tooling note
+- Claude (this chat) now has direct push access to this repo via a
+  scoped, repo-limited fine-grained token, so future changes can be
+  committed and pushed here directly, ready for `git pull` on the Pi.
