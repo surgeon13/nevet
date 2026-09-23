@@ -107,7 +107,12 @@ def scan_assets():
 
 
 @app.route("/")
-def index():
+def hub():
+    return render_template("console.html")
+
+
+@app.route("/gallery")
+def gallery():
     return render_template("index.html", assets=scan_assets())
 
 
@@ -137,7 +142,7 @@ def login():
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("index"))
+    return redirect(url_for("hub"))
 
 
 @app.route("/stats")

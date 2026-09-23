@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Nevet — Home{% endblock %}
+{% block content %}
+
+<div class="hub-tabs">
+  <button class="hub-tab active" type="button">Dashboard</button>
+  <button class="hub-tab" type="button" onclick="return showComingSoon('Time')">Time</button>
+  <button class="hub-tab" type="button" onclick="return showComingSoon('Resources')">Resources</button>
+  <button class="hub-tab" type="button" onclick="return showComingSoon('XP')">XP</button>
+</div>
+
+<div class="hub-wrap">
+  <div class="hub-circle">
+    <span class="hub-label">Nevet</span>
+    <span class="hub-value" id="hub-selected-label">Gallery</span>
+  </div>
+
+  <div class="node-grid" id="node-grid">
+    <a class="node-card active-link" data-label="Gallery" href="{{ url_for('gallery') }}">
+      Gallery<span class="node-sub">Photos &amp; videos</span>
+    </a>
+    <a class="node-card active-link" data-label="Stats" href="{{ url_for('stats') }}">
+      Stats<span class="node-sub">XP, compost, credits</span>
+    </a>
+    <a class="node-card active-link" data-label="Logs" href="{{ url_for('logs_page') }}">
+      Logs<span class="node-sub">Live console</span>
+    </a>
+    <a class="node-card" data-label="Users" href="#" onclick="return showComingSoon('Users')">
+      Users<span class="node-sub">Coming soon</span>
+    </a>
+    <a class="node-card" data-label="Activity" href="#" onclick="return showComingSoon('Activity')">
+      Activity<span class="node-sub">Coming soon</span>
+    </a>
+  </div>
+
+  <div class="hub-controls">
+    <button class="hub-btn" type="button" onclick="hubNav(-1)" aria-label="Previous node">1</button>
+    <button class="hub-btn select" type="button" onclick="hubSelect()" aria-label="Select node">2</button>
+    <button class="hub-btn" type="button" onclick="hubNav(1)" aria-label="Next node">3</button>
+    <div class="jog-dial"><div class="jog-dot" id="jog-dot"></div></div>
+  </div>
+</div>
+
+<script>
+  var nodes = Array.from(document.querySelectorAll('#node-grid .node-card'));
+  var current = 0;
+
+  function updateHighlight() {
+    nodes.forEach(function(n, i) {
+      n.style.borderColor = (i === current) ? 'var(--accent)' : 'var(--border)';
+    });
+    document.getElementById('hub-selected-label').textContent = nodes[current].dataset.label;
+    var angle = (current / nodes.length) * 360;
+    document.getElementById('jog-dot').style.transform = 'translateX(-50%) rotate(' + angle + 'deg)';
+  }
+
+  function hubNav(dir) {
+    current = (current + dir + nodes.length) % nodes.length;
+    updateHighlight();
+  }
+
+  function hubSelect() {
+    nodes[current].click();
+  }
+
+  function showComingSoon(name) {
+    alert(name + ' — coming soon');
+    return false;
+  }
+
+  updateHighlight();
+</script>
+{% endblock %}

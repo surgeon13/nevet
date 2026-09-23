@@ -17,9 +17,9 @@
 </head>
 <body>
 <nav class="topnav">
-  <a href="{{ url_for('index') }}" class="brand">📷 Nevet</a>
+  <a href="{{ url_for('hub') }}" class="brand">📷 Nevet</a>
   <div class="nav-links">
-    <a href="{{ url_for('index') }}">Gallery</a>
+    <a href="{{ url_for('gallery') }}">Gallery</a>
     <a href="{{ url_for('stats') }}">Stats</a>
     <a href="{{ url_for('logs_page') }}">Logs</a>
     {% if session.get('logged_in') %}

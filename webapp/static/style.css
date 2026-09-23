@@ -98,3 +98,23 @@ main { padding: 20px; max-width: 1000px; margin: 0 auto; }
 .log-line { white-space: pre-wrap; word-break: break-all; padding: 1px 0; }
 .log-fail { color: #e06c6c; }
 .log-warn { color: #e0c458; }
+
+.hub-tabs { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 24px; }
+.hub-tab { padding: 8px 16px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text-dim); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.hub-tab.active { border-color: var(--accent); color: var(--accent); background: var(--bg-card); }
+
+.hub-wrap { display: flex; flex-direction: column; align-items: center; gap: 24px; }
+.hub-circle { width: 130px; height: 130px; border-radius: 50%; background: var(--bg-card); border: 2px solid var(--accent); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.hub-circle .hub-label { font-size: 11px; color: var(--text-dim); }
+.hub-circle .hub-value { font-size: 16px; font-weight: 700; color: var(--accent); margin-top: 4px; }
+
+.node-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; width: 100%; max-width: 420px; }
+@media (min-width: 640px) { .node-grid { grid-template-columns: repeat(3, 1fr); max-width: 640px; } }
+.node-card { display: block; background: var(--bg-card); border: 2px solid var(--border); border-radius: 16px; padding: 18px 10px; text-align: center; text-decoration: none; color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; }
+.node-card .node-sub { display: block; font-size: 11px; font-weight: 400; color: var(--text-dim); margin-top: 4px; }
+
+.hub-controls { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 12px; padding-top: 20px; border-top: 1px solid var(--border); width: 100%; }
+.hub-btn { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); font-family: inherit; font-weight: 700; font-size: 15px; cursor: pointer; }
+.hub-btn.select { border-color: var(--accent); color: var(--accent); }
+.jog-dial { width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--border); background: var(--bg-card); position: relative; }
+.jog-dot { position: absolute; top: 5px; left: 50%; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); transform-origin: 2.5px 19px; transform: translateX(-50%) rotate(0deg); }
