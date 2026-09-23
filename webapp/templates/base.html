@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Nevet{% endblock %}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script>
+  // Applied before paint to avoid a flash of the wrong theme.
+  // Light is the default; dark only applies if the visitor chose it before.
+  (function() {
+    if (localStorage.getItem('nevet-theme') === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  })();
+</script>
 </head>
 <body>
 <nav class="topnav">
@@ -18,10 +27,45 @@
     {% else %}
       <a href="{{ url_for('login') }}">Login</a>
     {% endif %}
+    <button type="button" class="theme-toggle" onclick="toggleNevetTheme()" aria-label="Toggle light and dark mode">
+      <svg id="nevet-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4"></circle>
+        <line x1="12" y1="2" x2="12" y2="4"></line>
+        <line x1="12" y1="20" x2="12" y2="22"></line>
+        <line x1="4.2" y1="4.2" x2="5.6" y2="5.6"></line>
+        <line x1="18.4" y1="18.4" x2="19.8" y2="19.8"></line>
+        <line x1="2" y1="12" x2="4" y2="12"></line>
+        <line x1="20" y1="12" x2="22" y2="12"></line>
+        <line x1="4.2" y1="19.8" x2="5.6" y2="18.4"></line>
+        <line x1="18.4" y1="5.6" x2="19.8" y2="4.2"></line>
+      </svg>
+      <svg id="nevet-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+        <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
+      </svg>
+    </button>
   </div>
 </nav>
 <main>
 {% block content %}{% endblock %}
 </main>
+<script>
+  function updateNevetThemeIcon() {
+    var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    document.getElementById('nevet-icon-sun').style.display = isDark ? 'none' : 'block';
+    document.getElementById('nevet-icon-moon').style.display = isDark ? 'block' : 'none';
+  }
+  function toggleNevetTheme() {
+    var root = document.documentElement;
+    if (root.getAttribute('data-theme') === 'dark') {
+      root.removeAttribute('data-theme');
+      localStorage.setItem('nevet-theme', 'light');
+    } else {
+      root.setAttribute('data-theme', 'dark');
+      localStorage.setItem('nevet-theme', 'dark');
+    }
+    updateNevetThemeIcon();
+  }
+  updateNevetThemeIcon();
+</script>
 </body>
 </html>
