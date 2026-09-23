@@ -44,7 +44,7 @@ log_msg "Capturing photo #$NUM -> $FILEPATH"
 
 capture_frame() {
     ffmpeg -y -f v4l2 -input_format mjpeg -video_size "$RESOLUTION" -i "$DEVICE" \
-        -frames:v 5 -update 1 "$FILEPATH" -loglevel error >"$LOGFILE_TMP" 2>&1
+        -frames:v 5 -update 1 -vf "hflip,vflip" "$FILEPATH" -loglevel error >"$LOGFILE_TMP" 2>&1
 }
 
 capture_frame || true

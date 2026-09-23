@@ -39,22 +39,41 @@ mkdir -p "$DAY_DIR"
 
 FILENAME="video_${NUM}_${TIMESTAMP}.mp4"
 FILEPATH="$DAY_DIR/$FILENAME"
+RAW_TMP="$DAY_DIR/.raw_${NUM}.mp4"
 
 echo -e "${BLUE}🎥  Recording video #${NUM} for ${DURATION}s...${NC}"
 log_msg "Recording video #$NUM for ${DURATION}s -> $FILEPATH"
 
-if ffmpeg -y -f v4l2 -input_format h264 -video_size "$RESOLUTION" -framerate "$FRAMERATE" \
+# Record fast via stream copy (no re-encoding, keeps the Pi 3B's CPU
+# free during capture). The camera is mounted upside down, so a
+# second pass below flips the recorded file 180 degrees; that pass
+# isn't time-critical since capture has already finished by then.
+if ! ffmpeg -y -f v4l2 -input_format h264 -video_size "$RESOLUTION" -framerate "$FRAMERATE" \
     -i "$DEVICE" -c:v copy -t "$DURATION" \
+    "$RAW_TMP" -loglevel error >"$LOGFILE_TMP" 2>&1; then
+    echo -e "${RED}✘  Recording failed${NC}"
+    cat "$LOGFILE_TMP"
+    log_msg "Video #$NUM: FAILED - $(cat "$LOGFILE_TMP" | tr '\n' ' ')"
+    rm -f "$RAW_TMP"
+    exit 1
+fi
+
+echo -e "${BLUE}   correcting orientation...${NC}"
+
+if ffmpeg -y -i "$RAW_TMP" -vf "hflip,vflip" -c:v libx264 -preset ultrafast -crf 23 \
     -metadata creation_time="$CREATION_TIME" \
     "$FILEPATH" -loglevel error >"$LOGFILE_TMP" 2>&1; then
-
+    rm -f "$RAW_TMP"
     SIZE=$(stat -c%s "$FILEPATH" 2>/dev/null || echo 0)
     SIZE_H=$(numfmt --to=iec --suffix=B "$SIZE" 2>/dev/null || echo "${SIZE}B")
     echo -e "${GREEN}✔  Saved${NC} ${BOLD}${FILEPATH}${NC} ${YELLOW}(${SIZE_H})${NC}"
     log_msg "Video #$NUM: saved $FILEPATH ($SIZE_H)"
 else
-    echo -e "${RED}✘  Recording failed${NC}"
-    cat "$LOGFILE_TMP"
-    log_msg "Video #$NUM: FAILED - $(cat "$LOGFILE_TMP" | tr '\n' ' ')"
-    exit 1
+    # Orientation fix failed for some reason — keep the raw (upside
+    # down) footage rather than losing the recording entirely.
+    mv "$RAW_TMP" "$FILEPATH"
+    SIZE=$(stat -c%s "$FILEPATH" 2>/dev/null || echo 0)
+    SIZE_H=$(numfmt --to=iec --suffix=B "$SIZE" 2>/dev/null || echo "${SIZE}B")
+    echo -e "${YELLOW}⚠  Orientation fix failed, saved upside-down as a fallback${NC} ${FILEPATH} ${YELLOW}(${SIZE_H})${NC}"
+    log_msg "Video #$NUM: orientation fix failed, saved raw (upside-down) $FILEPATH ($SIZE_H)"
 fi

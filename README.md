@@ -65,6 +65,7 @@ reboot, SSH disconnects, and crashes (`Restart=always` / timers):
 ./scripts/capture_photo.sh            # one timestamped photo
 ./scripts/capture_video.sh [seconds]  # one timestamped video (default 10s)
 ./scripts/test_camera_scripts.sh      # full validation suite
+./scripts/fix_orientation.sh          # one-time: flip existing photos/videos 180°
 ```
 
 Captured media lives in `~/camera_captures/{photos,videos}/YYYY-MM-DD/`,
