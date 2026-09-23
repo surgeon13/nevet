@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Add Asset{% endblock %}
+{% block content %}
+<form method="post" class="login-form">
+  <h2>Add a plant or worm bin</h2>
+  <select name="asset_type">
+    {% for t in asset_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+  </select>
+  <input type="text" name="name" placeholder="Name (e.g. Tomato Bed 3)" required>
+  <input type="text" name="variety" placeholder="Variety (optional)">
+  <select name="life_stage">
+    <option value="">No stage yet</option>
+    {% for s in stages %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+  </select>
+  <button type="submit">Add</button>
+</form>
+{% endblock %}

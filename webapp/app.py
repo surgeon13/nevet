@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, jsonify, abort
 from logging_config import setup_logging, LOGS_DIR
+import farm_db
 
 BASE_DIR = Path(os.environ.get("CAMERA_BASE_DIR", str(Path.home() / "camera_captures")))
 PHOTO_DIR = BASE_DIR / "photos"
@@ -108,12 +109,92 @@ def scan_assets():
 
 @app.route("/")
 def hub():
-    return render_template("console.html")
+    return render_template("console.html", summary=farm_db.dashboard_summary())
 
 
 @app.route("/gallery")
 def gallery():
     return render_template("index.html", assets=scan_assets())
+
+
+@app.route("/growers")
+def growers_page():
+    return render_template("growers.html", growers=farm_db.list_growers())
+
+
+@app.route("/growers/new", methods=["GET", "POST"])
+@login_required
+def grower_new():
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        if name:
+            gid = farm_db.add_grower(name)
+            return redirect(url_for("grower_page", grower_id=gid))
+    return render_template("grower_form.html")
+
+
+@app.route("/growers/<int:grower_id>")
+def grower_page(grower_id):
+    grower, assets, logs = farm_db.grower_summary(grower_id)
+    if not grower:
+        abort(404)
+    return render_template("grower_detail.html", grower=grower, assets=assets, logs=logs)
+
+
+@app.route("/growers/<int:grower_id>/assets/new", methods=["GET", "POST"])
+@login_required
+def asset_new(grower_id):
+    if request.method == "POST":
+        asset_id = farm_db.add_asset(
+            asset_type=request.form.get("asset_type", "plant"),
+            name=request.form.get("name", "").strip(),
+            grower_id=grower_id,
+            variety=request.form.get("variety") or None,
+            life_stage=request.form.get("life_stage") or None,
+        )
+        return redirect(url_for("asset_page", asset_id=asset_id))
+    return render_template(
+        "asset_form.html", grower_id=grower_id,
+        asset_types=farm_db.ASSET_TYPES, stages=farm_db.PLANT_STAGES,
+    )
+
+
+@app.route("/assets")
+def assets_page():
+    return render_template("assets.html", assets=farm_db.list_assets())
+
+
+@app.route("/assets/<int:asset_id>")
+def asset_page(asset_id):
+    asset, logs, quantities = farm_db.asset_detail(asset_id)
+    if not asset:
+        abort(404)
+    return render_template("asset_detail.html", asset=asset, logs=logs, quantities=quantities)
+
+
+@app.route("/assets/<int:asset_id>/logs/new", methods=["GET", "POST"])
+@login_required
+def log_new(asset_id):
+    if request.method == "POST":
+        qty_value = request.form.get("qty_value")
+        quantities = None
+        if qty_value:
+            quantities = [{
+                "measure": request.form.get("qty_measure", "count"),
+                "value": float(qty_value),
+                "units": request.form.get("qty_units") or None,
+                "label": request.form.get("qty_label") or None,
+            }]
+        farm_db.add_log(
+            log_type=request.form.get("log_type"),
+            asset_id=asset_id,
+            notes=request.form.get("notes") or None,
+            recipient=request.form.get("recipient") or None,
+            location=request.form.get("location") or None,
+            quantities=quantities,
+        )
+        return redirect(url_for("asset_page", asset_id=asset_id))
+    return render_template("log_form.html", asset_id=asset_id, log_types=farm_db.LOG_TYPES)
 
 
 @app.route("/media/<path:filepath>")

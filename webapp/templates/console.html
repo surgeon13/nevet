@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Nevet — Home{% endblock %}
+{% block title %}Nevet — Dashboard{% endblock %}
 {% block content %}
 
 <div class="hub-tabs">
@@ -11,27 +11,33 @@
 
 <div class="hub-wrap">
   <div class="hub-circle">
-    <span class="hub-label">Nevet</span>
-    <span class="hub-value" id="hub-selected-label">Gallery</span>
+    <div class="hub-summary">
+      <span class="hub-label">Nevet</span>
+      <span class="hub-stat-line"><strong>{{ summary.growing }}</strong> growing</span>
+      <span class="hub-stat-line"><strong>{{ summary.germination }}</strong> germinating</span>
+      <span class="hub-stat-line"><strong>{{ summary.harvested }}</strong> harvested</span>
+    </div>
   </div>
 
   <div class="node-grid" id="node-grid">
-    <a class="node-card active-link" data-label="Gallery" href="{{ url_for('gallery') }}">
+    <a class="node-card" data-label="Gallery" href="{{ url_for('gallery') }}">
       Gallery<span class="node-sub">Photos &amp; videos</span>
     </a>
-    <a class="node-card active-link" data-label="Stats" href="{{ url_for('stats') }}">
-      Stats<span class="node-sub">XP, compost, credits</span>
+    <a class="node-card" data-label="Growers" href="{{ url_for('growers_page') }}">
+      Growers<span class="node-sub">{{ summary.growers }} people</span>
     </a>
-    <a class="node-card active-link" data-label="Logs" href="{{ url_for('logs_page') }}">
+    <a class="node-card" data-label="Assets" href="{{ url_for('assets_page') }}">
+      Assets<span class="node-sub">Plants &amp; worm bins</span>
+    </a>
+    <a class="node-card" data-label="Logs" href="{{ url_for('logs_page') }}">
       Logs<span class="node-sub">Live console</span>
     </a>
-    <a class="node-card" data-label="Users" href="#" onclick="return showComingSoon('Users')">
-      Users<span class="node-sub">Coming soon</span>
-    </a>
-    <a class="node-card" data-label="Activity" href="#" onclick="return showComingSoon('Activity')">
-      Activity<span class="node-sub">Coming soon</span>
+    <a class="node-card" data-label="Stats" href="{{ url_for('stats') }}">
+      Stats<span class="node-sub">XP, compost, credits</span>
     </a>
   </div>
+
+  <p class="hub-now-viewing">Now highlighted: <strong id="hub-selected-label">Gallery</strong></p>
 
   <div class="hub-controls">
     <button class="hub-btn" type="button" onclick="hubNav(-1)" aria-label="Previous node">1</button>
@@ -67,6 +73,16 @@
     alert(name + ' — coming soon');
     return false;
   }
+
+  // Physical controller support: most small USB button/jog-wheel boxes
+  // enumerate as a standard HID keyboard, so plain keydown handling
+  // picks them up with no extra driver. Arrow keys / Enter are the
+  // most common mapping; 1/2/3 mirror the on-screen buttons too.
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowLeft' || e.key === '1') hubNav(-1);
+    else if (e.key === 'ArrowRight' || e.key === '3') hubNav(1);
+    else if (e.key === 'Enter' || e.key === ' ' || e.key === '2') { e.preventDefault(); hubSelect(); }
+  });
 
   updateHighlight();
 </script>

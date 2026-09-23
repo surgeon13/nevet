@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ asset.name }}{% endblock %}
+{% block content %}
+<h2>{{ asset.name }}</h2>
+<p class="timestamp">
+  {{ asset.asset_type }}{% if asset.variety %} · {{ asset.variety }}{% endif %}
+  {% if asset.life_stage %} · <span class="badge badge-{{ asset.life_stage }}">{{ asset.life_stage }}</span>{% endif %}
+  {% if asset.grower_name %} · grown by <a href="{{ url_for('grower_page', grower_id=asset.grower_id) }}">{{ asset.grower_name }}</a>{% endif %}
+</p>
+
+{% if session.get('logged_in') %}
+<p><a href="{{ url_for('log_new', asset_id=asset.id) }}">+ Log an event</a></p>
+{% endif %}
+
+<h3>History</h3>
+<table class="history-table">
+<tr><th>Time</th><th>Type</th><th>Details</th><th>Notes</th></tr>
+{% for log in logs %}
+<tr>
+  <td>{{ log.timestamp }}</td>
+  <td><span class="badge badge-log-{{ log.log_type }}">{{ log.log_type }}</span></td>
+  <td>
+    {% for q in quantities.get(log.id, []) %}
+      {{ q.value }} {{ q.units or '' }} {{ q.label or '' }}<br>
+    {% endfor %}
+    {% if log.recipient %}→ {{ log.recipient }}{% endif %}
+    {% if log.location %}@ {{ log.location }}{% endif %}
+  </td>
+  <td>{{ log.notes or '' }}</td>
+</tr>
+{% else %}
+<tr><td colspan="4">No history yet.</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

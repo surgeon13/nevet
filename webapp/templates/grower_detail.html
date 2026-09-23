@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ grower.name }}{% endblock %}
+{% block content %}
+<h2>{{ grower.name }}</h2>
+<p class="timestamp">Growing since {{ grower.joined_at }}</p>
+
+<h3>Assets</h3>
+{% if session.get('logged_in') %}
+<p><a href="{{ url_for('asset_new', grower_id=grower.id) }}">+ Add a plant or worm bin</a></p>
+{% endif %}
+<div class="grid">
+  {% for a in assets %}
+  <a class="tile asset-tile" href="{{ url_for('asset_page', asset_id=a.id) }}">
+    <div class="grower-name">{{ a.name }}</div>
+    <span class="tile-meta">
+      {{ a.asset_type }}{% if a.variety %} · {{ a.variety }}{% endif %}
+      {% if a.life_stage %}<br><span class="badge badge-{{ a.life_stage }}">{{ a.life_stage }}</span>{% endif %}
+    </span>
+  </a>
+  {% else %}
+  <p>No assets yet.</p>
+  {% endfor %}
+</div>
+
+<h3>Recent activity</h3>
+<table class="history-table">
+<tr><th>Time</th><th>Type</th><th>Asset</th><th>Notes</th></tr>
+{% for log in logs %}
+<tr>
+  <td>{{ log.timestamp }}</td>
+  <td><span class="badge badge-log-{{ log.log_type }}">{{ log.log_type }}</span></td>
+  <td><a href="{{ url_for('asset_page', asset_id=log.asset_id) }}">{{ log.asset_name }}</a></td>
+  <td>{{ log.notes or '' }}{% if log.recipient %} → {{ log.recipient }}{% endif %}</td>
+</tr>
+{% else %}
+<tr><td colspan="4">No activity logged yet.</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

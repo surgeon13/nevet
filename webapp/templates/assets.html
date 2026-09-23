@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Assets{% endblock %}
+{% block content %}
+<h2>Assets</h2>
+<table class="history-table">
+<tr><th>Name</th><th>Type</th><th>Variety</th><th>Stage</th><th>Grower</th></tr>
+{% for a in assets %}
+<tr>
+  <td><a href="{{ url_for('asset_page', asset_id=a.id) }}">{{ a.name }}</a></td>
+  <td>{{ a.asset_type }}</td>
+  <td>{{ a.variety or '—' }}</td>
+  <td>{% if a.life_stage %}<span class="badge badge-{{ a.life_stage }}">{{ a.life_stage }}</span>{% else %}—{% endif %}</td>
+  <td>{% if a.grower_name %}<a href="{{ url_for('grower_page', grower_id=a.grower_id) }}">{{ a.grower_name }}</a>{% else %}—{% endif %}</td>
+</tr>
+{% else %}
+<tr><td colspan="5">No assets yet.</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

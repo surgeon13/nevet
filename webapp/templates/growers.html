@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Growers{% endblock %}
+{% block content %}
+<h2>Growers</h2>
+{% if session.get('logged_in') %}
+<p><a href="{{ url_for('grower_new') }}">+ Add a grower</a></p>
+{% endif %}
+<div class="grid">
+  {% for g in growers %}
+  <a class="tile grower-tile" href="{{ url_for('grower_page', grower_id=g.id) }}">
+    <div class="grower-name">{{ g.name }}</div>
+    <span class="tile-meta">{{ g.asset_count }} asset{{ 's' if g.asset_count != 1 else '' }}</span>
+  </a>
+  {% else %}
+  <p>No growers yet.</p>
+  {% endfor %}
+</div>
+{% endblock %}

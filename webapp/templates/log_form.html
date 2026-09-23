@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Log Event{% endblock %}
+{% block content %}
+<form method="post" class="login-form">
+  <h2>Log an event</h2>
+  <select name="log_type" required>
+    {% for t in log_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+  </select>
+  <input type="text" name="notes" placeholder="Notes (optional)">
+  <input type="text" name="recipient" placeholder="Delivered to (for delivery logs)">
+  <input type="text" name="location" placeholder="Location (optional)">
+  <hr style="border-color: var(--border); width: 100%;">
+  <input type="number" step="any" name="qty_value" placeholder="Quantity (optional)">
+  <select name="qty_measure">
+    <option value="count">count</option>
+    <option value="weight">weight</option>
+    <option value="volume">volume</option>
+  </select>
+  <input type="text" name="qty_units" placeholder="Units (e.g. kg, seeds, liters)">
+  <input type="text" name="qty_label" placeholder="Label (e.g. tomatoes harvested)">
+  <button type="submit">Save log</button>
+</form>
+{% endblock %}
