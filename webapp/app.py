@@ -72,6 +72,19 @@ def human_size(num_bytes):
     return f"{num_bytes:.1f}TB"
 
 
+def recent_photos(n=9):
+    """Just the last N photos for a compact dashboard preview — the full,
+    unbounded listing lives on the /gallery page, not here."""
+    if not PHOTO_DIR.exists():
+        return []
+    files = [f for f in PHOTO_DIR.rglob("*") if f.suffix.lower() in (".jpg", ".jpeg")]
+    files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+    return [
+        {"name": f.name, "path": f"photos/{f.relative_to(PHOTO_DIR)}"}
+        for f in files[:n]
+    ]
+
+
 def scan_assets():
     """Build a date-grouped listing of photos and videos with basic stats."""
     days = {}
@@ -109,7 +122,11 @@ def scan_assets():
 
 @app.route("/")
 def hub():
-    return render_template("console.html", summary=farm_db.dashboard_summary())
+    return render_template(
+        "console.html",
+        summary=farm_db.dashboard_summary(),
+        recent=recent_photos(9),
+    )
 
 
 @app.route("/gallery")

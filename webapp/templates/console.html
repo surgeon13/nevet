@@ -19,6 +19,20 @@
     </div>
   </div>
 
+  {% if recent %}
+  <div class="recent-photos">
+    <div class="recent-photos-heading">Recent photos</div>
+    <div class="recent-photos-grid">
+      {% for p in recent %}
+      <a href="{{ url_for('media', filepath=p.path) }}" target="_blank">
+        <img loading="lazy" src="{{ url_for('media', filepath=p.path) }}" alt="{{ p.name }}">
+      </a>
+      {% endfor %}
+    </div>
+    <a class="recent-photos-viewall" href="{{ url_for('gallery') }}">View full gallery →</a>
+  </div>
+  {% endif %}
+
   <div class="node-grid" id="node-grid">
     <a class="node-card" data-label="Gallery" href="{{ url_for('gallery') }}">
       Gallery<span class="node-sub">Photos &amp; videos</span>
