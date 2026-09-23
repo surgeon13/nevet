@@ -108,6 +108,14 @@ main { padding: 20px; max-width: 1000px; margin: 0 auto; }
 .hub-circle .hub-label { font-size: 11px; color: var(--text-dim); }
 .hub-circle .hub-value { font-size: 16px; font-weight: 700; color: var(--accent); margin-top: 4px; }
 
+.hub-3d-wrap { position: relative; width: 100%; max-width: 480px; height: 320px; }
+#hub-canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+.hub-3d-core { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; display: flex; flex-direction: column; gap: 2px; }
+.hub-3d-core .hub-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+.hub-3d-core .hub-stat-line { font-size: 12px; color: var(--text); }
+.hub-3d-core .hub-stat-line strong { color: var(--accent); font-size: 14px; }
+.node-grid.js-hidden { display: none; }
+
 .node-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; width: 100%; max-width: 420px; }
 @media (min-width: 640px) { .node-grid { grid-template-columns: repeat(3, 1fr); max-width: 640px; } }
 .node-card { display: block; background: var(--bg-card); border: 2px solid var(--border); border-radius: 16px; padding: 18px 10px; text-align: center; text-decoration: none; color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; }

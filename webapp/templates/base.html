@@ -64,6 +64,7 @@
       localStorage.setItem('nevet-theme', 'dark');
     }
     updateNevetThemeIcon();
+    document.dispatchEvent(new Event('nevet-theme-changed'));
   }
   updateNevetThemeIcon();
 </script>

@@ -10,8 +10,9 @@
 </div>
 
 <div class="hub-wrap">
-  <div class="hub-circle">
-    <div class="hub-summary">
+  <div class="hub-3d-wrap" id="hub-3d-wrap">
+    <canvas id="hub-canvas"></canvas>
+    <div class="hub-3d-core">
       <span class="hub-label">Nevet</span>
       <span class="hub-stat-line"><strong>{{ summary.growing }}</strong> growing</span>
       <span class="hub-stat-line"><strong>{{ summary.germination }}</strong> germinating</span>
@@ -72,6 +73,7 @@
     document.getElementById('hub-selected-label').textContent = nodes[current].dataset.label;
     var angle = (current / nodes.length) * 360;
     document.getElementById('jog-dot').style.transform = 'translateX(-50%) rotate(' + angle + 'deg)';
+    if (window.updateThreeHighlight) window.updateThreeHighlight(current);
   }
 
   function hubNav(dir) {
@@ -99,5 +101,162 @@
   });
 
   updateHighlight();
+</script>
+
+<script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+<script>
+(function () {
+  var canvas = document.getElementById('hub-canvas');
+  var wrap = document.getElementById('hub-3d-wrap');
+  if (!canvas || !wrap || typeof THREE === 'undefined') return;
+
+  function cssColor(name, fallback) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  }
+
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+  camera.position.set(0, 3.1, 8.6);
+  camera.lookAt(0, 0, 0);
+
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+  function resize() {
+    var w = wrap.clientWidth, h = wrap.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+
+  var accentColor = new THREE.Color(cssColor('--accent', '#4c9a5b'));
+  var borderColor = new THREE.Color(cssColor('--border', '#888888'));
+  var textColor = cssColor('--text', '#e8f0e5');
+
+  // Central hub — pulsing glow sphere
+  var hubCore = new THREE.Mesh(
+    new THREE.SphereGeometry(0.55, 24, 24),
+    new THREE.MeshBasicMaterial({ color: accentColor })
+  );
+  scene.add(hubCore);
+  var hubGlow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.85, 24, 24),
+    new THREE.MeshBasicMaterial({ color: accentColor, transparent: true, opacity: 0.18 })
+  );
+  scene.add(hubGlow);
+
+  // Orbiting satellite nodes, one per dashboard section
+  var group = new THREE.Group();
+  scene.add(group);
+  var radius = 3.3;
+
+  function makeLabelSprite(text, color) {
+    var c = document.createElement('canvas');
+    c.width = 256; c.height = 64;
+    var ctx = c.getContext('2d');
+    ctx.font = 'bold 34px sans-serif';
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 128, 32);
+    var tex = new THREE.CanvasTexture(c);
+    var sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+    sprite.scale.set(1.7, 0.42, 1);
+    return sprite;
+  }
+
+  var satMeshes = [], satGlows = [], satLines = [];
+
+  nodes.forEach(function (n, i) {
+    var angle = (i / nodes.length) * Math.PI * 2;
+    var x = Math.cos(angle) * radius, z = Math.sin(angle) * radius;
+
+    var mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.3, 20, 20),
+      new THREE.MeshBasicMaterial({ color: borderColor })
+    );
+    mesh.position.set(x, 0, z);
+    mesh.userData.index = i;
+    group.add(mesh);
+    satMeshes.push(mesh);
+
+    var glow = new THREE.Mesh(
+      new THREE.SphereGeometry(0.44, 20, 20),
+      new THREE.MeshBasicMaterial({ color: accentColor, transparent: true, opacity: 0 })
+    );
+    glow.position.copy(mesh.position);
+    group.add(glow);
+    satGlows.push(glow);
+
+    var lineGeom = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0, 0), new THREE.Vector3(x, 0, z)
+    ]);
+    var line = new THREE.Line(lineGeom, new THREE.LineBasicMaterial({ color: borderColor, transparent: true, opacity: 0.4 }));
+    group.add(line);
+    satLines.push(line);
+
+    var label = makeLabelSprite(n.dataset.label, textColor);
+    label.position.set(x, 0.62, z);
+    group.add(label);
+  });
+
+  // Tap/click a node to jump straight to it
+  var raycaster = new THREE.Raycaster();
+  var pointer = new THREE.Vector2();
+  canvas.addEventListener('click', function (ev) {
+    var rect = canvas.getBoundingClientRect();
+    pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+    var hits = raycaster.intersectObjects(satMeshes);
+    if (hits.length) {
+      current = hits[0].object.userData.index;
+      updateHighlight();
+      hubSelect();
+    }
+  });
+
+  document.addEventListener('nevet-theme-changed', function () {
+    accentColor.set(cssColor('--accent', '#4c9a5b'));
+    borderColor.set(cssColor('--border', '#888888'));
+    updateThreeHighlight(current);
+  });
+
+  window.updateThreeHighlight = function (idx) {
+    satMeshes.forEach(function (m, i) {
+      var sel = (i === idx);
+      m.material.color.copy(sel ? accentColor : borderColor);
+      m.scale.setScalar(sel ? 1.35 : 1);
+    });
+    satGlows.forEach(function (g, i) {
+      g.material.opacity = (i === idx) ? 0.35 : 0;
+    });
+    satLines.forEach(function (l, i) {
+      var sel = (i === idx);
+      l.material.color.copy(sel ? accentColor : borderColor);
+      l.material.opacity = sel ? 0.9 : 0.35;
+    });
+  };
+
+  var clock = new THREE.Clock();
+  function animate() {
+    requestAnimationFrame(animate);
+    var t = clock.getElapsedTime();
+    group.rotation.y = t * 0.15;
+    var pulse = 1 + Math.sin(t * 1.8) * 0.06;
+    hubCore.scale.setScalar(pulse);
+    hubGlow.scale.setScalar(pulse * 1.05);
+    renderer.render(scene, camera);
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+  animate();
+  updateThreeHighlight(current);
+
+  document.getElementById('node-grid').classList.add('js-hidden');
+})();
 </script>
 {% endblock %}
