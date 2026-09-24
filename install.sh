@@ -4,7 +4,7 @@
 # enables three background services:
 #   nevet-webapp      - gallery + login-gated game stats, port 8000
 #   nevet-timelapse   - automatic photo capture every N minutes
-#   nevet-watchdog    - WiFi reconnect + health check every 5 minutes
+#   nevet-watchdog    - WiFi reconnect + web app self-heal every 2 minutes
 #
 # Usage: sudo ./install.sh [timelapse_interval_minutes]
 set -e
@@ -36,10 +36,30 @@ if [ ! -f "$REPO_DIR/.env" ]; then
 fi
 
 # ---- dependencies ----
+# Never fatal: if the Pi is offline, the rest of the install (services,
+# watchdog, WiFi settings) still gets applied with what's already there.
 echo "Installing dependencies..."
-apt-get update -qq
-apt-get install -y python3-flask ffmpeg v4l-utils fonts-dejavu-core >/dev/null 2>&1 \
-    || sudo -u "$REAL_USER" pip3 install -r "$REPO_DIR/webapp/requirements.txt" --break-system-packages
+if apt-get update -qq 2>/dev/null && \
+   apt-get install -y python3-flask python3-waitress ffmpeg v4l-utils fonts-dejavu-core curl iw >/dev/null 2>&1; then
+    echo "  dependencies OK"
+elif sudo -u "$REAL_USER" pip3 install -r "$REPO_DIR/webapp/requirements.txt" --break-system-packages >/dev/null 2>&1; then
+    echo "  dependencies OK (via pip)"
+else
+    echo "  WARNING: couldn't install/update dependencies (offline?). Continuing with what's installed;"
+    echo "           re-run this installer later when online."
+fi
+
+# ---- WiFi power saving OFF (classic cause of Pi 3B dropouts) ----
+mkdir -p /etc/NetworkManager/conf.d
+cat > /etc/NetworkManager/conf.d/nevet-wifi-powersave.conf << 'EOF'
+# Written by nevet install.sh: WiFi power saving causes dropouts on Pi 3B.
+[connection]
+wifi.powersave = 2
+EOF
+# apply right now without dropping the connection (the file above
+# makes it permanent from the next reconnect/boot)
+command -v iw >/dev/null 2>&1 && iw dev wlan0 set power_save off 2>/dev/null || true
+echo "WiFi power saving: off"
 
 # ---- render systemd unit templates for this exact repo path/user ----
 render_unit() {
@@ -60,13 +80,27 @@ render_unit "$REPO_DIR/systemd/nevet-watchdog.timer"    /etc/systemd/system/neve
 sed -e "s|__HOME__|${REAL_HOME}|g" "$REPO_DIR/config/nevet-logrotate.conf" > /etc/logrotate.d/nevet
 
 # ---- scoped passwordless sudo for the watchdog only ----
-cat > /etc/sudoers.d/nevet-watchdog << EOF
-${REAL_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart wpa_supplicant, /usr/sbin/dhclient -r wlan0, /usr/sbin/dhclient wlan0
-EOF
-chmod 440 /etc/sudoers.d/nevet-watchdog
+# Only the exact commands the watchdog needs. Validated with visudo
+# before installing, so a mistake here can never break sudo.
+SYSTEMCTL=$(command -v systemctl)
+CMDS="$SYSTEMCTL restart nevet-webapp, $SYSTEMCTL restart NetworkManager, $SYSTEMCTL restart wpa_supplicant"
+NMCLI=$(command -v nmcli || true)
+IW=$(command -v iw || true)
+[ -n "$NMCLI" ] && CMDS="$CMDS, $NMCLI device reconnect wlan0, $NMCLI radio wifi off, $NMCLI radio wifi on"
+[ -n "$IW" ] && CMDS="$CMDS, $IW dev wlan0 set power_save off"
+TMP_SUDOERS=$(mktemp)
+echo "${REAL_USER} ALL=(root) NOPASSWD: ${CMDS}" > "$TMP_SUDOERS"
+if visudo -cf "$TMP_SUDOERS" >/dev/null 2>&1; then
+    install -m 440 "$TMP_SUDOERS" /etc/sudoers.d/nevet-watchdog
+    echo "Watchdog permissions: OK"
+else
+    echo "WARNING: watchdog sudo rules failed validation - not installed (sudo is untouched)."
+fi
+rm -f "$TMP_SUDOERS"
 
 systemctl daemon-reload
-systemctl enable --now nevet-webapp.service
+systemctl enable nevet-webapp.service
+systemctl restart nevet-webapp.service
 systemctl enable --now nevet-timelapse.timer
 systemctl enable --now nevet-watchdog.timer
 
@@ -76,7 +110,7 @@ echo "=============================================="
 echo " Installed and running:"
 echo "   nevet-webapp.service    -> http://${IP}:8000"
 echo "   nevet-timelapse.timer   -> photo every ${INTERVAL_MIN} min"
-echo "   nevet-watchdog.timer    -> WiFi/health check every 5 min"
+echo "   nevet-watchdog.timer    -> WiFi + web app health check every 2 min"
 echo "=============================================="
 echo ""
 echo "If you edited .env after this ran:"

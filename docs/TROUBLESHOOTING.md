@@ -124,3 +124,22 @@ systemctl list-timers nevet-timelapse.timer nevet-watchdog.timer
 journalctl -u nevet-timelapse.service -f
 journalctl -u nevet-webapp.service -f
 ```
+
+
+## The Pi keeps going offline / web app unreachable
+
+1. Run `./scripts/health_report.sh` and read the **Power** section first.
+   "under-voltage" means the power supply or cable is too weak; the Pi 3B
+   needs a real 5V 2.5A supply, and a USB camera adds load. This is the
+   most common cause of random WiFi drops and no software can fix it.
+2. Check the watchdog log: `tail -50 ~/camera_captures/logs/watchdog.log`
+   - `FAIL WiFi link down` - the Pi lost WiFi; watchdog reconnects itself.
+     Frequent ones with low signal (< 40%) mean the Pi is too far from
+     the router.
+   - `WARN WiFi+router OK but no internet` - your router/ISP is down or a
+     guest network wants a login page. The Pi is still reachable on the
+     local network.
+   - `FAIL web app not responding` - the watchdog restarts it after two
+     misses in a row.
+3. Test the watchdog without changing anything:
+   `NEVET_WATCHDOG_DRY_RUN=1 ./scripts/wifi_watchdog.sh`

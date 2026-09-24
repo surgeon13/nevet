@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-09-24 (reliability)
+
+- FIX: watchdog judged "offline" by ping only, so on networks that block
+  ping it bounced a working WiFi connection every 2 minutes. It now uses
+  HTTP/TCP checks and tells apart "link down" (reconnects) from
+  "internet down but WiFi fine" (leaves WiFi alone).
+- Reconnect escalates: device reconnect -> WiFi radio off/on ->
+  NetworkManager restart (at most every ~10 min). Never reboots.
+- Web app self-heal: watchdog checks /healthz and restarts the app if
+  it stops answering twice in a row. systemd never gives up restarting.
+- Web app now served by waitress (production server) instead of Flask's
+  development server.
+- WiFi power saving turned off permanently (common Pi 3B dropout cause).
+- Watchdog log now includes under-voltage, temperature, free memory and
+  disk use on every check.
+- New scripts/health_report.sh: one-screen diagnosis.
+- install.sh no longer aborts when offline; sudo rules for the watchdog
+  are limited to exact commands and validated with visudo first.
+
 ## 2026-09-24
 
 - Watchdog no longer reboots the Pi. It logs and retries WiFi forever;

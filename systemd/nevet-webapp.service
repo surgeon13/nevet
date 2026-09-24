@@ -1,6 +1,8 @@
 [Unit]
 Description=Nevet Web Console (gallery + game stats)
 After=network.target
+# never stop retrying, however many times it has crashed
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple

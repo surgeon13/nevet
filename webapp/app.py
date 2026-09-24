@@ -293,5 +293,26 @@ def api_add_stats():
     return jsonify({"ok": True})
 
 
+@app.route("/healthz")
+def healthz():
+    """Unauthenticated liveness check used by the watchdog. Touches the
+    database so a stuck DB counts as unhealthy too."""
+    try:
+        farm_db.get_conn().close()
+    except Exception as e:  # pragma: no cover
+        app.logger.error("healthz: database check failed: %s", e)
+        return "db error", 500
+    return "ok", 200
+
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000)
+    # waitress is a production-grade server (multi-threaded, doesn't hang
+    # on slow clients the way Flask's built-in dev server can). Falls back
+    # to the dev server if waitress isn't installed yet.
+    try:
+        from waitress import serve
+        app.logger.info("Starting web app with waitress on :8000")
+        serve(app, host="0.0.0.0", port=8000, threads=6, channel_timeout=60)
+    except ImportError:
+        app.logger.warning("waitress not installed - using Flask dev server")
+        app.run(host="0.0.0.0", port=8000, threaded=True)
