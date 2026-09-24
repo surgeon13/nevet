@@ -12,12 +12,11 @@
 <div class="hub-wrap">
   <div class="hub-3d-wrap" id="hub-3d-wrap">
     <canvas id="hub-canvas"></canvas>
-    <div class="hub-3d-core">
-      <span class="hub-label">Nevet</span>
-      <span class="hub-stat-line"><strong>{{ summary.growing }}</strong> growing</span>
-      <span class="hub-stat-line"><strong>{{ summary.germination }}</strong> germinating</span>
-      <span class="hub-stat-line"><strong>{{ summary.harvested }}</strong> harvested</span>
-    </div>
+  </div>
+  <div class="hub-stats-row">
+    <span class="hub-stat"><strong>{{ summary.growing }}</strong> growing</span>
+    <span class="hub-stat"><strong>{{ summary.germination }}</strong> germinating</span>
+    <span class="hub-stat"><strong>{{ summary.harvested }}</strong> harvested</span>
   </div>
 
   {% if recent %}
@@ -115,49 +114,56 @@
     return v || fallback;
   }
 
-  var scene = new THREE.Scene();
-  var camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-  camera.position.set(0, 3.1, 8.6);
-  camera.lookAt(0, 0, 0);
+  var FOV = 40;
+  var ELEVATION = 58 * Math.PI / 180;   // camera looks down on the ring
+  var RADIUS = 4.6;                     // distance from brain to nodes
+  var NODE_GAP_PX = 6;                  // clear space between a node's edge and its label
+  var LABEL_PX = 28;                    // label pill height on screen, in CSS pixels
 
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 200);
   var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
-  function resize() {
-    var w = wrap.clientWidth, h = wrap.clientHeight;
-    if (!w || !h) return;
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-  }
-
   var accentColor = new THREE.Color(cssColor('--accent', '#4c9a5b'));
   var borderColor = new THREE.Color(cssColor('--border', '#888888'));
-  var textColor = cssColor('--text', '#e8f0e5');
 
-  // Central hub — pulsing glow sphere
+  // ---------- central hub ----------
   var hubCore = new THREE.Mesh(
-    new THREE.SphereGeometry(0.55, 24, 24),
+    new THREE.SphereGeometry(0.6, 24, 24),
     new THREE.MeshBasicMaterial({ color: accentColor })
   );
   scene.add(hubCore);
-  var hubGlow = new THREE.Mesh(
-    new THREE.SphereGeometry(0.85, 24, 24),
-    new THREE.MeshBasicMaterial({ color: accentColor, transparent: true, opacity: 0.18 })
-  );
-  scene.add(hubGlow);
 
-  // Brain icon for the central hub. Loaded from the assets folder and
-  // tinted with the theme accent colour; if the file isn't there yet,
-  // the plain glowing sphere above stays as the hub.
+  // Soft round halo behind the brain (drawn flat, never covers it)
+  function haloTexture(color) {
+    var c = document.createElement('canvas');
+    c.width = c.height = 256;
+    var ctx = c.getContext('2d');
+    var g = ctx.createRadialGradient(128, 128, 20, 128, 128, 128);
+    g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = 0.28;
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 256, 256);
+    return new THREE.CanvasTexture(c);
+  }
+  var halo = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: haloTexture('#' + accentColor.getHexString()), transparent: true, depthTest: false, depthWrite: false
+  }));
+  halo.scale.set(3.8, 3.8, 1);
+  halo.renderOrder = 1;
+  scene.add(halo);
+
   var BRAIN_URL = "{{ url_for('static', filename='assets/icons/brain.svg') }}";
-  var brainImg = null, brainSprite = null;
+  var BRAIN_PNG = "{{ url_for('static', filename='assets/icons/brain.png') }}";
+  var brainImg = null, brainSprite = null, brainTinted = false;
+  var BRAIN_SIZE = 3.0;
 
   function tintedBrainTexture(img, color) {
     var c = document.createElement('canvas');
     c.width = 512; c.height = 512;
     var ctx = c.getContext('2d');
-    var ratio = Math.min(460 / img.width, 460 / img.height);
+    var ratio = Math.min(470 / img.width, 470 / img.height);
     var w = img.width * ratio, h = img.height * ratio;
     ctx.drawImage(img, (512 - w) / 2, (512 - h) / 2, w, h);
     ctx.globalCompositeOperation = 'source-in';
@@ -165,11 +171,6 @@
     ctx.fillRect(0, 0, 512, 512);
     return new THREE.CanvasTexture(c);
   }
-
-  // Full-colour PNG is shown as-is; a one-colour SVG is tinted to
-  // the theme accent instead.
-  var BRAIN_PNG = "{{ url_for('static', filename='assets/icons/brain.png') }}";
-  var brainTinted = false;
 
   function showBrain(img, tint) {
     brainImg = img;
@@ -181,17 +182,17 @@
       tex = new THREE.Texture(img);
       tex.needsUpdate = true;
     }
-    brainSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-    brainSprite.scale.set(1.9, 1.9, 1);
+    brainSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: tex, transparent: true, depthTest: false, depthWrite: false
+    }));
+    brainSprite.scale.set(BRAIN_SIZE, BRAIN_SIZE, 1);
+    brainSprite.renderOrder = 5;          // always drawn on top of lines and halo
     scene.add(brainSprite);
     hubCore.visible = false;
-    hubGlow.material.opacity = 0.12;
-    wrap.classList.add('has-brain');
   }
 
-  // Tried in order; first file that exists wins. One-colour icons
-  // (tint: true) are recoloured to the theme accent so they stay
-  // visible in both light and dark mode.
+  // First file that exists wins. One-colour icons are tinted to the
+  // theme accent so they stay visible in light and dark mode.
   var BRAIN_CANDIDATES = [
     { url: "{{ url_for('static', filename='assets/icons/brain-outline.png') }}", tint: true },
     { url: BRAIN_PNG, tint: false }
@@ -218,34 +219,57 @@
   }
   tryBrain(0);
 
-  // Orbiting satellite nodes, one per dashboard section
-  var group = new THREE.Group();
-  scene.add(group);
-  var radius = 3.3;
-
-  function makeLabelSprite(text, color) {
+  // ---------- labels: readable pills, constant on-screen size ----------
+  function labelCanvas(text, selected) {
     var c = document.createElement('canvas');
-    c.width = 256; c.height = 64;
     var ctx = c.getContext('2d');
-    ctx.font = 'bold 34px sans-serif';
-    ctx.fillStyle = color;
+    var fontPx = 44;
+    ctx.font = 'bold ' + fontPx + 'px sans-serif';
+    var tw = Math.ceil(ctx.measureText(text).width);
+    var padX = 26, h = 76;
+    c.width = tw + padX * 2; c.height = h;
+    ctx = c.getContext('2d');
+    ctx.font = 'bold ' + fontPx + 'px sans-serif';
+    var r = h / 2;
+    ctx.beginPath();
+    ctx.moveTo(r, 2); ctx.lineTo(c.width - r, 2);
+    ctx.arc(c.width - r, r, r - 2, -Math.PI / 2, Math.PI / 2);
+    ctx.lineTo(r, h - 2);
+    ctx.arc(r, r, r - 2, Math.PI / 2, Math.PI * 1.5);
+    ctx.closePath();
+    ctx.fillStyle = selected ? cssColor('--accent', '#4c9a5b') : cssColor('--bg-card', '#ffffff');
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = selected ? cssColor('--accent', '#4c9a5b') : cssColor('--border', '#dddddd');
+    ctx.stroke();
+    ctx.fillStyle = selected ? '#ffffff' : cssColor('--text', '#1e2a20');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, 128, 32);
-    var tex = new THREE.CanvasTexture(c);
-    var sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-    sprite.scale.set(1.7, 0.42, 1);
-    return sprite;
+    ctx.fillText(text, c.width / 2, h / 2 + 2);
+    return c;
   }
 
-  var satMeshes = [], satGlows = [], satLines = [];
+  function setLabel(sprite, text, selected) {
+    var c = labelCanvas(text, selected);
+    if (sprite.material.map) sprite.material.map.dispose();
+    sprite.material.map = new THREE.CanvasTexture(c);
+    sprite.material.needsUpdate = true;
+    sprite.userData.aspect = c.width / c.height;
+  }
+
+  // ---------- satellite nodes ----------
+  var group = new THREE.Group();
+  scene.add(group);
+  var satMeshes = [], satGlows = [], satLines = [], satLabels = [];
 
   nodes.forEach(function (n, i) {
-    var angle = (i / nodes.length) * Math.PI * 2;
-    var x = Math.cos(angle) * radius, z = Math.sin(angle) * radius;
+    // start with node 0 at the front, facing the viewer
+    var angle = Math.PI / 2 + (i / nodes.length) * Math.PI * 2;
+    var dx = Math.cos(angle), dz = Math.sin(angle);
+    var x = dx * RADIUS, z = dz * RADIUS;
 
     var mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.3, 20, 20),
+      new THREE.SphereGeometry(0.4, 20, 20),
       new THREE.MeshBasicMaterial({ color: borderColor })
     );
     mesh.position.set(x, 0, z);
@@ -254,26 +278,103 @@
     satMeshes.push(mesh);
 
     var glow = new THREE.Mesh(
-      new THREE.SphereGeometry(0.44, 20, 20),
-      new THREE.MeshBasicMaterial({ color: accentColor, transparent: true, opacity: 0 })
+      new THREE.SphereGeometry(0.6, 20, 20),
+      new THREE.MeshBasicMaterial({ color: accentColor, transparent: true, opacity: 0, depthWrite: false })
     );
     glow.position.copy(mesh.position);
     group.add(glow);
     satGlows.push(glow);
 
+    // line starts at the brain's edge, not its centre
     var lineGeom = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, 0, 0), new THREE.Vector3(x, 0, z)
+      new THREE.Vector3(dx * 1.55, 0, dz * 1.55), new THREE.Vector3(x, 0, z)
     ]);
-    var line = new THREE.Line(lineGeom, new THREE.LineBasicMaterial({ color: borderColor, transparent: true, opacity: 0.4 }));
+    var line = new THREE.Line(lineGeom, new THREE.LineBasicMaterial({ color: borderColor, transparent: true, opacity: 0.45 }));
     group.add(line);
     satLines.push(line);
 
-    var label = makeLabelSprite(n.dataset.label, textColor);
-    label.position.set(x, 0.62, z);
-    group.add(label);
+    var label = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthTest: false, depthWrite: false }));
+    label.renderOrder = 10;               // labels always on top
+    label.userData.text = n.dataset.label;
+    label.userData.node = mesh;
+    setLabel(label, n.dataset.label, false);
+    scene.add(label);
+    satLabels.push(label);
   });
 
-  // Tap/click a node to jump straight to it
+  // ---------- camera: zoom out until every node + label fits ----------
+  // Screen placement of a label for a node at world position `wp`:
+  // nodes in the top half get their label above them, nodes in the
+  // bottom half below them, so labels always point away from the brain
+  // and never cover their own node.
+  var _n = new THREE.Vector3(), _h = new THREE.Vector3();
+  function labelRect(wp, aspect, w, h) {
+    _h.set(0, 0, 0).project(camera);
+    _n.copy(wp).project(camera);
+    var hy = (1 - _h.y) * h / 2;
+    var nx = (_n.x + 1) * w / 2, ny = (1 - _n.y) * h / 2;
+    var hw = LABEL_PX * aspect / 2, hh = LABEL_PX / 2;
+    var dir = ny <= hy ? -1 : 1;
+    // node's visible radius on screen (its glow ring), so the gap is
+    // measured from the node's edge, not its centre
+    var worldPerPx = 2 * wp.distanceTo(camera.position) * Math.tan(FOV * Math.PI / 360) / h;
+    var nodePx = 0.62 / worldPerPx;
+    return { x: nx, y: ny + dir * (nodePx + NODE_GAP_PX + hh), hw: hw, hh: hh, nz: _n.z };
+  }
+
+  // Zoom out only as far as needed: every label, at every point of the
+  // rotation, must stay fully inside the canvas.
+  function fitCamera() {
+    var w = wrap.clientWidth, h = wrap.clientHeight;
+    var aspects = satLabels.map(function (l) { return l.userData.aspect; });
+    var maxAspect = Math.max.apply(null, aspects);
+    var pts = [];
+    for (var k = 0; k < 36; k++) {
+      var a = k / 36 * Math.PI * 2;
+      pts.push(new THREE.Vector3(Math.cos(a) * RADIUS, 0, Math.sin(a) * RADIUS));
+    }
+    var M = 6;
+    for (var d = 6; d < 120; d += 0.2) {
+      camera.position.set(0, Math.sin(ELEVATION) * d, Math.cos(ELEVATION) * d);
+      camera.lookAt(0, 0, 0);
+      camera.updateMatrixWorld();
+      var ok = pts.every(function (p) {
+        var r = labelRect(p, maxAspect, w, h);
+        return r.x - r.hw >= M && r.x + r.hw <= w - M && r.y - r.hh >= M && r.y + r.hh <= h - M;
+      });
+      if (ok) return;
+    }
+  }
+
+  function resize() {
+    var w = wrap.clientWidth, h = wrap.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.fov = FOV;
+    camera.updateProjectionMatrix();
+    fitCamera();
+  }
+
+  // Each frame: place every label on screen, pushed outward from the
+  // brain along the brain->node direction, just far enough that the
+  // pill never covers its own node; keep it a constant pixel size.
+  var tmpW = new THREE.Vector3();
+  function placeLabels() {
+    var w = wrap.clientWidth || 1, h = wrap.clientHeight || 1;
+    var tanHalf = Math.tan(FOV * Math.PI / 360);
+    satLabels.forEach(function (l) {
+      l.userData.node.getWorldPosition(tmpW);
+      var dist = tmpW.distanceTo(camera.position);
+      var r = labelRect(tmpW, l.userData.aspect, w, h);
+      tmpW.set(r.x / w * 2 - 1, 1 - r.y / h * 2, r.nz).unproject(camera);
+      l.position.copy(tmpW);
+      var worldPerPx = 2 * dist * tanHalf / h;
+      l.scale.set(LABEL_PX * l.userData.aspect * worldPerPx, LABEL_PX * worldPerPx, 1);
+    });
+  }
+
+  // ---------- interaction ----------
   var raycaster = new THREE.Raycaster();
   var pointer = new THREE.Vector2();
   canvas.addEventListener('click', function (ev) {
@@ -281,9 +382,10 @@
     pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
-    var hits = raycaster.intersectObjects(satMeshes);
+    var hits = raycaster.intersectObjects(satMeshes.concat(satLabels));
     if (hits.length) {
-      current = hits[0].object.userData.index;
+      var o = hits[0].object;
+      current = o.userData.index !== undefined ? o.userData.index : satLabels.indexOf(o);
       updateHighlight();
       hubSelect();
     }
@@ -291,47 +393,53 @@
 
   document.addEventListener('nevet-theme-changed', function () {
     accentColor.set(cssColor('--accent', '#4c9a5b'));
+    borderColor.set(cssColor('--border', '#888888'));
+    halo.material.map.dispose();
+    halo.material.map = haloTexture('#' + accentColor.getHexString());
+    halo.material.needsUpdate = true;
     if (brainSprite && brainImg && brainTinted) {
       brainSprite.material.map.dispose();
       brainSprite.material.map = tintedBrainTexture(brainImg, '#' + accentColor.getHexString());
       brainSprite.material.needsUpdate = true;
     }
-    borderColor.set(cssColor('--border', '#888888'));
     updateThreeHighlight(current);
   });
 
+  var lastSel = -1;
   window.updateThreeHighlight = function (idx) {
     satMeshes.forEach(function (m, i) {
       var sel = (i === idx);
       m.material.color.copy(sel ? accentColor : borderColor);
-      m.scale.setScalar(sel ? 1.35 : 1);
+      m.scale.setScalar(sel ? 1.3 : 1);
     });
-    satGlows.forEach(function (g, i) {
-      g.material.opacity = (i === idx) ? 0.35 : 0;
-    });
+    satGlows.forEach(function (g, i) { g.material.opacity = (i === idx) ? 0.3 : 0; });
     satLines.forEach(function (l, i) {
       var sel = (i === idx);
       l.material.color.copy(sel ? accentColor : borderColor);
-      l.material.opacity = sel ? 0.9 : 0.35;
+      l.material.opacity = sel ? 0.9 : 0.45;
     });
+    satLabels.forEach(function (l, i) { setLabel(l, l.userData.text, i === idx); });
+    lastSel = idx;
   };
 
+  var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var clock = new THREE.Clock();
   function animate() {
     requestAnimationFrame(animate);
     var t = clock.getElapsedTime();
-    group.rotation.y = t * 0.15;
-    var pulse = 1 + Math.sin(t * 1.8) * 0.06;
+    if (!still) group.rotation.y = t * 0.12;
+    var pulse = still ? 1 : 1 + Math.sin(t * 1.8) * 0.05;
     hubCore.scale.setScalar(pulse);
-    hubGlow.scale.setScalar(pulse * 1.05);
-    if (brainSprite) brainSprite.scale.set(1.9 * pulse, 1.9 * pulse, 1);
+    halo.scale.set(3.8 * pulse, 3.8 * pulse, 1);
+    if (brainSprite) brainSprite.scale.set(BRAIN_SIZE * pulse, BRAIN_SIZE * pulse, 1);
+    placeLabels();
     renderer.render(scene, camera);
   }
 
   resize();
   window.addEventListener('resize', resize);
-  animate();
   updateThreeHighlight(current);
+  animate();
 
   document.getElementById('node-grid').classList.add('js-hidden');
 })();
