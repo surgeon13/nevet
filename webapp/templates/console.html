@@ -12,7 +12,6 @@
 <div class="hub-wrap">
   <div class="hub-3d-wrap" id="hub-3d-wrap">
     <canvas id="hub-canvas"></canvas>
-    <div class="hub-credit">Brain icon by verry poernomo from <a href="https://thenounproject.com/icon/brain-3093073/" target="_blank" rel="noopener">Noun Project</a></div>
     <div class="hub-3d-core">
       <span class="hub-label">Nevet</span>
       <span class="hub-stat-line"><strong>{{ summary.growing }}</strong> growing</span>
@@ -167,26 +166,45 @@
     return new THREE.CanvasTexture(c);
   }
 
-  fetch(BRAIN_URL).then(function (r) {
-    if (!r.ok) throw new Error('no brain.svg');
-    return r.text();
-  }).then(function (svgText) {
-    var img = new Image();
-    img.onload = function () {
-      if (!img.width) { img.width = 512; img.height = 512; }
-      brainImg = img;
-      brainSprite = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: tintedBrainTexture(img, '#' + accentColor.getHexString()),
-        transparent: true, depthWrite: false
-      }));
-      brainSprite.scale.set(1.9, 1.9, 1);
-      scene.add(brainSprite);
-      hubCore.visible = false;
-      hubGlow.material.opacity = 0.12;
-      wrap.classList.add('has-brain');
-    };
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText);
-  }).catch(function () { /* keep the sphere */ });
+  // Full-colour PNG is shown as-is; a one-colour SVG is tinted to
+  // the theme accent instead.
+  var BRAIN_PNG = "{{ url_for('static', filename='assets/icons/brain.png') }}";
+  var brainTinted = false;
+
+  function showBrain(img, tint) {
+    brainImg = img;
+    brainTinted = tint;
+    var tex;
+    if (tint) {
+      tex = tintedBrainTexture(img, '#' + accentColor.getHexString());
+    } else {
+      tex = new THREE.Texture(img);
+      tex.needsUpdate = true;
+    }
+    brainSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    brainSprite.scale.set(1.9, 1.9, 1);
+    scene.add(brainSprite);
+    hubCore.visible = false;
+    hubGlow.material.opacity = 0.12;
+    wrap.classList.add('has-brain');
+  }
+
+  var png = new Image();
+  png.onload = function () { showBrain(png, false); };
+  png.onerror = function () {
+    fetch(BRAIN_URL).then(function (r) {
+      if (!r.ok) throw new Error('no brain.svg');
+      return r.text();
+    }).then(function (svgText) {
+      var img = new Image();
+      img.onload = function () {
+        if (!img.width) { img.width = 512; img.height = 512; }
+        showBrain(img, true);
+      };
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText);
+    }).catch(function () { /* keep the sphere */ });
+  };
+  png.src = BRAIN_PNG;
 
   // Orbiting satellite nodes, one per dashboard section
   var group = new THREE.Group();
@@ -261,7 +279,7 @@
 
   document.addEventListener('nevet-theme-changed', function () {
     accentColor.set(cssColor('--accent', '#4c9a5b'));
-    if (brainSprite && brainImg) {
+    if (brainSprite && brainImg && brainTinted) {
       brainSprite.material.map.dispose();
       brainSprite.material.map = tintedBrainTexture(brainImg, '#' + accentColor.getHexString());
       brainSprite.material.needsUpdate = true;

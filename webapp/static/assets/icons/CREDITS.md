@@ -1,5 +1,5 @@
 # Icon credits
 
-| File        | Icon  | Creator         | Source | License |
-|-------------|-------|-----------------|--------|---------|
-| `brain.svg` | Brain | verry poernomo  | https://thenounproject.com/icon/brain-3093073/ | Noun Project free license: credit required ("Brain by verry poernomo from Noun Project"), or royalty-free without credit on a paid plan |
+| File        | Icon  | Source | License |
+|-------------|-------|--------|---------|
+| `brain.png` | Brain (pink, full colour) | Provided by M — original source to be filled in | Check the source's terms; free stock icons (e.g. Flaticon) usually require a credit line |
