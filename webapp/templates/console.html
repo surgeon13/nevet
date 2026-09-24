@@ -189,22 +189,34 @@
     wrap.classList.add('has-brain');
   }
 
-  var png = new Image();
-  png.onload = function () { showBrain(png, false); };
-  png.onerror = function () {
-    fetch(BRAIN_URL).then(function (r) {
-      if (!r.ok) throw new Error('no brain.svg');
-      return r.text();
-    }).then(function (svgText) {
-      var img = new Image();
-      img.onload = function () {
-        if (!img.width) { img.width = 512; img.height = 512; }
-        showBrain(img, true);
-      };
-      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText);
-    }).catch(function () { /* keep the sphere */ });
-  };
-  png.src = BRAIN_PNG;
+  // Tried in order; first file that exists wins. One-colour icons
+  // (tint: true) are recoloured to the theme accent so they stay
+  // visible in both light and dark mode.
+  var BRAIN_CANDIDATES = [
+    { url: "{{ url_for('static', filename='assets/icons/brain-outline.png') }}", tint: true },
+    { url: BRAIN_PNG, tint: false }
+  ];
+  function tryBrain(i) {
+    if (i >= BRAIN_CANDIDATES.length) {
+      fetch(BRAIN_URL).then(function (r) {
+        if (!r.ok) throw new Error('no brain.svg');
+        return r.text();
+      }).then(function (svgText) {
+        var img = new Image();
+        img.onload = function () {
+          if (!img.width) { img.width = 512; img.height = 512; }
+          showBrain(img, true);
+        };
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText);
+      }).catch(function () { /* keep the sphere */ });
+      return;
+    }
+    var img = new Image();
+    img.onload = function () { showBrain(img, BRAIN_CANDIDATES[i].tint); };
+    img.onerror = function () { tryBrain(i + 1); };
+    img.src = BRAIN_CANDIDATES[i].url;
+  }
+  tryBrain(0);
 
   // Orbiting satellite nodes, one per dashboard section
   var group = new THREE.Group();
