@@ -156,3 +156,9 @@ main { padding: 20px; max-width: 1000px; margin: 0 auto; }
 .garden-hint { position: absolute; top: 8px; left: 0; right: 0; text-align: center; font-size: 11px; color: var(--text-dim); pointer-events: none; }
 .garden-legend { position: absolute; bottom: 8px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; font-size: 10px; color: var(--text-dim); pointer-events: none; }
 @media (min-width: 640px) { .garden-wrap { height: 460px; } }
+
+/* Brain icon hub: stats move below the brain, credit shows */
+.hub-3d-wrap.has-brain .hub-3d-core { top: auto; bottom: 4px; transform: translateX(-50%); flex-direction: row; gap: 10px; }
+.hub-credit { display: none; position: absolute; top: 2px; right: 6px; font-size: 9px; color: var(--text-dim); }
+.hub-credit a { color: var(--text-dim); }
+.hub-3d-wrap.has-brain .hub-credit { display: block; }
