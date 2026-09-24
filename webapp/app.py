@@ -178,7 +178,13 @@ def asset_new(grower_id):
 
 @app.route("/assets")
 def assets_page():
-    return render_template("assets.html", assets=farm_db.list_assets())
+    assets = [dict(a) for a in farm_db.list_assets()]
+    garden = [
+        {"id": a["id"], "name": a["name"], "type": a["asset_type"],
+         "stage": a["life_stage"] or "", "url": url_for("asset_page", asset_id=a["id"])}
+        for a in assets
+    ]
+    return render_template("assets.html", assets=assets, garden=garden)
 
 
 @app.route("/assets/<int:asset_id>")

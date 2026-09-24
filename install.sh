@@ -61,7 +61,7 @@ sed -e "s|__HOME__|${REAL_HOME}|g" "$REPO_DIR/config/nevet-logrotate.conf" > /et
 
 # ---- scoped passwordless sudo for the watchdog only ----
 cat > /etc/sudoers.d/nevet-watchdog << EOF
-${REAL_USER} ALL=(ALL) NOPASSWD: /sbin/reboot, /usr/bin/systemctl restart wpa_supplicant, /usr/sbin/dhclient -r wlan0, /usr/sbin/dhclient wlan0
+${REAL_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart wpa_supplicant, /usr/sbin/dhclient -r wlan0, /usr/sbin/dhclient wlan0
 EOF
 chmod 440 /etc/sudoers.d/nevet-watchdog
 

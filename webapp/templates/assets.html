@@ -2,6 +2,17 @@
 {% block title %}Assets{% endblock %}
 {% block content %}
 <h2>Assets</h2>
+
+{% if garden %}
+<div class="garden-wrap" id="garden-wrap">
+  <canvas id="garden-canvas" aria-label="3D garden: tap a plant to open it"></canvas>
+  <div class="garden-hint">Drag to rotate · pinch or scroll to zoom · tap a plant to open it</div>
+  <div class="garden-legend">
+    <span>seed</span><span>→ sprout</span><span>→ seedling</span><span>→ growing</span><span>→ mature</span>
+  </div>
+</div>
+{% endif %}
+
 <table class="history-table">
 <tr><th>Name</th><th>Type</th><th>Variety</th><th>Stage</th><th>Grower</th></tr>
 {% for a in assets %}
@@ -16,4 +27,171 @@
 <tr><td colspan="5">No assets yet.</td></tr>
 {% endfor %}
 </table>
+
+{% if garden %}
+<script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/OrbitControls.js') }}"></script>
+<script src="{{ url_for('static', filename='js/nevet3d.js') }}"></script>
+<script>
+(function () {
+  var wrap = document.getElementById('garden-wrap');
+  if (typeof THREE === 'undefined' || !Nevet3D.supportsWebGL()) { wrap.style.display = 'none'; return; }
+
+  var GARDEN = {{ garden | tojson }};
+  var canvas = document.getElementById('garden-canvas');
+  var sway = !Nevet3D.reducedMotion();
+  var plants = [];
+
+  var view = Nevet3D.createView(canvas, wrap, { onFrame: function (t) {
+    if (sway) plants.forEach(function (p, i) { p.rotation.z = Math.sin(t * 1.2 + i) * 0.04; });
+    controls.update();
+  }});
+  var scene = view.scene, camera = view.camera;
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445533, 0.9));
+  var sun = new THREE.DirectionalLight(0xffffff, 0.7);
+  sun.position.set(5, 10, 4);
+  scene.add(sun);
+
+  // Colours
+  var C = {
+    soil: 0x6b4a2f, soilDark: 0x553a24, seed: 0x8a6a3b, stem: 0x4f8a3a,
+    leaf: 0x6bbf59, flower: 0xf2c14e, bin: 0x7a5a3a, lid: 0x5c4028, grey: 0x9a9a9a
+  };
+  function mat(color, opts) {
+    return new THREE.MeshLambertMaterial(Object.assign({ color: color }, opts || {}));
+  }
+  function leaf(y, angle, size) {
+    var m = new THREE.Mesh(new THREE.SphereGeometry(0.16 * size, 10, 8), mat(C.leaf));
+    m.scale.set(1.6, 0.3, 0.8);
+    m.position.set(Math.cos(angle) * 0.18 * size, y, Math.sin(angle) * 0.18 * size);
+    m.rotation.y = -angle;
+    return m;
+  }
+  function stem(h) {
+    var m = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.045, h, 8), mat(C.stem));
+    m.position.y = h / 2;
+    return m;
+  }
+
+  // Build a model per life stage
+  function buildPlant(stage) {
+    var g = new THREE.Group();
+    var seed = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), mat(C.seed));
+    seed.scale.set(1, 0.7, 1.3);
+    seed.position.y = 0.05;
+    if (stage === 'seed' || stage === '') { g.add(seed); return g; }
+    if (stage === 'germination') {
+      g.add(seed);
+      var s = stem(0.18); g.add(s);
+      g.add(leaf(0.2, 0, 0.6));
+      return g;
+    }
+    if (stage === 'harvested') {
+      var stump = stem(0.15); g.add(stump);
+      return g;
+    }
+    var sizes = { seedling: [0.4, 2, 0.8], growing: [0.8, 4, 1.1], mature: [1.15, 6, 1.3], archived: [0.8, 4, 1.0] };
+    var cfg = sizes[stage] || sizes.growing;
+    g.add(stem(cfg[0]));
+    for (var i = 0; i < cfg[1]; i++) {
+      g.add(leaf(cfg[0] * (0.35 + 0.6 * i / cfg[1]), i * 2.4, cfg[2]));
+    }
+    if (stage === 'mature') {
+      var fl = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 10), mat(C.flower));
+      fl.position.y = cfg[0] + 0.08;
+      g.add(fl);
+    }
+    if (stage === 'archived') {
+      g.traverse(function (o) { if (o.material) { o.material = mat(C.grey, { transparent: true, opacity: 0.6 }); } });
+    }
+    return g;
+  }
+
+  function buildWormBin() {
+    var g = new THREE.Group();
+    var box = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.45, 0.55), mat(C.bin));
+    box.position.y = 0.225;
+    var lid = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.06, 0.61), mat(C.lid));
+    lid.position.y = 0.48;
+    g.add(box, lid);
+    return g;
+  }
+
+  // Lay out plots in a grid
+  var n = GARDEN.length;
+  var cols = Math.ceil(Math.sqrt(n));
+  var gap = 1.8;
+  var offset = (cols - 1) * gap / 2;
+  var rows = Math.ceil(n / cols);
+  var groundW = cols * gap + 1, groundD = rows * gap + 1;
+
+  var ground = new THREE.Mesh(new THREE.BoxGeometry(groundW, 0.2, groundD), mat(C.soilDark));
+  ground.position.y = -0.1;
+  scene.add(ground);
+
+  var textColor = Nevet3D.cssColor('--text', '#e8f0e5');
+  var labels = [];
+  var pickables = [];
+
+  GARDEN.forEach(function (a, i) {
+    var x = (i % cols) * gap - offset;
+    var z = Math.floor(i / cols) * gap - (rows - 1) * gap / 2;
+
+    var plot = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.08, 1.3), mat(C.soil));
+    plot.position.set(x, 0.04, z);
+    scene.add(plot);
+
+    var model = a.type === 'worm_bin' ? buildWormBin() : buildPlant(a.stage);
+    model.position.set(x, 0.08, z);
+    model.userData.url = a.url;
+    plot.userData.url = a.url;
+    scene.add(model);
+    if (a.type !== 'worm_bin') plants.push(model);
+    pickables.push(model, plot);
+
+    var label = Nevet3D.makeLabel(a.name, textColor, 1.4);
+    label.position.set(x, 1.75, z);
+    scene.add(label);
+    labels.push({ sprite: label, name: a.name });
+  });
+
+  // Camera + touch/mouse controls
+  var span = Math.max(groundW, groundD);
+  camera.position.set(0, span * 0.75 + 2, span * 0.9 + 2);
+  var controls = new THREE.OrbitControls(camera, canvas);
+  controls.target.set(0, 0.4, 0);
+  controls.enableDamping = true;
+  controls.enablePan = false;
+  controls.minDistance = 2.5;
+  controls.maxDistance = span * 2.5 + 6;
+  controls.maxPolarAngle = Math.PI * 0.47;   // never go under the ground
+  controls.autoRotate = sway;
+  controls.autoRotateSpeed = 0.6;
+  controls.addEventListener('start', function () { controls.autoRotate = false; });
+
+  // Tap (not drag) opens the asset
+  var down = null;
+  canvas.addEventListener('pointerdown', function (e) { down = { x: e.clientX, y: e.clientY }; });
+  canvas.addEventListener('pointerup', function (e) {
+    if (!down) return;
+    var moved = Math.abs(e.clientX - down.x) + Math.abs(e.clientY - down.y);
+    down = null;
+    if (moved > 8) return;
+    var hit = Nevet3D.pick(e, canvas, camera, pickables, 'url');
+    if (hit) window.location.href = hit.userData.url;
+  });
+
+  Nevet3D.onThemeChange(function () {
+    var col = Nevet3D.cssColor('--text', '#e8f0e5');
+    labels.forEach(function (l) {
+      var fresh = Nevet3D.makeLabel(l.name, col, 1.4);
+      l.sprite.material.map.dispose();
+      l.sprite.material.map = fresh.material.map;
+      l.sprite.material.needsUpdate = true;
+    });
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}

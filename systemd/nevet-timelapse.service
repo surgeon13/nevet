@@ -4,4 +4,6 @@ Description=Nevet automatic timed photo capture
 [Service]
 Type=oneshot
 User=__USER__
+Environment=NEVET_SOURCE=timelapse
+Environment=CAMERA_BASE_DIR=__HOME__/camera_captures
 ExecStart=__REPO_DIR__/scripts/capture_photo.sh

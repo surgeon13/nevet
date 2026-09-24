@@ -68,6 +68,7 @@ if ffmpeg -y -i "$RAW_TMP" -vf "hflip,vflip" -c:v libx264 -preset ultrafast -crf
     SIZE_H=$(numfmt --to=iec --suffix=B "$SIZE" 2>/dev/null || echo "${SIZE}B")
     echo -e "${GREEN}✔  Saved${NC} ${BOLD}${FILEPATH}${NC} ${YELLOW}(${SIZE_H})${NC}"
     log_msg "Video #$NUM: saved $FILEPATH ($SIZE_H)"
+    python3 "$SCRIPT_DIR/lib/record_capture.py" video "$FILEPATH" || true
 else
     # Orientation fix failed for some reason — keep the raw (upside
     # down) footage rather than losing the recording entirely.
@@ -76,4 +77,5 @@ else
     SIZE_H=$(numfmt --to=iec --suffix=B "$SIZE" 2>/dev/null || echo "${SIZE}B")
     echo -e "${YELLOW}⚠  Orientation fix failed, saved upside-down as a fallback${NC} ${FILEPATH} ${YELLOW}(${SIZE_H})${NC}"
     log_msg "Video #$NUM: orientation fix failed, saved raw (upside-down) $FILEPATH ($SIZE_H)"
+    python3 "$SCRIPT_DIR/lib/record_capture.py" video "$FILEPATH" || true
 fi

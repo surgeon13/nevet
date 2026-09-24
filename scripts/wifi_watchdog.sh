@@ -1,8 +1,9 @@
 #!/bin/bash
 # wifi_watchdog.sh - Checks WiFi connectivity and camera script/service
 # health. Logs EVERY check (pass or fail) with latency and signal
-# strength, tries to reconnect automatically, and as a last resort
-# (after MAX_FAILS consecutive failed cycles) reboots the Pi.
+# strength, and tries to reconnect automatically. It NEVER reboots the
+# Pi: timelapse capture and the local database don't need internet, so
+# the Pi keeps working offline and the watchdog just keeps retrying.
 #
 # Meant to be run periodically via the nevet-watchdog.timer systemd timer.
 set -u
@@ -13,7 +14,6 @@ log_init "watchdog"
 
 DATA_DIR="$HOME/camera_captures"
 STATE_FILE="$DATA_DIR/.watchdog_fail_count"
-MAX_FAILS=3
 PING_TARGET="8.8.8.8"
 GATEWAY=$(ip route | awk '/default/ {print $3; exit}')
 
@@ -92,17 +92,11 @@ else
         FAIL_COUNT=0
     else
         FAIL_COUNT=$((FAIL_COUNT + 1))
-        log_msg "FAIL still down after reconnect attempt (fail count: $FAIL_COUNT/$MAX_FAILS, signal=${SIGNAL}%)"
+        log_msg "FAIL still down after reconnect attempt (consecutive fails: $FAIL_COUNT, signal=${SIGNAL}%) - capture continues offline"
     fi
 fi
 echo "$FAIL_COUNT" > "$STATE_FILE"
 
 if ! check_scripts; then
     log_msg "One or more camera scripts/services unhealthy (see lines above)"
-fi
-
-if [ "$FAIL_COUNT" -ge "$MAX_FAILS" ]; then
-    log_msg "WiFi failed $MAX_FAILS consecutive checks - rebooting"
-    echo 0 > "$STATE_FILE"
-    sudo /sbin/reboot
 fi

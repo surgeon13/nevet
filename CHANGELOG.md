@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-09-24
+
+- Watchdog no longer reboots the Pi. It logs and retries WiFi forever;
+  timelapse capture and the database keep working offline.
+- New `captures` table: every photo/video is recorded in farm.db
+  (kind, path, time, size, timelapse/manual, online/offline).
+  `scripts/backfill_captures.py` imports existing files.
+- New `webapp/static/assets/` folder (icons, textures, models, sounds),
+  served live with no restart.
+- Shared `static/js/nevet3d.js` helper for 3D views (WebGL fallback,
+  theme colours, labels, battery-friendly pause when tab hidden).
+- 3D Garden on the Assets page: each plant drawn by its life stage,
+  drag to rotate, pinch to zoom, tap to open.
+
 ## [0.1.0] — Initial release
 
 First public version of the repo. Everything below shipped together as

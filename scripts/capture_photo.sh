@@ -88,3 +88,4 @@ SIZE_H=$(numfmt --to=iec --suffix=B "$SIZE" 2>/dev/null || echo "${SIZE}B")
 
 echo -e "${GREEN}✔  Saved${NC} ${BOLD}${FILEPATH}${NC} ${YELLOW}(${SIZE_H})${NC}"
 log_msg "Photo #$NUM: saved $FILEPATH ($SIZE_H)"
+python3 "$SCRIPT_DIR/lib/record_capture.py" photo "$FILEPATH" || true

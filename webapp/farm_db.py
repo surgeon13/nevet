@@ -64,6 +64,19 @@ def get_conn():
             units TEXT,
             label TEXT
         );
+
+        -- One row per photo/video the camera takes (timelapse or manual).
+        -- path is relative to CAMERA_BASE_DIR, matching the /media route.
+        CREATE TABLE IF NOT EXISTS captures (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind TEXT NOT NULL,
+            path TEXT NOT NULL UNIQUE,
+            taken_at TEXT NOT NULL,
+            size_bytes INTEGER,
+            source TEXT NOT NULL DEFAULT 'manual',
+            online INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_captures_taken_at ON captures(taken_at);
     """)
     return conn
 
@@ -196,3 +209,30 @@ def dashboard_summary():
     counts["growers"] = conn.execute("SELECT COUNT(*) c FROM growers").fetchone()["c"]
     conn.close()
     return counts
+
+
+def add_capture(kind, path, taken_at, size_bytes=None, source="manual", online=None):
+    conn = get_conn()
+    conn.execute(
+        "INSERT OR IGNORE INTO captures (kind, path, taken_at, size_bytes, source, online) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (kind, path, taken_at, size_bytes, source, online),
+    )
+    conn.commit()
+    conn.close()
+
+
+def capture_summary():
+    conn = get_conn()
+    row = conn.execute("""
+        SELECT
+            COUNT(*) AS total,
+            SUM(kind = 'photo') AS photos,
+            SUM(kind = 'video') AS videos,
+            SUM(source = 'timelapse') AS timelapse,
+            SUM(online = 0) AS offline,
+            MAX(taken_at) AS last_at
+        FROM captures
+    """).fetchone()
+    conn.close()
+    return {k: (row[k] or 0) if k != "last_at" else row[k] for k in row.keys()}
