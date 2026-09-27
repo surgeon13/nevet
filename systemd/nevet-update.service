@@ -1,0 +1,12 @@
+[Unit]
+Description=Nevet auto-update (check GitHub, pull, restart web app)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__USER__
+WorkingDirectory=__REPO_DIR__
+ExecStart=__REPO_DIR__/scripts/auto_update.sh
+TimeoutStartSec=300
+Nice=10

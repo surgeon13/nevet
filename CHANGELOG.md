@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-09-27 (auto-update)
+
+- New `scripts/auto_update.sh` + `nevet-update.timer`: checks GitHub every
+  N minutes (second installer argument, like the photo interval:
+  `sudo ./install.sh 5 15`, or `off`), pulls new versions, restarts the
+  web app when needed and rolls back automatically if it doesn't come
+  back healthy. Never overwrites local edits; quiet when offline.
+- `--check` mode to see whether an update is waiting without changing
+  anything.
+- Updates panel on the Logs page; update.log rotated weekly.
+- install.sh validates the interval arguments and fixes repo file
+  ownership (a `git pull` run as root breaks later pulls).
+
 ## 2026-09-27 (heroes)
 
 - Growers are now RPG heroes. Create one with just a username (no

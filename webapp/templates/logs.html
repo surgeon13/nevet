@@ -17,6 +17,10 @@
     <div class="log-panel-title">Web app</div>
     <pre id="log-webapp" class="log-console"></pre>
   </div>
+  <div class="log-panel">
+    <div class="log-panel-title">Updates (auto-update from GitHub)</div>
+    <pre id="log-update" class="log-console"></pre>
+  </div>
 </div>
 
 <script>
@@ -42,6 +46,7 @@ function refresh() {
     render('log-watchdog', data.watchdog || []);
     render('log-capture', data.capture || []);
     render('log-webapp', data.webapp || []);
+    render('log-update', data.update || []);
   }).catch(() => {});
 }
 refresh();

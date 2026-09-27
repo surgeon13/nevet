@@ -26,6 +26,7 @@ LOG_FILES = {
     "watchdog": LOGS_DIR / "watchdog.log",
     "capture": LOGS_DIR / "capture.log",
     "webapp": LOGS_DIR / "webapp.log",
+    "update": LOGS_DIR / "update.log",
 }
 
 

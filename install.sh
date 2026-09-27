@@ -5,12 +5,16 @@
 #   nevet-webapp      - gallery + login-gated game stats, port 8000
 #   nevet-timelapse   - automatic photo capture every N minutes
 #   nevet-watchdog    - WiFi reconnect + web app self-heal every 2 minutes
+#   nevet-update      - checks GitHub for a new version every N minutes,
+#                       pulls it and restarts the web app
 #
-# Usage: sudo ./install.sh [timelapse_interval_minutes]
+# Usage: sudo ./install.sh [photo_interval_minutes] [update_interval_minutes|off]
+#   e.g. sudo ./install.sh 5 15    photo every 5 min, update check every 15 min
+#        sudo ./install.sh 5 off   photo every 5 min, no automatic updates
 set -e
 
 if [ "$EUID" -ne 0 ]; then
-    echo "Run with sudo: sudo ./install.sh [interval_minutes]"
+    echo "Run with sudo: sudo ./install.sh [photo_interval_minutes] [update_interval_minutes|off]"
     exit 1
 fi
 
@@ -18,11 +22,25 @@ REPO_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 REAL_USER="${SUDO_USER:-$USER}"
 REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
 INTERVAL_MIN="${1:-5}"
+UPDATE_MIN="${2:-15}"
+
+is_minutes() { [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge 1 ] && [ "$1" -le 1440 ]; }
+if ! is_minutes "$INTERVAL_MIN"; then
+    echo "Photo interval must be a number of minutes (1-1440), got: $INTERVAL_MIN"; exit 1
+fi
+if [ "$UPDATE_MIN" != "off" ] && ! is_minutes "$UPDATE_MIN"; then
+    echo "Update interval must be minutes (1-1440) or 'off', got: $UPDATE_MIN"; exit 1
+fi
 
 echo "Repo:      $REPO_DIR"
 echo "User/home: $REAL_USER / $REAL_HOME"
 echo "Timelapse: every ${INTERVAL_MIN} minute(s)"
+echo "Updates:   $([ "$UPDATE_MIN" = off ] && echo off || echo "check every ${UPDATE_MIN} minute(s)")"
 echo ""
+
+# Services run as $REAL_USER, so the repo must belong to them. (Running
+# "git pull" as root once leaves root-owned files that break later pulls.)
+chown -R "$REAL_USER":"$(id -gn "$REAL_USER")" "$REPO_DIR"
 
 chmod +x "$REPO_DIR"/scripts/*.sh
 
@@ -67,6 +85,7 @@ render_unit() {
         -e "s|__HOME__|${REAL_HOME}|g" \
         -e "s|__REPO_DIR__|${REPO_DIR}|g" \
         -e "s|__INTERVAL__|${INTERVAL_MIN}|g" \
+        -e "s|__UPDATE_INTERVAL__|${UPDATE_MIN}|g" \
         "$1" > "$2"
 }
 
@@ -75,12 +94,14 @@ render_unit "$REPO_DIR/systemd/nevet-timelapse.service" /etc/systemd/system/neve
 render_unit "$REPO_DIR/systemd/nevet-timelapse.timer"   /etc/systemd/system/nevet-timelapse.timer
 render_unit "$REPO_DIR/systemd/nevet-watchdog.service"  /etc/systemd/system/nevet-watchdog.service
 render_unit "$REPO_DIR/systemd/nevet-watchdog.timer"    /etc/systemd/system/nevet-watchdog.timer
+render_unit "$REPO_DIR/systemd/nevet-update.service"    /etc/systemd/system/nevet-update.service
+render_unit "$REPO_DIR/systemd/nevet-update.timer"      /etc/systemd/system/nevet-update.timer
 
 # ---- logging: rotate the shell-generated logs weekly ----
 sed -e "s|__HOME__|${REAL_HOME}|g" "$REPO_DIR/config/nevet-logrotate.conf" > /etc/logrotate.d/nevet
 
-# ---- scoped passwordless sudo for the watchdog only ----
-# Only the exact commands the watchdog needs. Validated with visudo
+# ---- scoped passwordless sudo for the watchdog + auto-update ----
+# Only the exact commands they need (the updater only restarts the web app). Validated with visudo
 # before installing, so a mistake here can never break sudo.
 SYSTEMCTL=$(command -v systemctl)
 CMDS="$SYSTEMCTL restart nevet-webapp, $SYSTEMCTL restart NetworkManager, $SYSTEMCTL restart wpa_supplicant"
@@ -103,6 +124,12 @@ systemctl enable nevet-webapp.service
 systemctl restart nevet-webapp.service
 systemctl enable --now nevet-timelapse.timer
 systemctl enable --now nevet-watchdog.timer
+if [ "$UPDATE_MIN" = "off" ]; then
+    systemctl disable --now nevet-update.timer 2>/dev/null || true
+else
+    systemctl enable nevet-update.timer
+    systemctl restart nevet-update.timer    # picks up a changed interval
+fi
 
 IP=$(hostname -I | awk '{print $1}')
 echo ""
@@ -111,6 +138,11 @@ echo " Installed and running:"
 echo "   nevet-webapp.service    -> http://${IP}:8000"
 echo "   nevet-timelapse.timer   -> photo every ${INTERVAL_MIN} min"
 echo "   nevet-watchdog.timer    -> WiFi + web app health check every 2 min"
+if [ "$UPDATE_MIN" = "off" ]; then
+echo "   nevet-update.timer      -> off (update by hand: ./scripts/auto_update.sh)"
+else
+echo "   nevet-update.timer      -> check GitHub for updates every ${UPDATE_MIN} min"
+fi
 echo "=============================================="
 echo ""
 echo "If you edited .env after this ran:"

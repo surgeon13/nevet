@@ -39,7 +39,8 @@ CHANGELOG.md                  project history
 ```bash
 git clone https://github.com/surgeon13/nevet.git
 cd nevet
-sudo ./install.sh 5        # 5 = timelapse interval in minutes (default 5)
+sudo ./install.sh 5 15     # photo every 5 min, check for updates every 15 min
+                           # (defaults 5 and 15; use "off" to disable updates)
 ```
 
 The installer creates `.env` from `config/.env.example` on first run — **edit
@@ -50,14 +51,41 @@ the login page, then:
 sudo systemctl daemon-reload && sudo systemctl restart nevet-webapp
 ```
 
-This installs and enables three systemd services, all of which survive
+This installs and enables four systemd services, all of which survive
 reboot, SSH disconnects, and crashes (`Restart=always` / timers):
 
 | Service | What it does |
 |---|---|
 | `nevet-webapp.service` | Flask app on port 8000 — gallery at `/`, stats at `/stats`, live logs at `/logs` |
 | `nevet-timelapse.timer` | Runs `scripts/capture_photo.sh` every N minutes |
-| `nevet-watchdog.timer` | Every 2 min: checks internet, retries WiFi reconnect, reboots after 3 consecutive failed cycles |
+| `nevet-watchdog.timer` | Every 2 min: checks WiFi and the web app, reconnects / restarts them if needed (never reboots) |
+| `nevet-update.timer` | Every N min: checks GitHub for a new version, pulls it, restarts the web app, rolls back if it breaks |
+
+To change either interval later, just run the installer again with new
+numbers, e.g. `sudo ./install.sh 10 60`.
+
+### Automatic updates
+
+`scripts/auto_update.sh` keeps the Pi on the latest version from GitHub:
+
+- does nothing when offline, and only fast-forwards (never merges)
+- restarts the web app only when web app files changed
+- if the web app doesn't come back healthy within a minute, it rolls
+  back to the previous version and skips that release until a newer one
+  is published
+- never overwrites edits made on the Pi: if tracked files were changed
+  locally it waits and logs a warning (`git status` shows what)
+- if an update changes services or dependencies, the log asks you to run
+  `sudo ./install.sh` once
+
+```bash
+./scripts/auto_update.sh --check      # is there a new version? (changes nothing)
+./scripts/auto_update.sh              # update right now
+sudo systemctl start nevet-update     # same, via the service
+```
+
+Everything it does is in `~/camera_captures/logs/update.log` and in the
+**Updates** panel on the Logs page.
 
 ## Manual commands
 

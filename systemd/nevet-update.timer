@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for Nevet updates every __UPDATE_INTERVAL__ minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=__UPDATE_INTERVAL__min
+RandomizedDelaySec=30
+Unit=nevet-update.service
+
+[Install]
+WantedBy=timers.target
