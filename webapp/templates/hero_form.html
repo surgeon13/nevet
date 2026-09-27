@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}{{ 'New hero' if mode == 'create' else 'Customize ' ~ name }}{% endblock %}
+{% block content %}
+<form method="post" class="hero-editor" id="hero-form" autocomplete="off">
+  <div class="hero-editor-stage">
+    <div class="hero-stage" id="hero-stage">
+      <canvas id="hero-canvas" aria-label="3D preview of your hero, drag to spin"></canvas>
+      <span class="hero-stage-hint">Drag to spin</span>
+      <button type="button" class="hero-random" id="hero-random" title="Random look">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"></rect><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"></circle><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"></circle><circle cx="15.5" cy="8.5" r="1.2" fill="currentColor"></circle><circle cx="8.5" cy="15.5" r="1.2" fill="currentColor"></circle></svg>
+        Random
+      </button>
+    </div>
+  </div>
+
+  <div class="hero-editor-controls">
+    <h2 class="hero-editor-title">{{ 'Create your hero' if mode == 'create' else 'Customize hero' }}</h2>
+    {% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
+
+    <label class="hero-field">
+      <span class="hero-field-label">Hero name</span>
+      <input type="text" name="name" id="hero-name" value="{{ name }}" minlength="1" maxlength="20" required
+             placeholder="Your name" {% if mode == 'create' %}autofocus{% endif %}>
+      <span class="hero-field-hint">Just a name, no password needed</span>
+    </label>
+
+    <fieldset class="hero-classes">
+      <legend class="hero-field-label">Class <span class="hero-field-hint">picks your starting gear</span></legend>
+      <div class="class-row">
+        {% for c in catalog.classes %}
+        <label class="class-card" style="--class-color: {{ c.color }}">
+          <input type="radio" name="hero_class" value="{{ c.id }}" {% if c.id == hero_class %}checked{% endif %}
+                 data-preset='{{ c.preset | tojson }}'>
+          <span class="class-name">{{ c.name }}</span>
+          <span class="class-blurb">{{ c.blurb }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <div class="hero-tabs" role="tablist">
+      <button type="button" role="tab" class="hero-tab active" data-tab="looks" aria-selected="true">Looks</button>
+      <button type="button" role="tab" class="hero-tab" data-tab="gear" aria-selected="false">Gear</button>
+    </div>
+
+    {% for group in ['looks', 'gear'] %}
+    <div class="hero-panel" data-panel="{{ group }}" role="tabpanel" {% if group == 'gear' %}hidden{% endif %}>
+      {% for cat in catalog[group] %}
+      <fieldset class="hero-cat">
+        <legend>{{ cat.label }} <span class="hero-cat-current" data-current="{{ cat.id }}"></span></legend>
+        <div class="opt-grid {{ 'opt-grid-swatch' if cat.type == 'color' else 'opt-grid-tile' }}">
+          {% for o in cat.options %}
+          {% set rarity = o.rarity or 'common' %}
+          <label class="opt {{ 'opt-swatch' if cat.type == 'color' else 'opt-tile' }} rarity-{{ rarity }}"
+                 title="{{ o.name }}{% if o.rarity %} ({{ catalog.rarities[o.rarity].label }}){% endif %}"
+                 style="--rarity: {{ catalog.rarities[rarity].color }};{% if o.color %} --swatch: {{ o.color }};{% endif %}">
+            <input type="radio" name="a_{{ cat.id }}" value="{{ o.id }}" data-cat="{{ cat.id }}" data-name="{{ o.name }}"
+                   {% if appearance[cat.id] == o.id %}checked{% endif %}>
+            {% if cat.type == 'color' %}
+              <span class="opt-dot"></span><span class="sr-only">{{ o.name }}</span>
+            {% else %}
+              <span class="opt-img" data-icon-cat="{{ cat.id }}" data-icon-id="{{ o.id }}">
+                {% if o.icon %}<img src="{{ url_for('static', filename=o.icon) }}" alt="">{% endif %}
+              </span>
+              <span class="opt-name">{{ o.name }}</span>
+              {% if cat.type == 'item' and o.rarity %}<span class="opt-rarity">{{ catalog.rarities[o.rarity].label }}</span>{% endif %}
+            {% endif %}
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      {% endfor %}
+    </div>
+    {% endfor %}
+
+    <div class="hero-save-bar">
+      <a class="btn btn-ghost" href="{{ url_for('growers_page') if mode == 'create' else url_for('grower_page', grower_id=hero_id) }}">Cancel</a>
+      <button type="submit" class="btn btn-primary">{{ 'Create hero' if mode == 'create' else 'Save changes' }}</button>
+    </div>
+  </div>
+</form>
+
+<script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/OrbitControls.js') }}"></script>
+<script src="{{ url_for('static', filename='js/nevet3d.js') }}"></script>
+<script src="{{ url_for('static', filename='js/hero3d.js') }}"></script>
+<script>
+(function () {
+  var CATALOG = {{ catalog | tojson }};
+  var form = document.getElementById('hero-form');
+  var CATS = CATALOG.looks.concat(CATALOG.gear);
+  var has3D = window.NevetHero && NevetHero.supported();
+
+  function readAppearance() {
+    var a = {};
+    CATS.forEach(function (c) {
+      var el = form.querySelector('input[name="a_' + c.id + '"]:checked');
+      a[c.id] = el ? el.value : c.options[0].id;
+    });
+    return a;
+  }
+  var appearance = readAppearance();
+
+  // ---- 3D preview ----
+  var viewer = null;
+  if (has3D) {
+    try {
+      viewer = NevetHero.viewer(document.getElementById('hero-canvas'), document.getElementById('hero-stage'), appearance, CATALOG);
+    } catch (e) { has3D = false; }
+  }
+  if (!has3D) document.getElementById('hero-stage').classList.add('no-3d');
+
+  // ---- option icons (drawn by code; a catalog "icon" image wins) ----
+  var ICON_DEPENDS = {                 // which icons need redrawing when a look changes
+    skin: ['hair', 'eyes', 'mouth'], hairColor: ['hair'], eyeColor: ['eyes', 'mouth'],
+    eyes: ['mouth'], mouth: ['eyes'], outfitColor: ['body']
+  };
+  function drawIcons(catIds) {
+    var slots = [];
+    form.querySelectorAll('.opt-img').forEach(function (el) {
+      if (el.querySelector('img[src^="/static"]')) return;          // real artwork provided
+      if (catIds && catIds.indexOf(el.dataset.iconCat) < 0) return;
+      slots.push(el);
+    });
+    var i = 0;
+    (function step() {
+      var end = Math.min(i + 4, slots.length);                     // a few per frame keeps scrolling smooth
+      for (; i < end; i++) {
+        var el = slots[i], cat = el.dataset.iconCat, id = el.dataset.iconId, url = null;
+        try {
+          if (cat === 'eyes' || cat === 'mouth') {
+            var a = Object.assign({}, appearance); a[cat] = id;
+            url = NevetHero.faceIcon(a, CATALOG, 64);
+          } else if (has3D) {
+            url = NevetHero.itemIcon(cat, id, appearance, CATALOG, 72);
+          }
+        } catch (e) { url = null; }
+        el.innerHTML = url ? '<img alt="" src="' + url + '">' : '<span class="opt-none"></span>';
+      }
+      if (i < slots.length) requestAnimationFrame(step);
+    })();
+  }
+
+  function syncLabels() {
+    form.querySelectorAll('.opt').forEach(function (l) {
+      l.classList.toggle('is-selected', l.querySelector('input').checked);
+    });
+    form.querySelectorAll('.class-card').forEach(function (l) {
+      l.classList.toggle('is-selected', l.querySelector('input').checked);
+    });
+    form.querySelectorAll('.hero-cat-current').forEach(function (s) {
+      var el = form.querySelector('input[name="a_' + s.dataset.current + '"]:checked');
+      s.textContent = el ? '· ' + el.dataset.name : '';
+    });
+  }
+
+  var pending = null;
+  function refresh(changedCats) {
+    appearance = readAppearance();
+    syncLabels();
+    if (viewer) viewer.set(appearance);
+    var redraw = [];
+    (changedCats || []).forEach(function (c) { redraw = redraw.concat(ICON_DEPENDS[c] || []); });
+    if (redraw.length) drawIcons(redraw);
+  }
+
+  function setChoice(cat, id) {
+    var el = form.querySelector('input[name="a_' + cat + '"][value="' + id + '"]');
+    if (el) el.checked = true;
+  }
+
+  form.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.name === 'hero_class') {
+      var preset = JSON.parse(t.dataset.preset || '{}');
+      Object.keys(preset).forEach(function (k) { setChoice(k, preset[k]); });
+      refresh(Object.keys(preset));
+    } else if (t.dataset.cat) {
+      refresh([t.dataset.cat]);
+    }
+  });
+
+  // ---- randomize ----
+  var NAMES = ['Fern', 'Basil', 'Juniper', 'Sage', 'Rowan', 'Clover', 'Willow', 'Moss', 'Pip', 'Olive',
+               'Thyme', 'Hazel', 'Reed', 'Aspen', 'Poppy', 'Bramble', 'Sorrel', 'Tansy', 'Yarrow', 'Wren'];
+  function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
+  document.getElementById('hero-random').addEventListener('click', function () {
+    CATS.forEach(function (c) { setChoice(c.id, pick(c.options).id); });
+    var nameEl = document.getElementById('hero-name');
+    if (!nameEl.value.trim()) {
+      var n = pick(NAMES) + ' ' + pick(['the Brave', 'Greenhand', 'Seedkeeper', 'Rootwise', 'Sunpicker', 'Mudboots']);
+      nameEl.value = n.length <= 20 ? n : n.split(' ')[0];
+    }
+    refresh(Object.keys(ICON_DEPENDS));
+  });
+
+  // ---- tabs ----
+  form.querySelectorAll('.hero-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      form.querySelectorAll('.hero-tab').forEach(function (t) {
+        var on = t === tab;
+        t.classList.toggle('active', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      form.querySelectorAll('.hero-panel').forEach(function (p) { p.hidden = p.dataset.panel !== tab.dataset.tab; });
+    });
+  });
+
+  syncLabels();
+  drawIcons();
+})();
+</script>
+{% endblock %}

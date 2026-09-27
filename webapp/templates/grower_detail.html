@@ -1,8 +1,54 @@
 {% extends "base.html" %}
-{% block title %}{{ grower.name }}{% endblock %}
+{% block title %}{{ hero.name }}{% endblock %}
 {% block content %}
-<h2>{{ grower.name }}</h2>
-<p class="timestamp">Growing since {{ grower.joined_at }}</p>
+{% if just_created %}
+<div class="hero-welcome" role="status">Welcome, <strong>{{ hero.name }}</strong>! Your hero is ready, and you're now playing as them.</div>
+{% endif %}
+
+<section class="hero-profile">
+  <div class="hero-stage hero-stage-profile" id="hero-stage">
+    <canvas id="hero-canvas" aria-label="3D view of {{ hero.name }}, drag to spin"></canvas>
+  </div>
+
+  <div class="hero-card">
+    <span class="hero-class-tag" style="--class-color: {{ hero['class'].color }}">{{ hero['class'].name }}</span>
+    <h2 class="hero-name">{{ hero.name }}</h2>
+    <div class="hero-level">
+      <span class="lv">Lv {{ hero.progress.level }}</span>
+      <span class="xpbar"><span style="width: {{ hero.progress.pct }}%"></span></span>
+      <span class="xp-text">{{ hero.progress.xp }} / {{ hero.progress.next_xp }} XP</span>
+    </div>
+
+    <div class="hero-stats">
+      <div><strong>{{ hero.counts.asset_count }}</strong><span>Plants &amp; bins</span></div>
+      <div><strong>{{ hero.counts.harvest_count }}</strong><span>Harvests</span></div>
+      <div><strong>{{ hero.counts.log_count }}</strong><span>Actions</span></div>
+    </div>
+
+    <ul class="hero-equipment">
+      {% for cat in catalog.gear %}
+      {% set o = cat.options | selectattr('id', 'equalto', hero.appearance[cat.id]) | first %}
+      {% set r = catalog.rarities[o.rarity] if o and o.rarity else None %}
+      <li>
+        <span class="slot">{{ cat.label }}</span>
+        <span class="item"{% if r %} style="--rarity: {{ r.color }}"{% endif %}>{{ o.name if o else '—' }}{% if r %} <em>{{ r.label }}</em>{% endif %}</span>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="{{ url_for('grower_customize', grower_id=hero.id) }}">Customize</a>
+      {% if playing_hero_id == hero.id %}
+        <span class="btn btn-ghost is-static">Playing as {{ hero.name }}</span>
+      {% else %}
+        <form method="post" action="{{ url_for('grower_play', grower_id=hero.id) }}">
+          <button type="submit" class="btn btn-ghost">Play as {{ hero.name }}</button>
+        </form>
+      {% endif %}
+    </div>
+    <p class="timestamp">Growing since {{ hero.joined_at[:10] }}</p>
+  </div>
+</section>
 
 <h3>Assets</h3>
 {% if session.get('logged_in') %}
@@ -18,7 +64,7 @@
     </span>
   </a>
   {% else %}
-  <p>No assets yet.</p>
+  <p class="timestamp">No assets yet.</p>
   {% endfor %}
 </div>
 
@@ -36,4 +82,16 @@
 <tr><td colspan="4">No activity logged yet.</td></tr>
 {% endfor %}
 </table>
+
+<script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/OrbitControls.js') }}"></script>
+<script src="{{ url_for('static', filename='js/nevet3d.js') }}"></script>
+<script src="{{ url_for('static', filename='js/hero3d.js') }}"></script>
+<script>
+(function () {
+  var stage = document.getElementById('hero-stage');
+  if (!window.NevetHero || !NevetHero.supported()) { stage.classList.add('no-3d'); return; }
+  NevetHero.viewer(document.getElementById('hero-canvas'), stage, {{ hero.appearance | tojson }}, {{ catalog | tojson }});
+})();
+</script>
 {% endblock %}

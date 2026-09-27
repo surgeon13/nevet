@@ -19,6 +19,7 @@
 <nav class="topnav">
   <a href="{{ url_for('hub') }}" class="brand">📷 Nevet</a>
   <div class="nav-links">
+    <a href="{{ url_for('growers_page') }}" class="nav-heroes">{% if playing_hero %}<span class="nav-hero-dot" aria-hidden="true"></span><span class="nav-hero-name">{{ playing_hero }}</span>{% else %}Heroes{% endif %}</a>
     <a href="{{ url_for('gallery') }}">Gallery</a>
     <a href="{{ url_for('stats') }}">Stats</a>
     <a href="{{ url_for('logs_page') }}">Logs</a>

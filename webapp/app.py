@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Camera gallery + game stats web app for the Insta360 Pi camera project."""
 import os
+import json
 import sqlite3
 import functools
 from datetime import datetime
@@ -8,6 +9,7 @@ from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, jsonify, abort
 from logging_config import setup_logging, LOGS_DIR
 import farm_db
+import heroes
 
 BASE_DIR = Path(os.environ.get("CAMERA_BASE_DIR", str(Path.home() / "camera_captures")))
 PHOTO_DIR = BASE_DIR / "photos"
@@ -134,20 +136,97 @@ def gallery():
     return render_template("index.html", assets=scan_assets())
 
 
+# ---------------------------------------------------------------------
+# Heroes (growers). Creating and customizing a hero needs no password:
+# just pick a username, like joining a game. Farm records (assets,
+# logs) still need the admin login.
+# ---------------------------------------------------------------------
+
+def hero_view(row, counts=None):
+    counts = counts or {k: row[k] for k in ("asset_count", "log_count", "harvest_count") if k in row.keys()}
+    hero_class, appearance = heroes.hero_for_row(row)
+    cls = heroes.class_by_id(hero_class)
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "joined_at": row["joined_at"],
+        "class": cls,
+        "appearance": appearance,
+        "counts": counts,
+        "progress": heroes.progress(**counts),
+    }
+
+
+@app.context_processor
+def inject_playing_hero():
+    return {"playing_hero": session.get("hero_name"), "playing_hero_id": session.get("hero_id")}
+
+
 @app.route("/growers")
 def growers_page():
-    return render_template("growers.html", growers=farm_db.list_growers())
+    roster = [hero_view(r) for r in farm_db.list_growers()]
+    return render_template("growers.html", heroes=roster, catalog=heroes.catalog())
+
+
+def render_hero_form(mode, hero_id=None, name="", hero_class=None, appearance=None, error=None):
+    cat = heroes.catalog()
+    if appearance is None:
+        hero_class, appearance = heroes.default_appearance(name or "new hero", hero_class or cat["classes"][0]["id"])
+    return render_template(
+        "hero_form.html", mode=mode, hero_id=hero_id, name=name, error=error,
+        hero_class=heroes.normalize_class(hero_class), appearance=appearance, catalog=cat,
+    )
 
 
 @app.route("/growers/new", methods=["GET", "POST"])
-@login_required
 def grower_new():
     if request.method == "POST":
-        name = request.form.get("name", "").strip()
-        if name:
-            gid = farm_db.add_grower(name)
-            return redirect(url_for("grower_page", grower_id=gid))
-    return render_template("grower_form.html")
+        name, error = heroes.validate_name(request.form.get("name"))
+        hero_class = heroes.normalize_class(request.form.get("hero_class"))
+        appearance = heroes.from_form(request.form, name, hero_class)
+        if not error:
+            try:
+                gid = farm_db.create_hero(name, hero_class, json.dumps(appearance))
+            except ValueError:
+                error = f"The name “{name}” is already taken. Try another one."
+            else:
+                app.logger.info("New hero created: %s (%s)", name, hero_class)
+                session["hero_id"], session["hero_name"] = gid, name
+                return redirect(url_for("grower_page", grower_id=gid, new=1))
+        return render_hero_form("create", name=name, hero_class=hero_class, appearance=appearance, error=error)
+    return render_hero_form("create")
+
+
+@app.route("/growers/<int:grower_id>/customize", methods=["GET", "POST"])
+def grower_customize(grower_id):
+    row = farm_db.get_grower(grower_id)
+    if not row:
+        abort(404)
+    if request.method == "POST":
+        name, error = heroes.validate_name(request.form.get("name"))
+        hero_class = heroes.normalize_class(request.form.get("hero_class"))
+        appearance = heroes.from_form(request.form, name, hero_class)
+        if not error:
+            try:
+                farm_db.update_hero(grower_id, name, hero_class, json.dumps(appearance))
+            except ValueError:
+                error = f"The name “{name}” is already taken. Try another one."
+            else:
+                if session.get("hero_id") == grower_id:
+                    session["hero_name"] = name
+                return redirect(url_for("grower_page", grower_id=grower_id))
+        return render_hero_form("edit", grower_id, name, hero_class, appearance, error)
+    hero_class, appearance = heroes.hero_for_row(row)
+    return render_hero_form("edit", grower_id, row["name"], hero_class, appearance)
+
+
+@app.route("/growers/<int:grower_id>/play", methods=["POST"])
+def grower_play(grower_id):
+    row = farm_db.get_grower(grower_id)
+    if not row:
+        abort(404)
+    session["hero_id"], session["hero_name"] = row["id"], row["name"]
+    return redirect(request.form.get("next") or url_for("grower_page", grower_id=grower_id))
 
 
 @app.route("/growers/<int:grower_id>")
@@ -155,7 +234,11 @@ def grower_page(grower_id):
     grower, assets, logs = farm_db.grower_summary(grower_id)
     if not grower:
         abort(404)
-    return render_template("grower_detail.html", grower=grower, assets=assets, logs=logs)
+    hero = hero_view(grower, farm_db.grower_counts(grower_id))
+    return render_template(
+        "grower_detail.html", grower=grower, hero=hero, assets=assets, logs=logs,
+        catalog=heroes.catalog(), just_created=request.args.get("new") == "1",
+    )
 
 
 @app.route("/growers/<int:grower_id>/assets/new", methods=["GET", "POST"])

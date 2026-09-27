@@ -1,18 +1,58 @@
 {% extends "base.html" %}
-{% block title %}Growers{% endblock %}
+{% block title %}Heroes{% endblock %}
 {% block content %}
-<h2>Growers</h2>
-{% if session.get('logged_in') %}
-<p><a href="{{ url_for('grower_new') }}">+ Add a grower</a></p>
-{% endif %}
-<div class="grid">
-  {% for g in growers %}
-  <a class="tile grower-tile" href="{{ url_for('grower_page', grower_id=g.id) }}">
-    <div class="grower-name">{{ g.name }}</div>
-    <span class="tile-meta">{{ g.asset_count }} asset{{ 's' if g.asset_count != 1 else '' }}</span>
+<div class="roster-head">
+  <h2>Heroes</h2>
+  <p class="roster-sub">Choose your grower, or create a new hero. No password needed.</p>
+</div>
+
+<div class="roster">
+  <a class="hero-slot hero-slot-new" href="{{ url_for('grower_new') }}">
+    <span class="hero-slot-plus" aria-hidden="true">+</span>
+    <span class="hero-slot-name">New hero</span>
+    <span class="hero-slot-class">Pick a name &amp; look</span>
   </a>
-  {% else %}
-  <p>No growers yet.</p>
+  {% for h in heroes %}
+  {% set outfit = (catalog.looks | selectattr('id', 'equalto', 'outfitColor') | first).options | selectattr('id', 'equalto', h.appearance.outfitColor) | first %}
+  <a class="hero-slot{% if h.id == playing_hero_id %} is-playing{% endif %}" href="{{ url_for('grower_page', grower_id=h.id) }}"
+     data-appearance='{{ h.appearance | tojson }}'>
+    {% if h.id == playing_hero_id %}<span class="hero-playing-tag">Playing</span>{% endif %}
+    <span class="hero-portrait">
+      <span class="hero-initial" style="--c: {{ outfit.color if outfit else '#4c9a5b' }}">{{ h.name[:1] | upper }}</span>
+    </span>
+    <span class="hero-slot-name">{{ h.name }}</span>
+    <span class="hero-slot-class" style="--class-color: {{ h['class'].color }}">{{ h['class'].name }}</span>
+    <span class="hero-slot-level">
+      <span class="lv">Lv {{ h.progress.level }}</span>
+      <span class="xpbar" title="{{ h.progress.xp }} / {{ h.progress.next_xp }} XP"><span style="width: {{ h.progress.pct }}%"></span></span>
+    </span>
+  </a>
   {% endfor %}
 </div>
+
+<script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/nevet3d.js') }}"></script>
+<script src="{{ url_for('static', filename='js/hero3d.js') }}"></script>
+<script>
+(function () {
+  if (!window.NevetHero || !NevetHero.supported()) return;   // letter badges stay as the fallback
+  var CATALOG = {{ catalog | tojson }};
+  var slots = Array.prototype.slice.call(document.querySelectorAll('.hero-slot[data-appearance]'));
+  var i = 0;
+  (function next() {
+    if (i >= slots.length) return;
+    var slot = slots[i++];
+    try {
+      var url = NevetHero.snapshot(JSON.parse(slot.dataset.appearance), CATALOG, 220, 260);
+      var img = new Image();
+      img.alt = '';
+      img.src = url;
+      var portrait = slot.querySelector('.hero-portrait');
+      portrait.innerHTML = '';
+      portrait.appendChild(img);
+    } catch (e) { /* keep the letter badge */ }
+    requestAnimationFrame(next);
+  })();
+})();
+</script>
 {% endblock %}

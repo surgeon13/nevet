@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-09-27 (heroes)
+
+- Growers are now RPG heroes. Create one with just a username (no
+  password), pick a class (Gardener, Worm Tamer, Forager, Beekeeper,
+  Druid) and customize looks (skin, hair, eyes, mouth, colours) and
+  gear (head, outfit, tool, back, companion) with a live 3D preview.
+- Heroes are drawn procedurally in 3D (`static/js/hero3d.js`) from
+  `static/assets/heroes/catalog.json`; items have rarities like an RPG
+  inventory. Real icons can replace drawn ones via an `icon` field.
+- Character-select roster, hero profile with level and XP earned from
+  real farm activity (logs, harvests, plants), and "Play as" to pick
+  your hero; the nav shows who you're playing.
+- Existing growers keep their data and get a unique default look.
+- Farm records (assets, logs) still need the admin login.
+
 ## 2026-09-24 (reliability)
 
 - FIX: watchdog judged "offline" by ping only, so on networks that block

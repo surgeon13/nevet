@@ -99,6 +99,15 @@ tail -f ~/camera_captures/logs/webapp.log
 The same three logs are also viewable live, color-coded, auto-refreshing
 every 5s, at `/logs` in the web app (login required).
 
+## Heroes
+
+Growers are RPG-style heroes at `/growers` (the **Heroes** link in the
+nav). Anyone can create one with just a username, no password, then
+pick a class and customize looks and gear with a live 3D preview.
+Levels and XP come from real farm activity. Heroes are drawn by code
+from `webapp/static/assets/heroes/catalog.json`; see the README in that
+folder for adding items or real artwork.
+
 ## Game stats
 
 `webapp/game_stats.py` is a small helper for logging XP / time played /

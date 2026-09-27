@@ -78,6 +78,12 @@ def get_conn():
         );
         CREATE INDEX IF NOT EXISTS idx_captures_taken_at ON captures(taken_at);
     """)
+    # Hero avatars (added later): older databases get the new columns
+    # in place, existing growers keep all their data.
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(growers)")}
+    for col in ("hero_class", "appearance"):
+        if col not in cols:
+            conn.execute(f"ALTER TABLE growers ADD COLUMN {col} TEXT")
     return conn
 
 
@@ -132,11 +138,73 @@ def list_growers():
     conn = get_conn()
     rows = conn.execute("""
         SELECT growers.*,
-               (SELECT COUNT(*) FROM assets WHERE assets.grower_id = growers.id) AS asset_count
-        FROM growers ORDER BY growers.name
+               (SELECT COUNT(*) FROM assets WHERE assets.grower_id = growers.id) AS asset_count,
+               (SELECT COUNT(*) FROM logs JOIN assets ON assets.id = logs.asset_id
+                 WHERE assets.grower_id = growers.id) AS log_count,
+               (SELECT COUNT(*) FROM logs JOIN assets ON assets.id = logs.asset_id
+                 WHERE assets.grower_id = growers.id AND logs.log_type = 'harvest') AS harvest_count
+        FROM growers ORDER BY growers.name COLLATE NOCASE
     """).fetchall()
     conn.close()
     return rows
+
+
+def grower_counts(grower_id):
+    conn = get_conn()
+    row = conn.execute("""
+        SELECT
+          (SELECT COUNT(*) FROM assets WHERE grower_id = :g) AS asset_count,
+          (SELECT COUNT(*) FROM logs JOIN assets ON assets.id = logs.asset_id
+            WHERE assets.grower_id = :g) AS log_count,
+          (SELECT COUNT(*) FROM logs JOIN assets ON assets.id = logs.asset_id
+            WHERE assets.grower_id = :g AND logs.log_type = 'harvest') AS harvest_count
+    """, {"g": grower_id}).fetchone()
+    conn.close()
+    return dict(row)
+
+
+def hero_name_taken(name, exclude_id=None):
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT id FROM growers WHERE lower(name) = lower(?) AND id != ?",
+        (name, exclude_id or -1),
+    ).fetchone()
+    conn.close()
+    return row is not None
+
+
+def create_hero(name, hero_class, appearance_json):
+    """Username-only hero creation. Raises ValueError if the name is taken."""
+    if hero_name_taken(name):
+        raise ValueError("taken")
+    conn = get_conn()
+    cur = conn.execute(
+        "INSERT INTO growers (name, joined_at, hero_class, appearance) VALUES (?, ?, ?, ?)",
+        (name, datetime.now().isoformat(timespec="seconds"), hero_class, appearance_json),
+    )
+    conn.commit()
+    gid = cur.lastrowid
+    conn.close()
+    return gid
+
+
+def update_hero(grower_id, name, hero_class, appearance_json):
+    if hero_name_taken(name, exclude_id=grower_id):
+        raise ValueError("taken")
+    conn = get_conn()
+    conn.execute(
+        "UPDATE growers SET name = ?, hero_class = ?, appearance = ? WHERE id = ?",
+        (name, hero_class, appearance_json, grower_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_grower(grower_id):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM growers WHERE id = ?", (grower_id,)).fetchone()
+    conn.close()
+    return row
 
 
 def grower_summary(grower_id):

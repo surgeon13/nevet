@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "rarities": {
+    "common":    { "label": "Common",    "color": "#8f9a94" },
+    "uncommon":  { "label": "Uncommon",  "color": "#3fa34d" },
+    "rare":      { "label": "Rare",      "color": "#3d7fe0" },
+    "epic":      { "label": "Epic",      "color": "#9b59d6" },
+    "legendary": { "label": "Legendary", "color": "#e08a1e" }
+  },
+  "classes": [
+    { "id": "gardener",   "name": "Gardener",   "color": "#4c9a5b", "blurb": "Keeps every plant happy",
+      "preset": { "outfitColor": "leaf",     "head": "straw_hat",    "body": "overalls",   "hand": "watering_can", "back": "none",       "pet": "none" } },
+    { "id": "worm_tamer", "name": "Worm Tamer", "color": "#c46f86", "blurb": "Master of the compost bin",
+      "preset": { "outfitColor": "earth",    "head": "beanie",       "body": "apron",      "hand": "pitchfork",    "back": "none",       "pet": "worm" } },
+    { "id": "forager",    "name": "Forager",    "color": "#d89a2b", "blurb": "Finds food everywhere",
+      "preset": { "outfitColor": "sun",      "head": "sun_cap",      "body": "tunic",      "hand": "sickle",       "back": "basket",     "pet": "snail" } },
+    { "id": "beekeeper",  "name": "Beekeeper",  "color": "#c9a227", "blurb": "Friend of all pollinators",
+      "preset": { "outfitColor": "cream",    "head": "straw_hat",    "body": "hoodie",     "hand": "trowel",       "back": "backpack",   "pet": "bee" } },
+    { "id": "druid",      "name": "Druid",      "color": "#8a6fd1", "blurb": "Speaks the language of seeds",
+      "preset": { "outfitColor": "lavender", "head": "flower_crown", "body": "robe",       "hand": "staff",        "back": "leaf_wings", "pet": "sprout" } }
+  ],
+  "looks": [
+    { "id": "skin", "label": "Skin", "type": "color", "options": [
+      { "id": "porcelain", "name": "Porcelain", "color": "#f7dcc9" },
+      { "id": "light",     "name": "Light",     "color": "#efc4a3" },
+      { "id": "tan",       "name": "Tan",       "color": "#d9a077" },
+      { "id": "olive",     "name": "Olive",     "color": "#bf8a5c" },
+      { "id": "brown",     "name": "Brown",     "color": "#8d5a3b" },
+      { "id": "deep",      "name": "Deep",      "color": "#5e3b28" },
+      { "id": "leafkin",   "name": "Leafkin",   "color": "#9fd08a", "rarity": "rare" }
+    ]},
+    { "id": "hair", "label": "Hair", "type": "hair", "options": [
+      { "id": "short",  "name": "Short" },
+      { "id": "long",   "name": "Long" },
+      { "id": "spiky",  "name": "Spiky" },
+      { "id": "bun",    "name": "Bun" },
+      { "id": "mohawk", "name": "Mohawk" },
+      { "id": "bald",   "name": "Bald" }
+    ]},
+    { "id": "hairColor", "label": "Hair colour", "type": "color", "options": [
+      { "id": "black",  "name": "Black",  "color": "#2b2826" },
+      { "id": "brown",  "name": "Brown",  "color": "#6b4226" },
+      { "id": "auburn", "name": "Auburn", "color": "#a0472d" },
+      { "id": "blonde", "name": "Blonde", "color": "#e6c46f" },
+      { "id": "ginger", "name": "Ginger", "color": "#d9772b" },
+      { "id": "grey",   "name": "Grey",   "color": "#b9b9b9" },
+      { "id": "white",  "name": "White",  "color": "#f1efe9" },
+      { "id": "moss",   "name": "Moss",   "color": "#5fa35f", "rarity": "uncommon" },
+      { "id": "sky",    "name": "Sky",    "color": "#4a78c9", "rarity": "uncommon" },
+      { "id": "blossom","name": "Blossom","color": "#e27fae", "rarity": "uncommon" }
+    ]},
+    { "id": "eyes", "label": "Eyes", "type": "face", "options": [
+      { "id": "round",   "name": "Round" },
+      { "id": "sparkle", "name": "Sparkle" },
+      { "id": "happy",   "name": "Happy" },
+      { "id": "sleepy",  "name": "Sleepy" },
+      { "id": "wink",    "name": "Wink" }
+    ]},
+    { "id": "eyeColor", "label": "Eye colour", "type": "color", "options": [
+      { "id": "brown",  "name": "Brown",  "color": "#6b4226" },
+      { "id": "blue",   "name": "Blue",   "color": "#3d7fe0" },
+      { "id": "green",  "name": "Green",  "color": "#3f9a4d" },
+      { "id": "hazel",  "name": "Hazel",  "color": "#9a7b3c" },
+      { "id": "grey",   "name": "Grey",   "color": "#7c8a93" },
+      { "id": "violet", "name": "Violet", "color": "#8a5bd6", "rarity": "uncommon" }
+    ]},
+    { "id": "mouth", "label": "Mouth", "type": "face", "options": [
+      { "id": "smile",   "name": "Smile" },
+      { "id": "grin",    "name": "Grin" },
+      { "id": "neutral", "name": "Calm" },
+      { "id": "open",    "name": "Wow" },
+      { "id": "cat",     "name": "Cat" }
+    ]},
+    { "id": "outfitColor", "label": "Outfit colour", "type": "color", "options": [
+      { "id": "leaf",     "name": "Leaf",     "color": "#4c9a5b" },
+      { "id": "sky",      "name": "Sky",      "color": "#3d7fe0" },
+      { "id": "sun",      "name": "Sun",      "color": "#e8b73a" },
+      { "id": "berry",    "name": "Berry",    "color": "#c0504d" },
+      { "id": "earth",    "name": "Earth",    "color": "#8b5e3c" },
+      { "id": "lavender", "name": "Lavender", "color": "#9b7fd1" },
+      { "id": "slate",    "name": "Slate",    "color": "#56626b" },
+      { "id": "cream",    "name": "Cream",    "color": "#efe3c8" }
+    ]}
+  ],
+  "gear": [
+    { "id": "head", "label": "Head", "type": "item", "options": [
+      { "id": "none",         "name": "Nothing" },
+      { "id": "straw_hat",    "name": "Straw Hat",    "rarity": "common" },
+      { "id": "sun_cap",      "name": "Sun Cap",      "rarity": "common" },
+      { "id": "beanie",       "name": "Cozy Beanie",  "rarity": "uncommon" },
+      { "id": "flower_crown", "name": "Flower Crown", "rarity": "rare" },
+      { "id": "mushroom_cap", "name": "Mushroom Cap", "rarity": "epic" },
+      { "id": "sage_hat",     "name": "Sage Hat",     "rarity": "legendary" }
+    ]},
+    { "id": "body", "label": "Outfit", "type": "item", "options": [
+      { "id": "tunic",      "name": "Tunic",         "rarity": "common" },
+      { "id": "overalls",   "name": "Overalls",      "rarity": "common" },
+      { "id": "apron",      "name": "Compost Apron", "rarity": "uncommon" },
+      { "id": "hoodie",     "name": "Hoodie",        "rarity": "uncommon" },
+      { "id": "leaf_armor", "name": "Leaf Armor",    "rarity": "rare" },
+      { "id": "robe",       "name": "Druid Robe",    "rarity": "epic" }
+    ]},
+    { "id": "hand", "label": "Tool", "type": "item", "options": [
+      { "id": "none",         "name": "Nothing" },
+      { "id": "trowel",       "name": "Trowel",       "rarity": "common" },
+      { "id": "watering_can", "name": "Watering Can", "rarity": "common" },
+      { "id": "hoe",          "name": "Hoe",          "rarity": "uncommon" },
+      { "id": "pitchfork",    "name": "Pitchfork",    "rarity": "uncommon" },
+      { "id": "sickle",       "name": "Moon Sickle",  "rarity": "rare" },
+      { "id": "staff",        "name": "Sprout Staff", "rarity": "epic" }
+    ]},
+    { "id": "back", "label": "Back", "type": "item", "options": [
+      { "id": "none",       "name": "Nothing" },
+      { "id": "backpack",   "name": "Backpack",       "rarity": "common" },
+      { "id": "basket",     "name": "Harvest Basket", "rarity": "uncommon" },
+      { "id": "cape",       "name": "Hero Cape",      "rarity": "rare" },
+      { "id": "leaf_wings", "name": "Leaf Wings",     "rarity": "epic" }
+    ]},
+    { "id": "pet", "label": "Companion", "type": "item", "options": [
+      { "id": "none",   "name": "Nobody" },
+      { "id": "worm",   "name": "Wiggles the Worm", "rarity": "common" },
+      { "id": "snail",  "name": "Shelly the Snail", "rarity": "uncommon" },
+      { "id": "bee",    "name": "Buzz the Bee",     "rarity": "rare" },
+      { "id": "sprout", "name": "Sprout Spirit",    "rarity": "epic" }
+    ]}
+  ]
+}
