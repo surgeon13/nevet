@@ -94,9 +94,12 @@ Set in `.env` at the repo root (copied from `config/.env.example` by
 
 | Variable | Used by | Purpose |
 |---|---|---|
-| `WEBAPP_PASSWORD` | `app.py` | Shared login password for `/stats` and `/logs` |
 | `WEBAPP_API_KEY` | `app.py` | Required `X-API-Key` header for `POST /api/stats` |
-| `WEBAPP_SECRET` | `app.py` | Flask session signing key |
+| `WEBAPP_SECRET` | `app.py` | Flask session signing key. If left as the placeholder, a random key is generated once and stored in `.flask_secret` next to `farm.db` |
+| `WEBAPP_OPEN_SIGNUP` | `app.py` | `true` (default): anyone reaching the site can sign up. `false`: only logged-in players can add accounts |
+
+`/api/logs` needs a logged-in session (returns 401 JSON otherwise);
+`/healthz` and `POST /api/stats` (with the API key) work without one.
 
 Set directly in the rendered systemd unit (`install.sh` fills these in
 automatically — not normally edited by hand):

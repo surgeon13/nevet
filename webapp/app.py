@@ -4,10 +4,12 @@ import os
 import json
 import sqlite3
 import functools
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
-from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, jsonify, abort
+from urllib.parse import urlparse
+from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, jsonify, abort, g
 from logging_config import setup_logging, LOGS_DIR
+import auth
 import farm_db
 import heroes
 
@@ -15,12 +17,19 @@ BASE_DIR = Path(os.environ.get("CAMERA_BASE_DIR", str(Path.home() / "camera_capt
 PHOTO_DIR = BASE_DIR / "photos"
 VIDEO_DIR = BASE_DIR / "videos"
 DB_PATH = Path(os.environ.get("STATS_DB", str(Path.home() / "webapp" / "game_stats.db")))
-LOGIN_PASSWORD = os.environ.get("WEBAPP_PASSWORD", "changeme")
-SECRET_KEY = os.environ.get("WEBAPP_SECRET", "nevet-secret-change-me")
 
 app = Flask(__name__)
-app.secret_key = SECRET_KEY
+app.secret_key = auth.load_secret_key(farm_db.DB_PATH.parent)
+app.config.update(
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_HTTPONLY=True,
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),   # stay logged in for a month
+)
 logger = setup_logging(app)
+
+# Pages anyone can open without logging in. Everything else needs an account.
+PUBLIC_ENDPOINTS = {"login", "register", "healthz", "static", "api_add_stats"}
+CSRF_EXEMPT = {"api_add_stats"}                        # uses its own API key
 
 LOG_FILES = {
     "watchdog": LOGS_DIR / "watchdog.log",
@@ -58,12 +67,57 @@ def get_db():
 
 
 def login_required(view):
+    """Explicit marker; the before_request gate already enforces login."""
     @functools.wraps(view)
     def wrapped(*args, **kwargs):
-        if not session.get("logged_in"):
-            return redirect(url_for("login", next=request.path))
+        if not g.user:
+            return redirect(url_for("login", next=request.full_path))
         return view(*args, **kwargs)
     return wrapped
+
+
+def safe_next(target):
+    """Only follow ?next= to pages on this site (no open redirects)."""
+    if not target:
+        return None
+    parts = urlparse(target)
+    if parts.scheme or parts.netloc or not target.startswith("/") or target.startswith("//"):
+        return None
+    return target
+
+
+def log_in(row):
+    session.clear()
+    session.permanent = True
+    session["user_id"] = row["id"]
+    farm_db.touch_login(row["id"])
+
+
+@app.before_request
+def load_user_and_guard():
+    g.user = None
+    uid = session.get("user_id")
+    if uid:
+        row = farm_db.get_grower(uid)
+        if row and row["password_hash"]:
+            g.user = {"id": row["id"], "name": row["name"], "is_admin": bool(row["is_admin"])}
+        else:
+            session.clear()                       # account removed or password cleared
+    if g.user is None and request.endpoint not in PUBLIC_ENDPOINTS:
+        if request.path.startswith("/api/"):
+            return jsonify({"error": "login required"}), 401
+        return redirect(url_for("login", next=request.full_path if request.query_string else request.path))
+    if request.method == "POST" and request.endpoint not in CSRF_EXEMPT:
+        if not auth.csrf_ok(session, request.form.get("_csrf")):
+            logger.warning("Rejected form without valid token: %s from %s", request.path, request.remote_addr)
+            return render_template("message.html", title="Form expired",
+                                   message="That form was open too long or came from somewhere else. "
+                                           "Go back, refresh the page and try again."), 400
+
+
+@app.context_processor
+def inject_user():
+    return {"current_user": g.get("user"), "csrf_token": lambda: auth.csrf_token(session)}
 
 
 def human_size(num_bytes):
@@ -155,12 +209,12 @@ def hero_view(row, counts=None):
         "appearance": appearance,
         "counts": counts,
         "progress": heroes.progress(**counts),
+        "has_account": bool(row["password_hash"]) if "password_hash" in row.keys() else False,
     }
 
 
-@app.context_processor
-def inject_playing_hero():
-    return {"playing_hero": session.get("hero_name"), "playing_hero_id": session.get("hero_id")}
+def can_edit_hero(grower_id):
+    return bool(g.user and (g.user["id"] == grower_id or g.user["is_admin"]))
 
 
 @app.route("/growers")
@@ -169,33 +223,20 @@ def growers_page():
     return render_template("growers.html", heroes=roster, catalog=heroes.catalog())
 
 
-def render_hero_form(mode, hero_id=None, name="", hero_class=None, appearance=None, error=None):
+def render_hero_form(mode, hero_id=None, name="", hero_class=None, appearance=None, error=None, welcome=False):
     cat = heroes.catalog()
     if appearance is None:
         hero_class, appearance = heroes.default_appearance(name or "new hero", hero_class or cat["classes"][0]["id"])
     return render_template(
-        "hero_form.html", mode=mode, hero_id=hero_id, name=name, error=error,
+        "hero_form.html", mode=mode, hero_id=hero_id, name=name, error=error, welcome=welcome,
         hero_class=heroes.normalize_class(hero_class), appearance=appearance, catalog=cat,
     )
 
 
-@app.route("/growers/new", methods=["GET", "POST"])
+@app.route("/growers/new")
 def grower_new():
-    if request.method == "POST":
-        name, error = heroes.validate_name(request.form.get("name"))
-        hero_class = heroes.normalize_class(request.form.get("hero_class"))
-        appearance = heroes.from_form(request.form, name, hero_class)
-        if not error:
-            try:
-                gid = farm_db.create_hero(name, hero_class, json.dumps(appearance))
-            except ValueError:
-                error = f"The name “{name}” is already taken. Try another one."
-            else:
-                app.logger.info("New hero created: %s (%s)", name, hero_class)
-                session["hero_id"], session["hero_name"] = gid, name
-                return redirect(url_for("grower_page", grower_id=gid, new=1))
-        return render_hero_form("create", name=name, hero_class=hero_class, appearance=appearance, error=error)
-    return render_hero_form("create")
+    # New heroes are created by signing up, so every hero has a password.
+    return redirect(url_for("register"))
 
 
 @app.route("/growers/<int:grower_id>/customize", methods=["GET", "POST"])
@@ -203,6 +244,9 @@ def grower_customize(grower_id):
     row = farm_db.get_grower(grower_id)
     if not row:
         abort(404)
+    if not can_edit_hero(grower_id):
+        return render_template("message.html", title="Not your hero",
+                               message=f"Only {row['name']} (or an admin) can change this hero."), 403
     if request.method == "POST":
         name, error = heroes.validate_name(request.form.get("name"))
         hero_class = heroes.normalize_class(request.form.get("hero_class"))
@@ -213,21 +257,28 @@ def grower_customize(grower_id):
             except ValueError:
                 error = f"The name “{name}” is already taken. Try another one."
             else:
-                if session.get("hero_id") == grower_id:
-                    session["hero_name"] = name
                 return redirect(url_for("grower_page", grower_id=grower_id))
         return render_hero_form("edit", grower_id, name, hero_class, appearance, error)
     hero_class, appearance = heroes.hero_for_row(row)
-    return render_hero_form("edit", grower_id, row["name"], hero_class, appearance)
+    return render_hero_form("edit", grower_id, row["name"], hero_class, appearance,
+                            welcome=request.args.get("welcome") == "1")
 
 
-@app.route("/growers/<int:grower_id>/play", methods=["POST"])
-def grower_play(grower_id):
+@app.route("/growers/<int:grower_id>/password", methods=["POST"])
+def grower_reset_password(grower_id):
+    """Admins can set a new password for any player who forgot theirs."""
+    if not (g.user and g.user["is_admin"]):
+        abort(403)
     row = farm_db.get_grower(grower_id)
     if not row:
         abort(404)
-    session["hero_id"], session["hero_name"] = row["id"], row["name"]
-    return redirect(request.form.get("next") or url_for("grower_page", grower_id=grower_id))
+    password = request.form.get("password", "")
+    error = auth.validate_password(password, request.form.get("confirm", ""))
+    if error:
+        return redirect(url_for("grower_page", grower_id=grower_id, pw_error=error))
+    farm_db.set_password(grower_id, auth.hash_password(password))
+    logger.info("Admin %s set a new password for %s", g.user["name"], row["name"])
+    return redirect(url_for("grower_page", grower_id=grower_id, pw_set=1))
 
 
 @app.route("/growers/<int:grower_id>")
@@ -238,7 +289,9 @@ def grower_page(grower_id):
     hero = hero_view(grower, farm_db.grower_counts(grower_id))
     return render_template(
         "grower_detail.html", grower=grower, hero=hero, assets=assets, logs=logs,
-        catalog=heroes.catalog(), just_created=request.args.get("new") == "1",
+        catalog=heroes.catalog(), can_edit=can_edit_hero(grower_id),
+        has_account=bool(grower["password_hash"]), created=request.args.get("created") == "1",
+        pw_set=request.args.get("pw_set") == "1", pw_error=request.args.get("pw_error"),
     )
 
 
@@ -316,21 +369,91 @@ def media(filepath):
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    error = None
+    if g.user:
+        return redirect(safe_next(request.args.get("next")) or url_for("hub"))
+    error, name = None, ""
     if request.method == "POST":
-        if request.form.get("password") == LOGIN_PASSWORD:
-            session["logged_in"] = True
-            logger.info("Successful login from %s", request.remote_addr)
-            return redirect(request.args.get("next") or url_for("stats"))
-        error = "Wrong password"
-        logger.warning("Failed login attempt from %s", request.remote_addr)
-    return render_template("login.html", error=error)
+        name = " ".join(request.form.get("name", "").split())
+        key = request.remote_addr or "?"
+        if auth.limiter.blocked(key):
+            error = "Too many wrong tries. Wait a few minutes and try again."
+        else:
+            row = farm_db.find_grower_by_name(name) if name else None
+            if row and auth.check_password(row["password_hash"], request.form.get("password", "")):
+                auth.limiter.reset(key)
+                log_in(row)
+                logger.info("Login: %s from %s", row["name"], key)
+                return redirect(safe_next(request.args.get("next")) or url_for("hub"))
+            auth.limiter.fail(key)
+            logger.warning("Failed login for %r from %s", name, key)
+            if row and not row["password_hash"]:
+                error = f"The hero “{row['name']}” has no password yet. Sign up with that name to claim it."
+            else:
+                error = "Wrong name or password."
+    return render_template("login.html", error=error, name=name,
+                           no_accounts=farm_db.account_count() == 0, open_signup=auth.open_signup())
 
 
-@app.route("/logout")
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    """Sign up = create a hero with a password. Signing up with the name of
+    an existing hero that has no password yet claims that hero (and all its
+    plants and logs). The very first account becomes the admin."""
+    first_account = farm_db.account_count() == 0
+    if not g.user and not auth.open_signup() and not first_account:
+        return render_template("message.html", title="Sign-up is closed",
+                               message="Ask a player who already has an account to add you."), 403
+    error, name = None, ""
+    if request.method == "POST":
+        name, error = heroes.validate_name(request.form.get("name"))
+        password = request.form.get("password", "")
+        if not error:
+            error = auth.validate_password(password, request.form.get("confirm", ""))
+        if not error:
+            existing = farm_db.find_grower_by_name(name)
+            if existing and existing["password_hash"]:
+                error = f"The name “{existing['name']}” is already taken. Pick another one or log in."
+            elif existing:
+                farm_db.set_password(existing["id"], auth.hash_password(password))
+                if first_account:
+                    farm_db.set_admin(existing["id"], True)
+                gid, claimed = existing["id"], True
+            else:
+                hero_class, look = heroes.default_appearance(name)
+                gid = farm_db.create_hero(name, hero_class, json.dumps(look),
+                                          password_hash=auth.hash_password(password), is_admin=first_account)
+                claimed = False
+        if not error:
+            logger.info("New account %s%s%s", name, " (claimed existing hero)" if claimed else "",
+                        " [admin]" if first_account else "")
+            if g.user:          # a player adding someone else: stay logged in as yourself
+                return redirect(url_for("grower_page", grower_id=gid, created=1))
+            log_in(farm_db.get_grower(gid))
+            return redirect(url_for("grower_customize", grower_id=gid, welcome=1))
+    return render_template("register.html", error=error, name=name, first_account=first_account)
+
+
+@app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
-    return redirect(url_for("hub"))
+    return redirect(url_for("login"))
+
+
+@app.route("/account", methods=["GET", "POST"])
+def account():
+    message, error = None, None
+    if request.method == "POST":
+        row = farm_db.get_grower(g.user["id"])
+        new = request.form.get("new_password", "")
+        if not auth.check_password(row["password_hash"], request.form.get("current_password", "")):
+            error = "Your current password isn't right."
+        else:
+            error = auth.validate_password(new, request.form.get("confirm", ""))
+        if not error:
+            farm_db.set_password(row["id"], auth.hash_password(new))
+            logger.info("%s changed their password", row["name"])
+            message = "Password changed."
+    return render_template("account.html", message=message, error=error)
 
 
 @app.route("/stats")

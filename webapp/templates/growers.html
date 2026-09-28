@@ -3,20 +3,22 @@
 {% block content %}
 <div class="roster-head">
   <h2>Heroes</h2>
-  <p class="roster-sub">Choose your grower, or create a new hero. No password needed.</p>
+  <p class="roster-sub">Every player is a hero. Tap one to see their stats and gear.</p>
 </div>
 
 <div class="roster">
-  <a class="hero-slot hero-slot-new" href="{{ url_for('grower_new') }}">
+  <a class="hero-slot hero-slot-new" href="{{ url_for('register') }}">
     <span class="hero-slot-plus" aria-hidden="true">+</span>
-    <span class="hero-slot-name">New hero</span>
-    <span class="hero-slot-class">Pick a name &amp; look</span>
+    <span class="hero-slot-name">Add a player</span>
+    <span class="hero-slot-class">Name &amp; password</span>
   </a>
   {% for h in heroes %}
   {% set outfit = (catalog.looks | selectattr('id', 'equalto', 'outfitColor') | first).options | selectattr('id', 'equalto', h.appearance.outfitColor) | first %}
-  <a class="hero-slot{% if h.id == playing_hero_id %} is-playing{% endif %}" href="{{ url_for('grower_page', grower_id=h.id) }}"
+  {% set is_me = current_user and h.id == current_user.id %}
+  <a class="hero-slot{% if is_me %} is-playing{% endif %}" href="{{ url_for('grower_page', grower_id=h.id) }}"
      data-appearance='{{ h.appearance | tojson }}'>
-    {% if h.id == playing_hero_id %}<span class="hero-playing-tag">Playing</span>{% endif %}
+    {% if is_me %}<span class="hero-playing-tag">You</span>
+    {% elif not h.has_account %}<span class="hero-playing-tag hero-unclaimed-tag">Unclaimed</span>{% endif %}
     <span class="hero-portrait">
       <span class="hero-initial" style="--c: {{ outfit.color if outfit else '#4c9a5b' }}">{{ h.name[:1] | upper }}</span>
     </span>

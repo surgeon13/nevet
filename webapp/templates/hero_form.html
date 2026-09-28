@@ -2,6 +2,7 @@
 {% block title %}{{ 'New hero' if mode == 'create' else 'Customize ' ~ name }}{% endblock %}
 {% block content %}
 <form method="post" class="hero-editor" id="hero-form" autocomplete="off">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
   <div class="hero-editor-stage">
     <div class="hero-stage" id="hero-stage">
       <canvas id="hero-canvas" aria-label="3D preview of your hero, drag to spin"></canvas>
@@ -14,14 +15,15 @@
   </div>
 
   <div class="hero-editor-controls">
-    <h2 class="hero-editor-title">{{ 'Create your hero' if mode == 'create' else 'Customize hero' }}</h2>
+    {% if welcome %}<div class="hero-welcome" role="status">Welcome, <strong>{{ name }}</strong>! Your account is ready. Now pick your look, then save.</div>{% endif %}
+    <h2 class="hero-editor-title">{{ 'Create your hero' if mode == 'create' else ('Choose your look' if welcome else 'Customize hero') }}</h2>
     {% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
 
     <label class="hero-field">
       <span class="hero-field-label">Hero name</span>
       <input type="text" name="name" id="hero-name" value="{{ name }}" minlength="1" maxlength="20" required
              placeholder="Your name" {% if mode == 'create' %}autofocus{% endif %}>
-      <span class="hero-field-hint">Just a name, no password needed</span>
+      <span class="hero-field-hint">{% if mode == 'edit' %}This is also the name you log in with{% else %}Your hero's name{% endif %}</span>
     </label>
 
     <fieldset class="hero-classes">

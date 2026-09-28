@@ -162,7 +162,7 @@ fi
 say "Updated $SHORT_LOCAL -> $SHORT_LATEST ($COUNT commit(s)):"
 echo "$SUMMARY" | while IFS= read -r line; do log_msg "$line"; done
 
-if echo "$CHANGED" | grep -qE '^(systemd/|install\.sh|config/|webapp/requirements\.txt)'; then
+if echo "$CHANGED" | grep -v '^config/\.env\.example$' | grep -qE '^(systemd/|install\.sh|config/|webapp/requirements\.txt)'; then
     say "NOTE this update changes system setup (services/dependencies). Run once on the Pi: sudo ./install.sh"
 fi
 

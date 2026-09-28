@@ -1,10 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Login{% endblock %}
+{% block title %}Log in{% endblock %}
 {% block content %}
-<form method="post" class="login-form">
-  <h2>Login</h2>
-  {% if error %}<p class="error">{{ error }}</p>{% endif %}
-  <input type="password" name="password" placeholder="Password" autofocus>
-  <button type="submit">Log in</button>
+<form method="post" class="auth-card" autocomplete="on">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <h2>Log in</h2>
+  {% if no_accounts %}
+    <p class="auth-note">There are no accounts yet. <a href="{{ url_for('register') }}">Sign up</a> to create the first one; it becomes the admin.</p>
+  {% endif %}
+  {% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
+  <label class="hero-field">
+    <span class="hero-field-label">Hero name</span>
+    <input type="text" name="name" value="{{ name }}" autocomplete="username" autocapitalize="none" required {% if not name %}autofocus{% endif %}>
+  </label>
+  <label class="hero-field">
+    <span class="hero-field-label">Password</span>
+    <input type="password" name="password" autocomplete="current-password" required {% if name %}autofocus{% endif %}>
+  </label>
+  <button type="submit" class="btn btn-primary auth-submit">Log in</button>
+  {% if open_signup or no_accounts %}
+  <p class="auth-alt">New here? <a href="{{ url_for('register') }}">Create an account</a></p>
+  {% endif %}
+  <p class="auth-alt auth-small">Forgot your password? Ask an admin to set a new one.</p>
 </form>
 {% endblock %}

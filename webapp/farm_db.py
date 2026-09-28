@@ -80,10 +80,13 @@ def get_conn():
     """)
     # Hero avatars (added later): older databases get the new columns
     # in place, existing growers keep all their data.
+    # Accounts (added later): a grower with a password_hash is a player
+    # who can log in; growers without one are "unclaimed" heroes.
     cols = {r[1] for r in conn.execute("PRAGMA table_info(growers)")}
-    for col in ("hero_class", "appearance"):
+    for col, decl in (("hero_class", "TEXT"), ("appearance", "TEXT"), ("password_hash", "TEXT"),
+                      ("is_admin", "INTEGER NOT NULL DEFAULT 0"), ("last_login", "TEXT")):
         if col not in cols:
-            conn.execute(f"ALTER TABLE growers ADD COLUMN {col} TEXT")
+            conn.execute(f"ALTER TABLE growers ADD COLUMN {col} {decl}")
     return conn
 
 
@@ -173,14 +176,17 @@ def hero_name_taken(name, exclude_id=None):
     return row is not None
 
 
-def create_hero(name, hero_class, appearance_json):
-    """Username-only hero creation. Raises ValueError if the name is taken."""
+def create_hero(name, hero_class, appearance_json, password_hash=None, is_admin=False):
+    """Creates a hero (and, with a password_hash, a player account).
+    Raises ValueError if the name is taken."""
     if hero_name_taken(name):
         raise ValueError("taken")
     conn = get_conn()
     cur = conn.execute(
-        "INSERT INTO growers (name, joined_at, hero_class, appearance) VALUES (?, ?, ?, ?)",
-        (name, datetime.now().isoformat(timespec="seconds"), hero_class, appearance_json),
+        "INSERT INTO growers (name, joined_at, hero_class, appearance, password_hash, is_admin) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (name, datetime.now().isoformat(timespec="seconds"), hero_class, appearance_json,
+         password_hash, 1 if is_admin else 0),
     )
     conn.commit()
     gid = cur.lastrowid
@@ -304,3 +310,43 @@ def capture_summary():
     """).fetchone()
     conn.close()
     return {k: (row[k] or 0) if k != "last_at" else row[k] for k in row.keys()}
+
+
+# ---------------------------------------------------------------------
+# Accounts
+# ---------------------------------------------------------------------
+
+def find_grower_by_name(name):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM growers WHERE lower(name) = lower(?)", (name,)).fetchone()
+    conn.close()
+    return row
+
+
+def account_count():
+    conn = get_conn()
+    n = conn.execute("SELECT COUNT(*) FROM growers WHERE password_hash IS NOT NULL").fetchone()[0]
+    conn.close()
+    return n
+
+
+def set_password(grower_id, password_hash):
+    conn = get_conn()
+    conn.execute("UPDATE growers SET password_hash = ? WHERE id = ?", (password_hash, grower_id))
+    conn.commit()
+    conn.close()
+
+
+def set_admin(grower_id, is_admin):
+    conn = get_conn()
+    conn.execute("UPDATE growers SET is_admin = ? WHERE id = ?", (1 if is_admin else 0, grower_id))
+    conn.commit()
+    conn.close()
+
+
+def touch_login(grower_id):
+    conn = get_conn()
+    conn.execute("UPDATE growers SET last_login = ? WHERE id = ?",
+                 (datetime.now().isoformat(timespec="seconds"), grower_id))
+    conn.commit()
+    conn.close()

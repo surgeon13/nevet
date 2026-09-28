@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Account{% endblock %}
+{% block content %}
+<div class="auth-card">
+  <h2>Account</h2>
+  <p class="auth-sub">Logged in as <strong>{{ current_user.name }}</strong>{% if current_user.is_admin %} · admin{% endif %}</p>
+
+  <form method="post" class="auth-section">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <h3>Change password</h3>
+    {% if message %}<p class="auth-note" role="status">{{ message }}</p>{% endif %}
+    {% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
+    <label class="hero-field">
+      <span class="hero-field-label">Current password</span>
+      <input type="password" name="current_password" autocomplete="current-password" required>
+    </label>
+    <label class="hero-field">
+      <span class="hero-field-label">New password</span>
+      <input type="password" name="new_password" minlength="6" autocomplete="new-password" required>
+    </label>
+    <label class="hero-field">
+      <span class="hero-field-label">New password again</span>
+      <input type="password" name="confirm" minlength="6" autocomplete="new-password" required>
+    </label>
+    <button type="submit" class="btn btn-primary auth-submit">Change password</button>
+  </form>
+
+  <div class="auth-section auth-row">
+    <a class="btn btn-ghost" href="{{ url_for('grower_page', grower_id=current_user.id) }}">Back to my hero</a>
+    <a class="btn btn-ghost" href="{{ url_for('register') }}">Add a player</a>
+    <form method="post" action="{{ url_for('logout') }}">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-ghost">Log out</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

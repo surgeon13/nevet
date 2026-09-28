@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-09-28 (accounts)
+
+- Real log-in: each player has a hero name + password (salted hash);
+  the old single shared password (`WEBAPP_PASSWORD`) is gone. Every page
+  now needs a log-in except `/healthz` and the API-key stats endpoint.
+- Sign up creates your hero, or claims an existing hero without a
+  password (so `M` keeps its plants). First account is admin.
+- Players edit only their own hero; admin can edit any and set a new
+  password for players who forget. `scripts/users.py` does the same
+  from the terminal (list, reset-password, make-admin).
+- Account page to change password; log out; "Add a player" for adding
+  family members while staying logged in. `WEBAPP_OPEN_SIGNUP=false`
+  limits sign-up to logged-in players.
+- Security: form tokens (CSRF), SameSite cookies, 30-day sessions,
+  pause after repeated wrong passwords, no open redirects, and a random
+  session key is generated if `.env` still has the placeholder.
+- "Play as" replaced by the logged-in player.
+
 ## 2026-09-27 (auto-update)
 
 - New `scripts/auto_update.sh` + `nevet-update.timer`: checks GitHub every

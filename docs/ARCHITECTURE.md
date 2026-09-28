@@ -133,8 +133,12 @@ A small Flask app, deliberately kept to a handful of files:
   request time (no caching/database for media — the filesystem *is*
   the source of truth) and renders a date-grouped view with counts and
   total storage used.
-- **Login (`/login`)** — a single shared password
-  (`WEBAPP_PASSWORD`), session-based. Gates `/stats` and `/logs`.
+- **Accounts (`/login`, `/register`, `/account`)** — every page except
+  `/healthz` and the API-key stats endpoint needs a log-in. Players are
+  growers with a `password_hash` (werkzeug salted hash); the first
+  account is admin. Forms carry a per-session token (CSRF), the session
+  cookie is SameSite=Lax and lasts 30 days, and repeated wrong
+  passwords from one address are paused (`webapp/auth.py`).
 - **Stats (`/stats`)** — reads the `stats_log` SQLite table (see
   `docs/API.md`) and shows the latest snapshot plus a 50-row history.
 - **Logs (`/logs`)** — polls `/api/logs` every 5 seconds and renders

@@ -1,9 +1,11 @@
 {% extends "base.html" %}
 {% block title %}{{ hero.name }}{% endblock %}
 {% block content %}
-{% if just_created %}
-<div class="hero-welcome" role="status">Welcome, <strong>{{ hero.name }}</strong>! Your hero is ready, and you're now playing as them.</div>
+{% if created %}
+<div class="hero-welcome" role="status">Account created for <strong>{{ hero.name }}</strong>. They can log in with the name and password you chose.</div>
 {% endif %}
+{% if pw_set %}<div class="hero-welcome" role="status">New password set for <strong>{{ hero.name }}</strong>.</div>{% endif %}
+{% if pw_error %}<p class="hero-error" role="alert">Password not changed: {{ pw_error }}</p>{% endif %}
 
 <section class="hero-profile">
   <div class="hero-stage hero-stage-profile" id="hero-stage">
@@ -37,21 +39,36 @@
     </ul>
 
     <div class="hero-actions">
-      <a class="btn btn-primary" href="{{ url_for('grower_customize', grower_id=hero.id) }}">Customize</a>
-      {% if playing_hero_id == hero.id %}
-        <span class="btn btn-ghost is-static">Playing as {{ hero.name }}</span>
-      {% else %}
-        <form method="post" action="{{ url_for('grower_play', grower_id=hero.id) }}">
-          <button type="submit" class="btn btn-ghost">Play as {{ hero.name }}</button>
+      {% if can_edit %}
+        <a class="btn btn-primary" href="{{ url_for('grower_customize', grower_id=hero.id) }}">Customize</a>
+      {% endif %}
+      {% if current_user and current_user.id == hero.id %}
+        <a class="btn btn-ghost" href="{{ url_for('account') }}">Account</a>
+        <form method="post" action="{{ url_for('logout') }}">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-ghost">Log out</button>
         </form>
       {% endif %}
     </div>
+    {% if not has_account %}
+      <p class="auth-note">This hero has no password yet. {{ hero.name }} can claim it by signing up with the name “{{ hero.name }}”.</p>
+    {% elif current_user and current_user.is_admin and current_user.id != hero.id %}
+      <details class="admin-box">
+        <summary>Admin: set a new password for {{ hero.name }}</summary>
+        <form method="post" action="{{ url_for('grower_reset_password', grower_id=hero.id) }}">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <input type="password" name="password" minlength="6" placeholder="New password" autocomplete="new-password" required>
+          <input type="password" name="confirm" minlength="6" placeholder="Again" autocomplete="new-password" required>
+          <button type="submit" class="btn btn-ghost">Set password</button>
+        </form>
+      </details>
+    {% endif %}
     <p class="timestamp">Growing since {{ hero.joined_at[:10] }}</p>
   </div>
 </section>
 
 <h3>Assets</h3>
-{% if session.get('logged_in') %}
+{% if current_user %}
 <p><a href="{{ url_for('asset_new', grower_id=grower.id) }}">+ Add a plant or worm bin</a></p>
 {% endif %}
 <div class="grid">

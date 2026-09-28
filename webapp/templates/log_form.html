@@ -2,6 +2,7 @@
 {% block title %}Log Event{% endblock %}
 {% block content %}
 <form method="post" class="login-form">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
   <h2>Log an event</h2>
   <select name="log_type" required>
     {% for t in log_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}

@@ -2,6 +2,7 @@
 {% block title %}Add Asset{% endblock %}
 {% block content %}
 <form method="post" class="login-form">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
   <h2>Add a plant or worm bin</h2>
   <select name="asset_type">
     {% for t in asset_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}

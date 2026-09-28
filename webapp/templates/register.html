@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Add a player' if current_user else 'Sign up' }}{% endblock %}
+{% block content %}
+<form method="post" class="auth-card" autocomplete="off">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  {% if current_user %}
+    <h2>Add a player</h2>
+    <p class="auth-sub">Create an account for someone else. Tell them the name and password; they can change the password later. You stay logged in as {{ current_user.name }}.</p>
+  {% else %}
+    <h2>Create your account</h2>
+    <p class="auth-sub">Pick a hero name and a password. You'll choose your hero's look next.</p>
+  {% endif %}
+  {% if first_account %}
+    <p class="auth-note">This is the first account, so it will be the <strong>admin</strong> (can help players who forget their password).</p>
+  {% endif %}
+  {% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
+  <label class="hero-field">
+    <span class="hero-field-label">Hero name</span>
+    <input type="text" name="name" value="{{ name }}" maxlength="20" autocomplete="username" autocapitalize="none" required autofocus>
+    <span class="hero-field-hint">This is also your log-in name. Already have a hero from before without a password? Use the same name to claim it.</span>
+  </label>
+  <label class="hero-field">
+    <span class="hero-field-label">Password</span>
+    <input type="password" name="password" minlength="6" autocomplete="new-password" required>
+    <span class="hero-field-hint">At least 6 characters</span>
+  </label>
+  <label class="hero-field">
+    <span class="hero-field-label">Password again</span>
+    <input type="password" name="confirm" minlength="6" autocomplete="new-password" required>
+  </label>
+  <button type="submit" class="btn btn-primary auth-submit">{{ 'Create account' if current_user else 'Create account & choose look' }}</button>
+  {% if not current_user %}<p class="auth-alt">Already have an account? <a href="{{ url_for('login') }}">Log in</a></p>{% endif %}
+</form>
+{% endblock %}

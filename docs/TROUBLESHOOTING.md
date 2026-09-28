@@ -143,3 +143,14 @@ journalctl -u nevet-webapp.service -f
      misses in a row.
 3. Test the watchdog without changing anything:
    `NEVET_WATCHDOG_DRY_RUN=1 ./scripts/wifi_watchdog.sh`
+
+## Can't log in / forgot password
+
+- No account yet: open the web app, tap **Sign up**. The first account
+  is the admin. Signing up with an existing hero's name (e.g. `M`)
+  claims it if it has no password yet.
+- Forgot password: the admin can set a new one on that player's hero
+  page. If the admin forgot theirs, on the Pi run (as your normal user):
+  `python3 scripts/users.py reset-password NAME`
+- "Too many wrong tries": wait 5 minutes, or restart the web app
+  (`sudo systemctl restart nevet-webapp`) to clear it.

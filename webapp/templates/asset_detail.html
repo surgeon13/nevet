@@ -8,7 +8,7 @@
   {% if asset.grower_name %} · grown by <a href="{{ url_for('grower_page', grower_id=asset.grower_id) }}">{{ asset.grower_name }}</a>{% endif %}
 </p>
 
-{% if session.get('logged_in') %}
+{% if current_user %}
 <p><a href="{{ url_for('log_new', asset_id=asset.id) }}">+ Log an event</a></p>
 {% endif %}
 

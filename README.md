@@ -43,9 +43,10 @@ sudo ./install.sh 5 15     # photo every 5 min, check for updates every 15 min
                            # (defaults 5 and 15; use "off" to disable updates)
 ```
 
-The installer creates `.env` from `config/.env.example` on first run — **edit
-it** (`WEBAPP_PASSWORD`, `WEBAPP_API_KEY`, `WEBAPP_SECRET`) before relying on
-the login page, then:
+The installer creates `.env` from `config/.env.example` on first run. The
+defaults work; change `WEBAPP_API_KEY` if other devices post stats, and set
+`WEBAPP_OPEN_SIGNUP=false` if only existing players should add accounts. After
+editing it:
 
 ```bash
 sudo systemctl daemon-reload && sudo systemctl restart nevet-webapp
@@ -127,11 +128,37 @@ tail -f ~/camera_captures/logs/webapp.log
 The same three logs are also viewable live, color-coded, auto-refreshing
 every 5s, at `/logs` in the web app (login required).
 
+## Accounts
+
+Everything in the web app needs a log-in. Each player has an account:
+a hero name and a password (stored only as a salted hash).
+
+- **First time:** open the web app and **Sign up**. The first account
+  becomes the **admin**. If you already had heroes from before (like
+  `M`), sign up with the same name to claim that hero with its plants
+  and logs.
+- **Adding people:** anyone can sign up from the log-in page, or a
+  logged-in player uses **Add a player** on the Heroes page. Set
+  `WEBAPP_OPEN_SIGNUP=false` in `.env` to allow only the second way.
+- **Forgot a password:** the admin opens that player's hero page and
+  sets a new one, or on the Pi (as your normal user, not sudo):
+
+```bash
+python3 scripts/users.py list
+python3 scripts/users.py reset-password NAME
+python3 scripts/users.py make-admin NAME
+```
+
+You stay logged in for 30 days per device. Players can change their
+password on the **Account** page (from their hero page). After 8 wrong
+passwords from one device, log-in pauses for a few minutes.
+
 ## Heroes
 
 Growers are RPG-style heroes at `/growers` (the **Heroes** link in the
-nav). Anyone can create one with just a username, no password, then
-pick a class and customize looks and gear with a live 3D preview.
+nav). Every account is a hero: pick a class and customize looks and
+gear with a live 3D preview. Players can edit their own hero; the admin
+can edit any.
 Levels and XP come from real farm activity. Heroes are drawn by code
 from `webapp/static/assets/heroes/catalog.json`; see the README in that
 folder for adding items or real artwork.
