@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Camera gallery + game stats web app for the Insta360 Pi camera project."""
 import os
+import re
 import json
 import sqlite3
-import functools
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, jsonify, abort, g
 from logging_config import setup_logging, LOGS_DIR
+import activity_views as av
 import auth
 import farm_db
 import heroes
@@ -26,6 +27,7 @@ app.config.update(
     PERMANENT_SESSION_LIFETIME=timedelta(days=30),   # stay logged in for a month
 )
 logger = setup_logging(app)
+av.register(app)
 
 # Pages anyone can open without logging in. Everything else needs an account.
 PUBLIC_ENDPOINTS = {"login", "register", "healthz", "static", "api_add_stats"}
@@ -64,16 +66,6 @@ def get_db():
         )
     """)
     return conn
-
-
-def login_required(view):
-    """Explicit marker; the before_request gate already enforces login."""
-    @functools.wraps(view)
-    def wrapped(*args, **kwargs):
-        if not g.user:
-            return redirect(url_for("login", next=request.full_path))
-        return view(*args, **kwargs)
-    return wrapped
 
 
 def safe_next(target):
@@ -179,10 +171,17 @@ def scan_assets():
 
 @app.route("/")
 def hub():
+    banner = session.pop("banner", None)      # set once by _after_logging, shown once
+    if banner:
+        banner["label"] = av.action_meta(banner.get("action"))["label"]
     return render_template(
         "console.html",
         summary=farm_db.dashboard_summary(),
-        recent=recent_photos(9),
+        recent=recent_photos(3),
+        everyone=av.activity_bundle(None),
+        mine=av.activity_bundle(g.user["id"]),
+        players=farm_db.player_activity(),
+        banner=banner,
     )
 
 
@@ -223,12 +222,10 @@ def growers_page():
     return render_template("growers.html", heroes=roster, catalog=heroes.catalog())
 
 
-def render_hero_form(mode, hero_id=None, name="", hero_class=None, appearance=None, error=None, welcome=False):
+def render_hero_form(hero_id, name, hero_class, appearance, error=None, welcome=False):
     cat = heroes.catalog()
-    if appearance is None:
-        hero_class, appearance = heroes.default_appearance(name or "new hero", hero_class or cat["classes"][0]["id"])
     return render_template(
-        "hero_form.html", mode=mode, hero_id=hero_id, name=name, error=error, welcome=welcome,
+        "hero_form.html", hero_id=hero_id, name=name, error=error, welcome=welcome,
         hero_class=heroes.normalize_class(hero_class), appearance=appearance, catalog=cat,
     )
 
@@ -258,9 +255,9 @@ def grower_customize(grower_id):
                 error = f"The name “{name}” is already taken. Try another one."
             else:
                 return redirect(url_for("grower_page", grower_id=grower_id))
-        return render_hero_form("edit", grower_id, name, hero_class, appearance, error)
+        return render_hero_form(grower_id, name, hero_class, appearance, error)
     hero_class, appearance = heroes.hero_for_row(row)
-    return render_hero_form("edit", grower_id, row["name"], hero_class, appearance,
+    return render_hero_form(grower_id, row["name"], hero_class, appearance,
                             welcome=request.args.get("welcome") == "1")
 
 
@@ -283,34 +280,22 @@ def grower_reset_password(grower_id):
 
 @app.route("/growers/<int:grower_id>")
 def grower_page(grower_id):
-    grower, assets, logs = farm_db.grower_summary(grower_id)
+    grower = farm_db.get_grower(grower_id)
     if not grower:
         abort(404)
     hero = hero_view(grower, farm_db.grower_counts(grower_id))
+    bundle = av.activity_bundle(grower_id)
     return render_template(
-        "grower_detail.html", grower=grower, hero=hero, assets=assets, logs=logs,
+        "grower_detail.html", grower=grower, hero=hero, b=bundle, is_me=g.user["id"] == grower_id,
         catalog=heroes.catalog(), can_edit=can_edit_hero(grower_id),
         has_account=bool(grower["password_hash"]), created=request.args.get("created") == "1",
         pw_set=request.args.get("pw_set") == "1", pw_error=request.args.get("pw_error"),
     )
 
 
-@app.route("/growers/<int:grower_id>/assets/new", methods=["GET", "POST"])
-@login_required
+@app.route("/growers/<int:grower_id>/assets/new")
 def asset_new(grower_id):
-    if request.method == "POST":
-        asset_id = farm_db.add_asset(
-            asset_type=request.form.get("asset_type", "plant"),
-            name=request.form.get("name", "").strip(),
-            grower_id=grower_id,
-            variety=request.form.get("variety") or None,
-            life_stage=request.form.get("life_stage") or None,
-        )
-        return redirect(url_for("asset_page", asset_id=asset_id))
-    return render_template(
-        "asset_form.html", grower_id=grower_id,
-        asset_types=farm_db.ASSET_TYPES, stages=farm_db.PLANT_STAGES,
-    )
+    return redirect(url_for("plant_new"))
 
 
 @app.route("/assets")
@@ -326,35 +311,137 @@ def assets_page():
 
 @app.route("/assets/<int:asset_id>")
 def asset_page(asset_id):
-    asset, logs, quantities = farm_db.asset_detail(asset_id)
+    asset = farm_db.get_asset(asset_id)
     if not asset:
         abort(404)
-    return render_template("asset_detail.html", asset=asset, logs=logs, quantities=quantities)
+    return render_template("asset_detail.html", asset=asset,
+                           history=farm_db.recent_activity(asset_id=asset_id, limit=100))
 
 
-@app.route("/assets/<int:asset_id>/logs/new", methods=["GET", "POST"])
-@login_required
+@app.route("/assets/<int:asset_id>/logs/new")
 def log_new(asset_id):
+    return redirect(url_for("log_action", asset=asset_id))
+
+
+def _after_logging(before, action, n, whole=False, plant=None):
+    """Back to the dashboard with a one-time 'logged, +XP' banner."""
+    after = heroes.progress(**farm_db.grower_counts(g.user["id"]))
+    session["banner"] = {"action": action, "n": n, "whole": whole, "new_plant": plant,
+                         "xp": after["xp"] - before["xp"],
+                         "level": after["level"] if after["level"] > before["level"] else None}
+    return redirect(url_for("hub") + "#activity")
+
+
+@app.route("/log", methods=["GET", "POST"])
+def log_action():
+    """One screen: what did you do, on which plants, any details."""
+    me = g.user["id"]
+    error = None
+    form = request.form if request.method == "POST" else {}
     if request.method == "POST":
-        qty_value = request.form.get("qty_value")
-        quantities = None
-        if qty_value:
-            quantities = [{
-                "measure": request.form.get("qty_measure", "count"),
-                "value": float(qty_value),
-                "units": request.form.get("qty_units") or None,
-                "label": request.form.get("qty_label") or None,
-            }]
-        farm_db.add_log(
-            log_type=request.form.get("log_type"),
-            asset_id=asset_id,
-            notes=request.form.get("notes") or None,
-            recipient=request.form.get("recipient") or None,
-            location=request.form.get("location") or None,
-            quantities=quantities,
-        )
-        return redirect(url_for("asset_page", asset_id=asset_id))
-    return render_template("log_form.html", asset_id=asset_id, log_types=farm_db.LOG_TYPES)
+        action = request.form.get("action", "")
+        meta = farm_db.ACTION_BY_ID.get(action)
+        wanted = [int(x) for x in request.form.getlist("asset") if x.isdigit()]
+        targets = farm_db.assets_by_ids(wanted)
+        whole = request.form.get("whole_garden") == "1"
+        amount = request.form.get("amount", "").strip().replace(",", ".")
+        unit = request.form.get("unit") if request.form.get("unit") in av.AMOUNT_UNITS else "g"
+        stage = request.form.get("stage") if request.form.get("stage") in ("germination", "seedling", "growing", "mature") else None
+        if action == "harvest" and request.form.get("final") == "1":
+            stage = "harvested"
+        if not meta or meta.get("new_plant") or meta.get("legacy"):
+            error = "Pick what you did."
+        elif not targets and not whole:
+            error = "Pick at least one plant, or “Whole garden”."
+        elif amount and not re.fullmatch(r"\d+(\.\d+)?", amount):
+            error = "The amount should be a number, like 250 or 1.5."
+        if not error:
+            before = heroes.progress(**farm_db.grower_counts(me))
+            notes = (request.form.get("notes") or "").strip()[:500] or None
+            recipient = (request.form.get("recipient") or "").strip()[:80] or None if meta.get("recipient") else None
+            for asset in targets:
+                qty = None
+                if amount and meta.get("amount"):
+                    qty = [{"measure": "weight" if unit in ("g", "kg") else "count",
+                            "value": float(amount), "units": unit, "label": asset["name"]}]
+                farm_db.add_log(action, asset["id"], notes=notes, recipient=recipient, quantities=qty,
+                                grower_id=me, new_stage=stage)
+            if whole:
+                qty = [{"measure": "weight" if unit in ("g", "kg") else "count", "value": float(amount),
+                        "units": unit, "label": "garden"}] if amount and meta.get("amount") else None
+                farm_db.add_log(action, None, notes=notes, recipient=recipient, quantities=qty, grower_id=me)
+            logger.info("%s logged %s x%d%s", g.user["name"], action, len(targets), " + whole garden" if whole else "")
+            return _after_logging(before, action, len(targets), whole)
+    growing = farm_db.plants(None, current=True)
+    mine = [p for p in growing if p["grower_id"] == me]
+    others = [p for p in growing if p["grower_id"] != me]
+    if request.method == "POST":
+        selected = {int(x) for x in request.form.getlist("asset") if x.isdigit()}
+    else:
+        selected = {request.args.get("asset", type=int)} - {None}
+    return render_template(
+        "log_action.html", error=error, form=form,
+        actions=[a for a in farm_db.ACTIONS if not a.get("legacy") and not a.get("new_plant")],
+        selected_action=form.get("action") or request.args.get("action", ""),
+        mine=mine, others=others, selected=selected, units=av.AMOUNT_UNITS,
+    )
+
+
+@app.route("/plants/new", methods=["GET", "POST"])
+def plant_new():
+    """Add a plant or worm bin you look after; logs the planting as your action."""
+    error = None
+    form = request.form if request.method == "POST" else {"how": request.args.get("how", "planting"), "asset_type": "plant"}
+    if request.method == "POST":
+        name = " ".join(request.form.get("name", "").split())[:40]
+        variety = " ".join(request.form.get("variety", "").split())[:40] or None
+        kind = request.form.get("asset_type") if request.form.get("asset_type") in farm_db.ASSET_TYPES else "plant"
+        how = request.form.get("how") if request.form.get("how") in ("seeding", "planting", "growing") else "planting"
+        if not name:
+            error = "Give it a name, like “Cherry tomato” or “Worm bin 2”."
+        else:
+            before = heroes.progress(**farm_db.grower_counts(g.user["id"]))
+            if kind == "worm_bin":
+                aid = farm_db.add_asset("worm_bin", name, g.user["id"], variety=variety)
+                farm_db.add_log("setup", aid, notes=request.form.get("notes") or None, grower_id=g.user["id"])
+                action = "setup"
+            else:
+                stage = {"seeding": "seed", "planting": "seedling", "growing": "growing"}[how]
+                aid = farm_db.add_asset("plant", name, g.user["id"], variety=variety, life_stage=stage)
+                action = "seeding" if how == "seeding" else "planting"
+                farm_db.add_log(action, aid, notes=request.form.get("notes") or None,
+                                grower_id=g.user["id"], new_stage=stage)
+            logger.info("%s added %s %s", g.user["name"], kind, name)
+            return _after_logging(before, action, 1, plant=name)
+    return render_template("plant_new.html", error=error, form=form)
+
+
+@app.route("/activity")
+def activity():
+    """Full history with filters: who, what, which plant, when."""
+    who = request.args.get("who", type=int)
+    kind = request.args.get("type") if request.args.get("type") in farm_db.LOG_TYPES else None
+    plant = request.args.get("plant", type=int)
+    period = request.args.get("period") if request.args.get("period") in ("7", "30", "90") else "all"
+    page = max(request.args.get("page", 1, type=int), 1)
+    per_page = 60
+    since = (datetime.now() - timedelta(days=int(period))).date().isoformat() if period != "all" else None
+    rows = farm_db.recent_activity(who, kind, plant, since, limit=per_page + 1, offset=(page - 1) * per_page)
+    has_more = len(rows) > per_page
+    rows = rows[:per_page]
+    conn = farm_db.get_conn()
+    all_growers = conn.execute("SELECT id, name FROM growers ORDER BY name COLLATE NOCASE").fetchall()
+    all_assets = conn.execute("SELECT id, name, asset_type FROM assets ORDER BY name COLLATE NOCASE").fetchall()
+    used_types = [r[0] for r in conn.execute("SELECT DISTINCT log_type FROM logs")]
+    conn.close()
+    action_opts = [a for a in farm_db.ACTIONS if not a.get("legacy") or a["id"] in used_types]
+    params = {k: v for k, v in {"who": who, "type": kind, "plant": plant,
+                                 "period": None if period == "all" else period}.items() if v}
+    return render_template(
+        "activity.html", groups=av.group_by_day(rows), who=who, kind=kind, plant=plant, period=period,
+        page=page, has_more=has_more, params=params, growers=all_growers, assets=all_assets,
+        action_opts=action_opts, totals=farm_db.activity_totals(who) if not (kind or plant or since) else None,
+    )
 
 
 @app.route("/media/<path:filepath>")
@@ -390,8 +477,13 @@ def login():
                 error = f"The hero “{row['name']}” has no password yet. Sign up with that name to claim it."
             else:
                 error = "Wrong name or password."
-    return render_template("login.html", error=error, name=name,
-                           no_accounts=farm_db.account_count() == 0, open_signup=auth.open_signup())
+    players, unclaimed = farm_db.list_players()
+    return render_template(
+        "login.html", error=error, name=name, open_signup=auth.open_signup(),
+        no_accounts=not players, catalog=heroes.catalog(),
+        players=[{"name": p["name"], "appearance": heroes.hero_for_row(p)[1]} for p in players],
+        unclaimed=[u["name"] for u in unclaimed],
+    )
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -403,7 +495,7 @@ def register():
     if not g.user and not auth.open_signup() and not first_account:
         return render_template("message.html", title="Sign-up is closed",
                                message="Ask a player who already has an account to add you."), 403
-    error, name = None, ""
+    error, name = None, (request.args.get("name") or "")[:20]
     if request.method == "POST":
         name, error = heroes.validate_name(request.form.get("name"))
         password = request.form.get("password", "")
@@ -457,7 +549,6 @@ def account():
 
 
 @app.route("/stats")
-@login_required
 def stats():
     conn = get_db()
     latest = conn.execute("SELECT * FROM stats_log ORDER BY id DESC LIMIT 1").fetchone()
@@ -467,13 +558,11 @@ def stats():
 
 
 @app.route("/logs")
-@login_required
 def logs_page():
     return render_template("logs.html")
 
 
 @app.route("/api/logs")
-@login_required
 def api_logs():
     return jsonify({name: tail_lines(path) for name, path in LOG_FILES.items()})
 

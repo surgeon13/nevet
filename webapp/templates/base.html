@@ -16,40 +16,50 @@
 </script>
 </head>
 <body>
-<nav class="topnav">
+<nav class="topnav{% if current_user %} has-user{% endif %}">
   <a href="{{ url_for('hub') }}" class="brand">📷 Nevet</a>
+  {% if current_user %}
+  <a href="{{ url_for('grower_page', grower_id=current_user.id) }}" class="nav-heroes" title="Your hero"><span class="nav-hero-dot" aria-hidden="true"></span><span class="nav-hero-name">{{ current_user.name }}</span></a>
+  {% endif %}
   <div class="nav-links">
     {% if current_user %}
-      <a href="{{ url_for('grower_page', grower_id=current_user.id) }}" class="nav-heroes" title="Your hero"><span class="nav-hero-dot" aria-hidden="true"></span><span class="nav-hero-name">{{ current_user.name }}</span></a>
+      <a href="{{ url_for('activity') }}">Activity</a>
       <a href="{{ url_for('growers_page') }}">Heroes</a>
       <a href="{{ url_for('gallery') }}">Gallery</a>
-      <a href="{{ url_for('stats') }}">Stats</a>
-      <a href="{{ url_for('logs_page') }}">Logs</a>
+      <a href="{{ url_for('logs_page') }}" title="System logs">System</a>
     {% else %}
       <a href="{{ url_for('login') }}">Log in</a>
       <a href="{{ url_for('register') }}">Sign up</a>
     {% endif %}
-    <button type="button" class="theme-toggle" onclick="toggleNevetTheme()" aria-label="Toggle light and dark mode">
-      <svg id="nevet-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="4"></circle>
-        <line x1="12" y1="2" x2="12" y2="4"></line>
-        <line x1="12" y1="20" x2="12" y2="22"></line>
-        <line x1="4.2" y1="4.2" x2="5.6" y2="5.6"></line>
-        <line x1="18.4" y1="18.4" x2="19.8" y2="19.8"></line>
-        <line x1="2" y1="12" x2="4" y2="12"></line>
-        <line x1="20" y1="12" x2="22" y2="12"></line>
-        <line x1="4.2" y1="19.8" x2="5.6" y2="18.4"></line>
-        <line x1="18.4" y1="5.6" x2="19.8" y2="4.2"></line>
-      </svg>
-      <svg id="nevet-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
-        <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
-      </svg>
-    </button>
   </div>
+  <button type="button" class="theme-toggle" onclick="toggleNevetTheme()" aria-label="Toggle light and dark mode">
+    <svg id="nevet-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"></circle>
+      <line x1="12" y1="2" x2="12" y2="4"></line>
+      <line x1="12" y1="20" x2="12" y2="22"></line>
+      <line x1="4.2" y1="4.2" x2="5.6" y2="5.6"></line>
+      <line x1="18.4" y1="18.4" x2="19.8" y2="19.8"></line>
+      <line x1="2" y1="12" x2="4" y2="12"></line>
+      <line x1="20" y1="12" x2="22" y2="12"></line>
+      <line x1="4.2" y1="19.8" x2="5.6" y2="18.4"></line>
+      <line x1="18.4" y1="5.6" x2="19.8" y2="4.2"></line>
+    </svg>
+    <svg id="nevet-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+      <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
+    </svg>
+  </button>
 </nav>
 <main>
 {% block content %}{% endblock %}
 </main>
+{% block fab %}
+{% if current_user %}
+<a class="fab" href="{{ url_for('log_action') }}" aria-label="Log an action">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+  <span>Log</span>
+</a>
+{% endif %}
+{% endblock %}
 <script>
   function updateNevetThemeIcon() {
     var isDark = document.documentElement.getAttribute('data-theme') === 'dark';

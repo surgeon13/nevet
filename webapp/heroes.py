@@ -38,15 +38,6 @@ def class_by_id(class_id):
     return catalog()["classes"][0]
 
 
-def option(cat_id, opt_id):
-    for cat in categories():
-        if cat["id"] == cat_id:
-            for o in cat["options"]:
-                if o["id"] == opt_id:
-                    return o
-    return None
-
-
 def _pick(options, byte):
     return options[byte % len(options)]["id"]
 

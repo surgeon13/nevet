@@ -1,25 +1,133 @@
 {% extends "base.html" %}
 {% block title %}Log in{% endblock %}
 {% block content %}
-<form method="post" class="auth-card" autocomplete="on">
-  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-  <h2>Log in</h2>
+<div class="auth-card auth-wide" id="login-card">
   {% if no_accounts %}
-    <p class="auth-note">There are no accounts yet. <a href="{{ url_for('register') }}">Sign up</a> to create the first one; it becomes the admin.</p>
+    <h2>Welcome to Nevet</h2>
+    <p class="auth-note">There are no players yet. <a href="{{ url_for('register') }}">Create the first account</a>; it becomes the admin.</p>
+  {% else %}
+    <h2>Who's playing?</h2>
+    <p class="auth-sub picker-hint">Tap your hero, then enter your password.</p>
+    <div class="picker" id="picker">
+      {% for p in players %}
+      <button type="button" class="picker-hero" data-name="{{ p.name }}" data-appearance='{{ p.appearance | tojson }}'>
+        <span class="picker-portrait"><span class="hero-initial">{{ p.name[:1] | upper }}</span></span>
+        <span class="picker-name">{{ p.name }}</span>
+      </button>
+      {% endfor %}
+      {% if open_signup %}
+      <a class="picker-hero picker-new" href="{{ url_for('register') }}">
+        <span class="picker-portrait"><span class="hero-slot-plus" aria-hidden="true">+</span></span>
+        <span class="picker-name">New player</span>
+      </a>
+      {% endif %}
+    </div>
   {% endif %}
-  {% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
-  <label class="hero-field">
-    <span class="hero-field-label">Hero name</span>
-    <input type="text" name="name" value="{{ name }}" autocomplete="username" autocapitalize="none" required {% if not name %}autofocus{% endif %}>
-  </label>
-  <label class="hero-field">
-    <span class="hero-field-label">Password</span>
-    <input type="password" name="password" autocomplete="current-password" required {% if name %}autofocus{% endif %}>
-  </label>
-  <button type="submit" class="btn btn-primary auth-submit">Log in</button>
-  {% if open_signup or no_accounts %}
-  <p class="auth-alt">New here? <a href="{{ url_for('register') }}">Create an account</a></p>
+
+  {% if not no_accounts %}
+  <form method="post" class="picker-form" id="login-form" autocomplete="on">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    {% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
+    <p class="picker-selected" id="picker-selected" hidden>
+      Password for <strong id="picker-selected-name"></strong>
+      <button type="button" class="link-btn" id="picker-change">Not you?</button>
+    </p>
+    <label class="hero-field" id="name-field">
+      <span class="hero-field-label">Hero name</span>
+      <input type="text" name="name" id="login-name" value="{{ name }}" autocomplete="username" autocapitalize="none" required>
+    </label>
+    <label class="hero-field" id="password-field">
+      <span class="hero-field-label">Password</span>
+      <input type="password" name="password" id="login-password" autocomplete="current-password" required>
+    </label>
+    <button type="submit" class="btn btn-primary auth-submit">Log in</button>
+    <p class="auth-alt auth-small"><button type="button" class="link-btn" id="type-name" hidden>Type a name instead</button></p>
+    <p class="auth-alt auth-small">Forgot your password? Ask an admin to set a new one.</p>
+  </form>
   {% endif %}
-  <p class="auth-alt auth-small">Forgot your password? Ask an admin to set a new one.</p>
-</form>
+
+  {% if unclaimed %}
+  <div class="unclaimed-list">
+    <p class="auth-small muted">Heroes without a password yet, tap to claim yours:</p>
+    {% for u in unclaimed %}<a class="chip" href="{{ url_for('register', name=u) }}"><span class="chip-name">{{ u }}</span></a>{% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+{% if players %}
+<script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/nevet3d.js') }}"></script>
+<script src="{{ url_for('static', filename='js/hero3d.js') }}"></script>
+<script>
+(function () {
+  var CATALOG = {{ catalog | tojson }};
+  var form = document.getElementById('login-form');
+  var nameInput = document.getElementById('login-name');
+  var pw = document.getElementById('login-password');
+  var nameField = document.getElementById('name-field');
+  var pwField = document.getElementById('password-field');
+  var submit = form.querySelector('button[type=submit]');
+  var selected = document.getElementById('picker-selected');
+  var heroes = Array.prototype.slice.call(document.querySelectorAll('.picker-hero[data-name]'));
+  var typeName = document.getElementById('type-name');
+  var LAST = 'nevet-last-hero';
+
+  function mode(state) {           // 'pick' | 'password' | 'typing'
+    nameField.hidden = state !== 'typing';
+    pwField.hidden = state === 'pick';
+    submit.hidden = state === 'pick';
+    selected.hidden = state !== 'password';
+    typeName.hidden = state === 'typing';
+  }
+  function choose(btn, focus) {
+    heroes.forEach(function (h) { h.classList.toggle('is-selected', h === btn); });
+    nameInput.value = btn.dataset.name;
+    document.getElementById('picker-selected-name').textContent = btn.dataset.name;
+    mode('password');
+    if (focus !== false) pw.focus();
+  }
+  heroes.forEach(function (h) { h.addEventListener('click', function () { choose(h); }); });
+  document.getElementById('picker-change').addEventListener('click', function () {
+    heroes.forEach(function (h) { h.classList.remove('is-selected'); });
+    pw.value = ''; mode('pick');
+  });
+  typeName.addEventListener('click', function () {
+    heroes.forEach(function (h) { h.classList.remove('is-selected'); });
+    nameInput.value = ''; mode('typing'); nameInput.focus();
+  });
+  form.addEventListener('submit', function () { try { localStorage.setItem(LAST, nameInput.value); } catch (e) {} });
+
+  // Last player on this device goes first; after a failed try, reselect that hero.
+  var last = null; try { last = localStorage.getItem(LAST); } catch (e) {}
+  var picker = document.getElementById('picker');
+  heroes.forEach(function (h) {
+    if (last && h.dataset.name.toLowerCase() === last.toLowerCase()) {
+      picker.insertBefore(h, picker.firstChild);
+      h.classList.add('is-last');
+    }
+  });
+  var retry = nameInput.value && heroes.filter(function (h) { return h.dataset.name.toLowerCase() === nameInput.value.toLowerCase(); })[0];
+  if (retry) choose(retry);
+  else if (nameInput.value) { mode('typing'); pw.focus(); }
+  else if (heroes.length === 1) choose(heroes[0], false);
+  else mode('pick');
+
+  // Hero portraits (letter badges stay if 3D isn't available)
+  if (!window.NevetHero || !NevetHero.supported()) return;
+  var i = 0;
+  (function next() {
+    if (i >= heroes.length) return;
+    var h = heroes[i++];
+    try {
+      var img = new Image();
+      img.alt = '';
+      img.src = NevetHero.snapshot(JSON.parse(h.dataset.appearance), CATALOG, 180, 210);
+      var slot = h.querySelector('.picker-portrait');
+      slot.innerHTML = ''; slot.appendChild(img);
+    } catch (e) {}
+    requestAnimationFrame(next);
+  })();
+})();
+</script>
+{% endif %}
 {% endblock %}

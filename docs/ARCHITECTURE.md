@@ -3,7 +3,7 @@
 Nevet runs entirely on a Raspberry Pi 3B, attached to an Insta360 Air
 camera over USB (it exposes itself as a standard UVC webcam at
 `/dev/video0` — no vendor SDK involved). Everything is orchestrated by
-systemd: three services/timers run continuously in the background,
+systemd: the web app plus three timers (timelapse, watchdog, auto-update) run in the background,
 independent of any SSH session being open.
 
 ## Component overview
@@ -42,7 +42,7 @@ independent of any SSH session being open.
                        nevet-webapp.service
 ```
 
-All three services are `enable`d, so they survive reboots, SSH
+All the services are `enable`d, so they survive reboots, SSH
 disconnects, and crashes (`Restart=always` on the webapp; timers
 re-fire the oneshots on schedule regardless of prior success/failure).
 
@@ -103,48 +103,43 @@ runs as a systemd service or timer instead:
 - **`nevet-watchdog.timer`** — same pattern, every 2 minutes, running
   `wifi_watchdog.sh`.
 
-## The WiFi watchdog's escalation logic
+## The WiFi watchdog
 
-1. Every run: ping `8.8.8.8` (falling back to the default gateway).
-   Log the outcome — `OK` with latency/signal, or `FAIL` — regardless
-   of whether it succeeded, so `watchdog.log` is a continuous timeline
-   rather than only failure events.
-2. On failure: attempt reconnection via `nmcli` (bring the active
-   WiFi connection down and back up, or toggle the radio if none is
-   found), wait 10s, and re-check.
-3. A consecutive-failure counter persists across runs in
-   `.watchdog_fail_count`. After **3 consecutive failed cycles**
-   (roughly 6 minutes at the default 2-minute interval), the script
-   reboots the Pi as a last resort.
-4. Because all three systemd units are `enable`d, a reboot brings
-   photo capture, the web app, and the watchdog itself back online
-   automatically — no manual re-login or re-start needed.
+Runs every 2 minutes and **never reboots the Pi** (photo capture and the
+database work offline). Each run:
 
-The watchdog also does a lightweight health check each run (camera
-device present, capture scripts executable, the other two services
-active) and logs any problems it finds, without taking action on
-those — they're visibility, not auto-remediated.
+1. Checks the internet over HTTP/TCP (ping alone is blocked on many
+   networks) and tells apart *link down* (no IP / router unreachable)
+   from *internet down but WiFi fine*.
+2. Link down: reconnects, escalating from a device reconnect to a WiFi
+   radio off/on to a NetworkManager restart (at most every ~10 min).
+   Internet down only: logs it and leaves WiFi alone.
+3. Checks the web app on `/healthz` and restarts it after two misses.
+4. Logs signal, under-voltage, temperature, memory and disk every time.
+
+`scripts/health_report.sh` summarises the last 24 hours.
 
 ## The web app
 
-A small Flask app, deliberately kept to a handful of files:
+A Flask app served by waitress on port 8000:
 
-- **Gallery (`/`)** — scans `camera_captures/{photos,videos}/` at
-  request time (no caching/database for media — the filesystem *is*
-  the source of truth) and renders a date-grouped view with counts and
-  total storage used.
-- **Accounts (`/login`, `/register`, `/account`)** — every page except
-  `/healthz` and the API-key stats endpoint needs a log-in. Players are
-  growers with a `password_hash` (werkzeug salted hash); the first
-  account is admin. Forms carry a per-session token (CSRF), the session
-  cookie is SameSite=Lax and lasts 30 days, and repeated wrong
-  passwords from one address are paused (`webapp/auth.py`).
-- **Stats (`/stats`)** — reads the `stats_log` SQLite table (see
-  `docs/API.md`) and shows the latest snapshot plus a 50-row history.
-- **Logs (`/logs`)** — polls `/api/logs` every 5 seconds and renders
-  three color-coded console panels (watchdog / capture / webapp),
-  tailing the last 150 lines of each log file.
-- **`/api/stats`** and **`/api/logs`** — see `docs/API.md`.
+- **`app.py`** routes; **`auth.py`** passwords, session key, CSRF and
+  wrong-password limits; **`farm_db.py`** the farm database (players,
+  plants, actions) with in-place migrations; **`heroes.py`** hero
+  catalog, validation and XP; **`activity_views.py`** the dashboard /
+  profile / history data and small view helpers.
+- **Accounts** — every page except log-in, sign-up, `/healthz` and the
+  API-key stats endpoint needs a player log-in. Players are growers
+  with a salted password hash; the first account is admin.
+- **Actions** — every log records who did it (`logs.grower_id`), so
+  totals exist per player and for the whole garden: dashboard
+  (Everyone / Just me), hero profiles, and the filterable `/activity`
+  history.
+- **3D** — three.js (vendored in `static/js/`) draws the dashboard hub,
+  the plant garden and procedural heroes (`hero3d.js`); all of it runs
+  in the viewer's browser, not on the Pi.
+- **System logs (`/logs`)** — tails watchdog, capture, web app and
+  update logs every 5 seconds.
 
 See `docs/API.md` for the full HTTP surface and `docs/TROUBLESHOOTING.md`
 for known failure modes and fixes.

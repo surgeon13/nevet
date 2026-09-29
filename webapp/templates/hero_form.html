@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% block title %}{{ 'New hero' if mode == 'create' else 'Customize ' ~ name }}{% endblock %}
+{% block title %}Customize {{ name }}{% endblock %}
+{% block fab %}{% endblock %}
 {% block content %}
 <form method="post" class="hero-editor" id="hero-form" autocomplete="off">
   <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
@@ -16,14 +17,14 @@
 
   <div class="hero-editor-controls">
     {% if welcome %}<div class="hero-welcome" role="status">Welcome, <strong>{{ name }}</strong>! Your account is ready. Now pick your look, then save.</div>{% endif %}
-    <h2 class="hero-editor-title">{{ 'Create your hero' if mode == 'create' else ('Choose your look' if welcome else 'Customize hero') }}</h2>
+    <h2 class="hero-editor-title">{{ 'Choose your look' if welcome else 'Customize hero' }}</h2>
     {% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
 
     <label class="hero-field">
       <span class="hero-field-label">Hero name</span>
       <input type="text" name="name" id="hero-name" value="{{ name }}" minlength="1" maxlength="20" required
-             placeholder="Your name" {% if mode == 'create' %}autofocus{% endif %}>
-      <span class="hero-field-hint">{% if mode == 'edit' %}This is also the name you log in with{% else %}Your hero's name{% endif %}</span>
+             placeholder="Your name">
+      <span class="hero-field-hint">This is also the name you log in with</span>
     </label>
 
     <fieldset class="hero-classes">
@@ -76,8 +77,8 @@
     {% endfor %}
 
     <div class="hero-save-bar">
-      <a class="btn btn-ghost" href="{{ url_for('growers_page') if mode == 'create' else url_for('grower_page', grower_id=hero_id) }}">Cancel</a>
-      <button type="submit" class="btn btn-primary">{{ 'Create hero' if mode == 'create' else 'Save changes' }}</button>
+      <a class="btn btn-ghost" href="{{ url_for('grower_page', grower_id=hero_id) }}">Cancel</a>
+      <button type="submit" class="btn btn-primary">Save changes</button>
     </div>
   </div>
 </form>

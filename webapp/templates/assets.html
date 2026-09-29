@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Assets{% endblock %}
 {% block content %}
-<h2>Assets</h2>
+<div class="page-head page-head-row">
+  <h2>Plants</h2>
+  <a class="btn btn-primary btn-small" href="{{ url_for('plant_new') }}">+ Add a plant</a>
+</div>
 
 {% if garden %}
 <div class="garden-wrap" id="garden-wrap">

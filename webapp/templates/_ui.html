@@ -1,0 +1,94 @@
+{# Shared building blocks for activity pages. Import with:
+   {% import "_ui.html" as ui with context %} #}
+
+{% macro icon(name, size=20) -%}
+<svg class="ic" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ ICON_PATHS.get(name, ICON_PATHS['leaf']) | safe }}</svg>
+{%- endmacro %}
+
+{% macro kpis(b, growing_label='Growing now') %}
+<div class="kpi-row">
+  <div class="kpi"><span class="kpi-label">Actions</span><span class="kpi-value">{{ '{:,}'.format(b.total) }}</span><span class="kpi-sub">all time</span></div>
+  <div class="kpi"><span class="kpi-label">This week</span><span class="kpi-value">{{ '{:,}'.format(b.week) }}</span><span class="kpi-sub">last 7 days</span></div>
+  <div class="kpi"><span class="kpi-label">{{ growing_label }}</span><span class="kpi-value">{{ b.growing | length }}</span><span class="kpi-sub">plants &amp; bins</span></div>
+  <div class="kpi"><span class="kpi-label">Harvests</span><span class="kpi-value">{{ b.harvests }}</span><span class="kpi-sub">logged</span></div>
+</div>
+{% endmacro %}
+
+{# Actions by type: one series, so one colour and no legend; values sit at the bar ends. #}
+{% macro action_bars(totals, max_n) %}
+{% set grand = totals | sum(attribute=1) %}
+{% if totals %}
+<ul class="bars">
+  {% for t, n in totals %}{% set m = action_meta(t) %}
+  <li class="bar-row" tabindex="0" data-tip-value="{{ n }} action{{ 's' if n != 1 }}" data-tip-label="{{ m.label }} · {{ (100 * n / grand) | round | int }}% of all">
+    <span class="bar-label">{{ icon(m.icon, 16) }}<span>{{ m.label }}</span></span>
+    <span class="bar-track"><span class="bar-fill" style="width: {{ [100 * n / max_n, 1.5] | max }}%"></span></span>
+    <span class="bar-value">{{ n }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No actions logged yet.</p>
+{% endif %}
+{% endmacro %}
+
+{# Actions per day, last 14 days. Each column is its own hover/focus target. #}
+{% macro daily_chart(b) %}
+<div class="cols-chart">
+  <div class="cols-axis"><span>{{ b.daily_top }}</span><span>0</span></div>
+  <div class="cols" role="img" aria-label="Actions per day over the last 14 days">
+    {% for d in b.daily %}
+    <span class="col" tabindex="0" data-tip-value="{{ d.n }} action{{ 's' if d.n != 1 }}" data-tip-label="{{ d.tip }}">
+      <span class="col-fill" style="height: {{ d.pct }}%"></span>
+    </span>
+    {% endfor %}
+  </div>
+</div>
+<div class="cols-dates"><span>{{ b.daily[0].tip }}</span><span>Today</span></div>
+<details class="chart-table">
+  <summary>Show as table</summary>
+  <table class="history-table">
+    <tr><th>Day</th><th>Actions</th></tr>
+    {% for d in b.daily | reverse %}<tr><td>{{ d.tip }}</td><td>{{ d.n }}</td></tr>{% endfor %}
+  </table>
+</details>
+{% endmacro %}
+
+{% macro feed(items, show_who=True, empty='No actions yet.') %}
+<ul class="feed">
+  {% for l in items %}{% set m = action_meta(l.log_type) %}
+  <li class="feed-item">
+    <span class="feed-icon">{{ icon(m.icon, 18) }}</span>
+    <span class="feed-body">
+      <span class="feed-text">
+        {%- if show_who %}{% if l.grower_id %}<a class="feed-who" href="{{ url_for('grower_page', grower_id=l.grower_id) }}">{{ l.grower_name }}</a>{% else %}<strong>Someone</strong>{% endif %} {{ m.verb }}
+        {%- else %}{{ m.verb | capitalize }}{% endif %}
+        {% if l.asset_id %}<a href="{{ url_for('asset_page', asset_id=l.asset_id) }}">{{ l.asset_name }}</a>{% else %}the whole garden{% endif %}
+        {%- if l.recipient %} to {{ l.recipient }}{% endif %}
+      </span>
+      <span class="feed-meta">{{ l.timestamp | when }}{% if l.amount %} · {{ l.amount }}{% endif %}{% if l.notes %} · “{{ l.notes }}”{% endif %}</span>
+    </span>
+  </li>
+  {% else %}
+  <li class="feed-empty muted">{{ empty }}</li>
+  {% endfor %}
+</ul>
+{% endmacro %}
+
+{% macro plant_chips(items, show_owner=False, empty='Nothing here yet.') %}
+{% if items %}
+<div class="chips">
+  {% for p in items %}
+  <a class="chip" href="{{ url_for('asset_page', asset_id=p.id) }}">
+    <span class="chip-name">{{ p.name }}</span>
+    {% if p.asset_type == 'worm_bin' %}<span class="badge">worm bin</span>
+    {% elif p.life_stage %}<span class="badge badge-{{ p.life_stage }}">{{ stage_label(p.life_stage) }}</span>{% endif %}
+    {% if show_owner and p.grower_name %}<span class="chip-owner">{{ p.grower_name }}</span>{% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="muted">{{ empty }}</p>
+{% endif %}
+{% endmacro %}

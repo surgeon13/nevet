@@ -94,7 +94,7 @@ Everything it does is in `~/camera_captures/logs/update.log` and in the
 ./scripts/capture_photo.sh            # one timestamped photo
 ./scripts/capture_video.sh [seconds]  # one timestamped video (default 10s)
 ./scripts/test_camera_scripts.sh      # full validation suite
-./scripts/fix_orientation.sh          # one-time: flip existing photos/videos 180°
+./scripts/fix_orientation.sh --before YYYY-MM-DD   # flip photos taken before the camera fix
 python3 scripts/backfill_captures.py  # one-time: add existing photos/videos to the database
 ./scripts/health_report.sh            # why is the Pi dropping offline? paste this output
 ```
@@ -110,7 +110,7 @@ All logs live under `~/camera_captures/logs/` — one file per subsystem:
 | File | Written by |
 |---|---|
 | `logs/capture.log` | `capture_photo.sh` / `capture_video.sh` — every attempt, success, and failure |
-| `logs/watchdog.log` | `wifi_watchdog.sh` — every WiFi check (latency, signal strength), reconnects, reboots, health checks |
+| `logs/watchdog.log` | `wifi_watchdog.sh` — every WiFi and web app check (signal, power, temperature), reconnects, restarts |
 | `logs/webapp.log` | The Flask app — logins, rejected API calls, stats writes |
 
 Shell scripts share `scripts/lib/log.sh` for consistent timestamped logging.

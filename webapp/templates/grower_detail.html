@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
 {% block title %}{{ hero.name }}{% endblock %}
 {% block content %}
 {% if created %}
@@ -22,7 +23,7 @@
     </div>
 
     <div class="hero-stats">
-      <div><strong>{{ hero.counts.asset_count }}</strong><span>Plants &amp; bins</span></div>
+      <div><strong>{{ b.growing | length }}</strong><span>Growing now</span></div>
       <div><strong>{{ hero.counts.harvest_count }}</strong><span>Harvests</span></div>
       <div><strong>{{ hero.counts.log_count }}</strong><span>Actions</span></div>
     </div>
@@ -42,7 +43,8 @@
       {% if can_edit %}
         <a class="btn btn-primary" href="{{ url_for('grower_customize', grower_id=hero.id) }}">Customize</a>
       {% endif %}
-      {% if current_user and current_user.id == hero.id %}
+      {% if is_me %}
+        <a class="btn btn-primary" href="{{ url_for('log_action') }}">{{ ui.icon('plus', 16) }} Log an action</a>
         <a class="btn btn-ghost" href="{{ url_for('account') }}">Account</a>
         <form method="post" action="{{ url_for('logout') }}">
           <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
@@ -67,39 +69,32 @@
   </div>
 </section>
 
-<h3>Assets</h3>
-{% if current_user %}
-<p><a href="{{ url_for('asset_new', grower_id=grower.id) }}">+ Add a plant or worm bin</a></p>
-{% endif %}
-<div class="grid">
-  {% for a in assets %}
-  <a class="tile asset-tile" href="{{ url_for('asset_page', asset_id=a.id) }}">
-    <div class="grower-name">{{ a.name }}</div>
-    <span class="tile-meta">
-      {{ a.asset_type }}{% if a.variety %} · {{ a.variety }}{% endif %}
-      {% if a.life_stage %}<br><span class="badge badge-{{ a.life_stage }}">{{ a.life_stage }}</span>{% endif %}
-    </span>
-  </a>
-  {% else %}
-  <p class="timestamp">No assets yet.</p>
-  {% endfor %}
+<div class="panel-grid profile-activity">
+  <section class="panel">
+    <h3 class="panel-title">Growing now</h3>
+    {{ ui.plant_chips(b.growing, empty=('You have' if is_me else hero.name ~ ' has') ~ ' no plants growing right now.') }}
+    {% if is_me %}<a class="panel-link" href="{{ url_for('plant_new') }}">+ Add a plant</a>{% endif %}
+  </section>
+  <section class="panel">
+    <h3 class="panel-title">Grown before</h3>
+    {{ ui.plant_chips(b.before, empty='Nothing finished yet. Plants move here after their last harvest.') }}
+  </section>
+  <section class="panel">
+    <h3 class="panel-title">Actions by type</h3>
+    {{ ui.action_bars(b.totals, b.totals_max) }}
+  </section>
+  <section class="panel">
+    <h3 class="panel-title">Actions per day <span class="muted">· last 14 days</span></h3>
+    {{ ui.daily_chart(b) }}
+  </section>
+  <section class="panel panel-wide">
+    <h3 class="panel-title">Latest actions</h3>
+    {{ ui.feed(b.recent, show_who=False, empty=('You haven\'t' if is_me else hero.name ~ ' hasn\'t') ~ ' logged anything yet.') }}
+    <a class="panel-link" href="{{ url_for('activity', who=hero.id) }}">See all of {{ 'your' if is_me else hero.name ~ '\'s' }} activity →</a>
+  </section>
 </div>
 
-<h3>Recent activity</h3>
-<table class="history-table">
-<tr><th>Time</th><th>Type</th><th>Asset</th><th>Notes</th></tr>
-{% for log in logs %}
-<tr>
-  <td>{{ log.timestamp }}</td>
-  <td><span class="badge badge-log-{{ log.log_type }}">{{ log.log_type }}</span></td>
-  <td><a href="{{ url_for('asset_page', asset_id=log.asset_id) }}">{{ log.asset_name }}</a></td>
-  <td>{{ log.notes or '' }}{% if log.recipient %} → {{ log.recipient }}{% endif %}</td>
-</tr>
-{% else %}
-<tr><td colspan="4">No activity logged yet.</td></tr>
-{% endfor %}
-</table>
-
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
 <script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/OrbitControls.js') }}"></script>
 <script src="{{ url_for('static', filename='js/nevet3d.js') }}"></script>

@@ -1,6 +1,15 @@
 {% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
 {% block title %}Nevet — Dashboard{% endblock %}
 {% block content %}
+{% if banner %}
+<div class="hero-welcome log-banner" role="status">
+  {% if banner.new_plant %}Added <strong>{{ banner.new_plant }}</strong> and logged {{ banner.label | lower }}.
+  {% else %}Logged <strong>{{ banner.label | lower }}</strong>{% if banner.n %} for {{ banner.n }} plant{{ 's' if banner.n != 1 }}{% endif %}{% if banner.whole %}{{ ' +' if banner.n else ' for' }} the whole garden{% endif %}.{% endif %}
+  {% if banner.xp %}<span class="xp-gain">+{{ banner.xp }} XP</span>{% endif %}
+  {% if banner.level %}<span class="level-up">Level up! You're now Lv {{ banner.level }}</span>{% endif %}
+</div>
+{% endif %}
 
 <div class="hub-tabs">
   <button class="hub-tab active" type="button">Dashboard</button>
@@ -18,6 +27,62 @@
     <span class="hub-stat"><strong>{{ summary.germination }}</strong> germinating</span>
     <span class="hub-stat"><strong>{{ summary.harvested }}</strong> harvested</span>
   </div>
+
+  <a class="btn btn-primary log-cta" href="{{ url_for('log_action') }}">{{ ui.icon('plus', 18) }} Log an action</a>
+
+  <section class="activity-panel" id="activity">
+    <div class="activity-head">
+      <h2>Garden activity</h2>
+      <div class="seg" role="tablist" aria-label="Whose activity">
+        <button type="button" role="tab" class="seg-btn active" data-scope="everyone" aria-selected="true">Everyone</button>
+        <button type="button" role="tab" class="seg-btn" data-scope="mine" aria-selected="false">Just me</button>
+      </div>
+    </div>
+    {% for scope, b in [('everyone', everyone), ('mine', mine)] %}
+    <div class="activity-scope" data-scope="{{ scope }}" role="tabpanel" {% if scope == 'mine' %}hidden{% endif %}>
+      {{ ui.kpis(b, 'Growing now' if scope == 'everyone' else 'My plants') }}
+      <div class="panel-grid">
+        <section class="panel">
+          <h3 class="panel-title">Actions by type</h3>
+          {{ ui.action_bars(b.totals, b.totals_max) }}
+        </section>
+        <section class="panel">
+          <h3 class="panel-title">Actions per day <span class="muted">· last 14 days</span></h3>
+          {{ ui.daily_chart(b) }}
+        </section>
+        <section class="panel">
+          <h3 class="panel-title">Growing now</h3>
+          {{ ui.plant_chips(b.growing, show_owner=scope == 'everyone', empty='No plants yet.' if scope == 'everyone' else 'You have no plants yet.') }}
+          {% if b.before %}
+          <h3 class="panel-title panel-sub">Grown before</h3>
+          {{ ui.plant_chips(b.before, show_owner=scope == 'everyone') }}
+          {% endif %}
+          <a class="panel-link" href="{{ url_for('plant_new') }}">+ Add a plant</a>
+        </section>
+        <section class="panel">
+          <h3 class="panel-title">Latest actions</h3>
+          {{ ui.feed(b.recent, show_who=scope == 'everyone', empty='Nothing logged yet. Tap “Log an action” to start.') }}
+          <a class="panel-link" href="{{ url_for('activity', who=current_user.id) if scope == 'mine' else url_for('activity') }}">See all activity →</a>
+        </section>
+        {% if scope == 'everyone' and players %}
+        <section class="panel panel-wide">
+          <h3 class="panel-title">By player</h3>
+          <table class="history-table players-table">
+            <tr><th>Player</th><th>Actions</th><th>This week</th><th>Growing</th><th>Favourite</th></tr>
+            {% for p in players %}
+            <tr>
+              <td><a href="{{ url_for('grower_page', grower_id=p.id) }}">{{ p.name }}</a></td>
+              <td>{{ p.total }}</td><td>{{ p.week }}</td><td>{{ p.growing }}</td>
+              <td>{{ action_meta(p.favourite).label if p.favourite else '—' }}</td>
+            </tr>
+            {% endfor %}
+          </table>
+        </section>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </section>
 
   {% if recent %}
   <div class="recent-photos">
@@ -40,11 +105,14 @@
     <a class="node-card" data-label="Heroes" href="{{ url_for('growers_page') }}">
       Heroes<span class="node-sub">{{ summary.growers }} growers</span>
     </a>
-    <a class="node-card" data-label="Assets" href="{{ url_for('assets_page') }}">
-      Assets<span class="node-sub">Plants &amp; worm bins</span>
+    <a class="node-card" data-label="Plants" href="{{ url_for('assets_page') }}">
+      Plants<span class="node-sub">Plants &amp; worm bins</span>
     </a>
-    <a class="node-card" data-label="Logs" href="{{ url_for('logs_page') }}">
-      Logs<span class="node-sub">Live console</span>
+    <a class="node-card" data-label="Activity" href="{{ url_for('activity') }}">
+      Activity<span class="node-sub">Who did what</span>
+    </a>
+    <a class="node-card" data-label="System" href="{{ url_for('logs_page') }}">
+      System<span class="node-sub">Live system logs</span>
     </a>
     <a class="node-card" data-label="Stats" href="{{ url_for('stats') }}">
       Stats<span class="node-sub">XP, compost, credits</span>
@@ -94,6 +162,9 @@
   // picks them up with no extra driver. Arrow keys / Enter are the
   // most common mapping; 1/2/3 mirror the on-screen buttons too.
   document.addEventListener('keydown', function(e) {
+    // Leave keys alone when a button, link or field on the page has focus
+    // (the USB controller's keys arrive with nothing focused).
+    if (e.target !== document.body && e.target.closest && e.target.closest('a, button, input, select, textarea, summary, [tabindex]')) return;
     if (e.key === 'ArrowLeft' || e.key === '1') hubNav(-1);
     else if (e.key === 'ArrowRight' || e.key === '3') hubNav(1);
     else if (e.key === 'Enter' || e.key === ' ' || e.key === '2') { e.preventDefault(); hubSelect(); }
@@ -102,6 +173,21 @@
   updateHighlight();
 </script>
 
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+  // Everyone / Just me, remembered per device
+  (function () {
+    var btns = document.querySelectorAll('.seg-btn'), panes = document.querySelectorAll('.activity-scope');
+    function pick(scope) {
+      btns.forEach(function (b) { var on = b.dataset.scope === scope; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); });
+      panes.forEach(function (p) { p.hidden = p.dataset.scope !== scope; });
+      try { localStorage.setItem('nevet-activity-scope', scope); } catch (e) {}
+    }
+    btns.forEach(function (b) { b.addEventListener('click', function () { pick(b.dataset.scope); }); });
+    var saved = null; try { saved = localStorage.getItem('nevet-activity-scope'); } catch (e) {}
+    if (saved === 'mine') pick('mine');
+  })();
+</script>
 <script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
 <script>
 (function () {

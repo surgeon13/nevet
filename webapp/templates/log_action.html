@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
+{% block title %}Log an action{% endblock %}
+{% block fab %}{% endblock %}
+{% block content %}
+<form method="post" class="log-flow" id="log-form">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <div class="log-head">
+    <h2>Log an action</h2>
+    <p class="muted">Logged as <strong>{{ current_user.name }}</strong></p>
+  </div>
+  {% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
+
+  <fieldset class="log-step">
+    <legend><span class="step-num">1</span> What did you do?</legend>
+    <div class="action-grid">
+      {% for a in actions %}
+      <label class="action-tile" data-for="{{ a.for }}">
+        <input type="radio" name="action" value="{{ a.id }}" required
+               data-amount="{{ 1 if a.amount else 0 }}" data-recipient="{{ 1 if a.recipient else 0 }}" data-for="{{ a.for }}"
+               data-label="{{ a.label }}" {% if selected_action == a.id %}checked{% endif %}>
+        <span class="action-icon">{{ ui.icon(a.icon, 26) }}</span>
+        <span class="action-label">{{ a.label }}</span>
+      </label>
+      {% endfor %}
+      <a class="action-tile action-link" href="{{ url_for('plant_new', how='planting') }}">
+        <span class="action-icon">{{ ui.icon('sprout', 26) }}</span>
+        <span class="action-label">Planting</span>
+      </a>
+      <a class="action-tile action-link" href="{{ url_for('plant_new', how='seeding') }}">
+        <span class="action-icon">{{ ui.icon('seed', 26) }}</span>
+        <span class="action-label">Sowing seeds</span>
+      </a>
+    </div>
+    <p class="log-hint">Planted or sowed something new? Those two add the new plant too.</p>
+  </fieldset>
+
+  <fieldset class="log-step">
+    <legend><span class="step-num">2</span> Which plants?</legend>
+    <div class="pick-tools">
+      {% if mine %}<button type="button" class="btn btn-ghost btn-small" id="pick-mine">All my plants</button>{% endif %}
+      <button type="button" class="btn btn-ghost btn-small" id="pick-none">Clear</button>
+    </div>
+    {% macro plant_tile(p) %}
+    <label class="plant-tile" data-kind="{{ p.asset_type }}">
+      <input type="checkbox" name="asset" value="{{ p.id }}" data-kind="{{ p.asset_type }}" data-mine="{{ 1 if p.grower_id == current_user.id else 0 }}" {% if p.id in selected %}checked{% endif %}>
+      <span class="plant-name">{{ p.name }}</span>
+      <span class="plant-meta">
+        {% if p.asset_type == 'worm_bin' %}worm bin{% else %}{{ stage_label(p.life_stage) or 'plant' }}{% endif %}
+        {% if p.grower_id != current_user.id and p.grower_name %} · {{ p.grower_name }}{% endif %}
+      </span>
+    </label>
+    {% endmacro %}
+    {% if mine %}
+      <p class="pick-group">My plants</p>
+      <div class="plant-grid">{% for p in mine %}{{ plant_tile(p) }}{% endfor %}</div>
+    {% endif %}
+    {% if others %}
+      <p class="pick-group">Everyone else's</p>
+      <div class="plant-grid">{% for p in others %}{{ plant_tile(p) }}{% endfor %}</div>
+    {% endif %}
+    {% if not mine and not others %}
+      <p class="muted">No plants yet. <a href="{{ url_for('plant_new') }}">Add your first plant</a>, or log this for the whole garden.</p>
+    {% endif %}
+    <div class="plant-grid plant-grid-whole">
+      <label class="plant-tile plant-whole">
+        <input type="checkbox" name="whole_garden" value="1" {% if form.get('whole_garden') %}checked{% endif %}>
+        <span class="plant-name">Whole garden</span>
+        <span class="plant-meta">not one specific plant</span>
+      </label>
+    </div>
+  </fieldset>
+
+  <fieldset class="log-step">
+    <legend><span class="step-num">3</span> Details <span class="muted">(optional)</span></legend>
+    <div class="detail-amount" data-show="amount" hidden>
+      <label class="hero-field">
+        <span class="hero-field-label">Amount (per plant)</span>
+        <span class="amount-row">
+          <input type="text" inputmode="decimal" name="amount" value="{{ form.get('amount', '') }}" placeholder="e.g. 250">
+          <select name="unit">{% for u in units %}<option value="{{ u }}" {% if form.get('unit') == u %}selected{% endif %}>{{ u }}</option>{% endfor %}</select>
+        </span>
+      </label>
+    </div>
+    <label class="check-row" data-show="harvest" hidden>
+      <input type="checkbox" name="final" value="1" {% if form.get('final') %}checked{% endif %}>
+      <span>Last harvest: this plant is finished (moves it to “grown before”)</span>
+    </label>
+    <label class="hero-field" data-show="recipient" hidden>
+      <span class="hero-field-label">Given to</span>
+      <input type="text" name="recipient" maxlength="80" value="{{ form.get('recipient', '') }}" placeholder="e.g. neighbours, food bank">
+    </label>
+    <label class="hero-field" data-show="stage">
+      <span class="hero-field-label">Growth stage now</span>
+      <select name="stage">
+        <option value="">No change</option>
+        <option value="germination">Sprouting</option>
+        <option value="seedling">Seedling</option>
+        <option value="growing">Growing</option>
+        <option value="mature">Mature / flowering</option>
+      </select>
+    </label>
+    <label class="hero-field">
+      <span class="hero-field-label">Note</span>
+      <textarea name="notes" rows="2" maxlength="500" placeholder="Anything worth remembering">{{ form.get('notes', '') }}</textarea>
+    </label>
+  </fieldset>
+
+  <div class="hero-save-bar">
+    <a class="btn btn-ghost" href="{{ url_for('hub') }}">Cancel</a>
+    <button type="submit" class="btn btn-primary" id="log-submit">Save</button>
+  </div>
+</form>
+
+<script>
+(function () {
+  var form = document.getElementById('log-form');
+  var submit = document.getElementById('log-submit');
+  function q(sel) { return Array.prototype.slice.call(form.querySelectorAll(sel)); }
+  function update() {
+    var act = form.querySelector('input[name=action]:checked');
+    var forKind = act ? act.dataset.for : 'any';
+    q('.action-tile').forEach(function (t) { var i = t.querySelector('input'); t.classList.toggle('is-selected', !!(i && i.checked)); });
+    q('.plant-tile').forEach(function (t) {
+      var i = t.querySelector('input');
+      t.classList.toggle('is-selected', i.checked);
+      var kind = t.dataset.kind;
+      t.classList.toggle('is-dim', !!kind && forKind !== 'any' && kind !== forKind);
+    });
+    function show(key, on) { q('[data-show="' + key + '"]').forEach(function (el) { el.hidden = !on; }); }
+    show('amount', act && act.dataset.amount === '1');
+    show('harvest', act && act.value === 'harvest');
+    show('recipient', act && act.dataset.recipient === '1');
+    show('stage', !act || act.dataset.for !== 'worm_bin');
+    var n = q('input[name=asset]:checked').length;
+    var whole = form.querySelector('input[name=whole_garden]').checked;
+    var what = act ? act.dataset.label : 'action';
+    var where = n ? (n + (n === 1 ? ' plant' : ' plants')) : '';
+    if (whole) where = where ? where + ' + garden' : 'whole garden';
+    submit.textContent = act && where ? 'Save ' + what.toLowerCase() + ' · ' + where : 'Save';
+  }
+  form.addEventListener('change', update);
+  var mineBtn = document.getElementById('pick-mine');
+  if (mineBtn) mineBtn.addEventListener('click', function () {
+    var act = form.querySelector('input[name=action]:checked');
+    var forKind = act ? act.dataset.for : 'any';
+    q('input[name=asset]').forEach(function (i) { i.checked = i.dataset.mine === '1' && (forKind === 'any' || i.dataset.kind === forKind); });
+    update();
+  });
+  document.getElementById('pick-none').addEventListener('click', function () {
+    q('input[name=asset], input[name=whole_garden]').forEach(function (i) { i.checked = false; });
+    update();
+  });
+  update();
+})();
+</script>
+{% endblock %}

@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-09-29 (activity)
+
+- Log in with one tap: saved players appear as hero portraits (last
+  player on the device first), then just the password.
+- Every action records who did it. Older logs are credited to the
+  plant's owner.
+- "Log an action" screen (floating Log button on every page): pick the
+  action (watering, pruning, fertilizing, weeding, pest control,
+  feeding worms, harvest, sprouted, transplant, check-up, gave away),
+  one or more plants or the whole garden, and optional amount, growth
+  stage, note. Shows XP gained and level-ups.
+- "Add a plant" (plant or worm bin, sown or planted) counts as your
+  planting action.
+- Dashboard: garden activity for Everyone or Just me — totals, actions
+  by type, actions per day (14 days), growing now / grown before,
+  latest actions, and a by-player table. Only the last 3 photos.
+- Hero profiles: growing now, grown before, actions by type and per
+  day, latest actions. XP now counts actions the player did.
+- New Activity page: full history filtered by player, action, plant
+  and period. Plant pages show who did what.
+- Harvest no longer marks a plant finished unless "last harvest" is
+  ticked; planting/sprouting only move a plant forward, never back.
+- Nav: Activity, Heroes, Gallery, System; two rows on phones.
+- FIX: fix_orientation.sh let ffmpeg swallow its file list, so a batch
+  run flipped only the first file(s). Now uses -nostdin, records what it
+  flipped (never flips twice) and takes `--before DATE`.
+- Cleanup: removed the old add-asset / log-event forms, unused
+  functions and styles; docs updated to match the app.
+
 ## 2026-09-28 (accounts)
 
 - Real log-in: each player has a hero name + password (salted hash);

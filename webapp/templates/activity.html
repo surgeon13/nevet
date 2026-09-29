@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
+{% block title %}Activity{% endblock %}
+{% block content %}
+<div class="activity-page">
+  <div class="page-head">
+    <h2>Activity</h2>
+    <p class="muted">Everything everyone has done in the garden.</p>
+  </div>
+
+  <form method="get" class="filter-row" id="filters">
+    <select name="period" aria-label="Period">
+      {% for v, label in [('all', 'All time'), ('7', 'Last 7 days'), ('30', 'Last 30 days'), ('90', 'Last 90 days')] %}
+      <option value="{{ v }}" {% if period == v %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <select name="who" aria-label="Player">
+      <option value="">Everyone</option>
+      {% for gr in growers %}<option value="{{ gr.id }}" {% if who == gr.id %}selected{% endif %}>{{ gr.name }}</option>{% endfor %}
+    </select>
+    <select name="type" aria-label="Action">
+      <option value="">All actions</option>
+      {% for a in action_opts %}<option value="{{ a.id }}" {% if kind == a.id %}selected{% endif %}>{{ a.label }}</option>{% endfor %}
+    </select>
+    <select name="plant" aria-label="Plant">
+      <option value="">All plants</option>
+      {% for a in assets %}<option value="{{ a.id }}" {% if plant == a.id %}selected{% endif %}>{{ a.name }}{% if a.asset_type == 'worm_bin' %} (bin){% endif %}</option>{% endfor %}
+    </select>
+    <noscript><button type="submit" class="btn btn-ghost btn-small">Filter</button></noscript>
+    {% if params %}<a class="filter-clear" href="{{ url_for('activity') }}">Clear filters</a>{% endif %}
+  </form>
+
+  {% if totals %}
+  <section class="panel">
+    <h3 class="panel-title">Actions by type{% if who %} · {{ (growers | selectattr('id', 'equalto', who) | first).name }}{% endif %}</h3>
+    {{ ui.action_bars(totals, totals[0][1]) }}
+  </section>
+  {% endif %}
+
+  {% for day, rows in groups %}
+  <section class="panel feed-day">
+    <h3 class="panel-title">{{ day }} <span class="muted">· {{ rows | length }}</span></h3>
+    {{ ui.feed(rows, show_who=not who) }}
+  </section>
+  {% else %}
+  <section class="panel"><p class="muted">Nothing logged{% if params %} for these filters{% endif %} yet.</p></section>
+  {% endfor %}
+
+  <div class="pager">
+    {% if page > 1 %}<a class="btn btn-ghost" href="{{ url_for('activity', page=page - 1, **params) }}">Newer</a>{% endif %}
+    {% if has_more %}<a class="btn btn-ghost" href="{{ url_for('activity', page=page + 1, **params) }}">Older</a>{% endif %}
+  </div>
+</div>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+  document.getElementById('filters').addEventListener('change', function () { this.submit(); });
+</script>
+{% endblock %}

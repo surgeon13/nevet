@@ -61,8 +61,7 @@ web_healthy() {
 }
 
 wait_healthy() {              # up to ~60s for the app to come back after a restart
-    local i
-    for i in $(seq 1 30); do
+    for _ in $(seq 1 30); do
         web_healthy && return 0
         sleep 2
     done

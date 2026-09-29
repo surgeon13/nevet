@@ -1,35 +1,19 @@
 {% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
 {% block title %}{{ asset.name }}{% endblock %}
 {% block content %}
 <h2>{{ asset.name }}</h2>
 <p class="timestamp">
   {{ asset.asset_type }}{% if asset.variety %} · {{ asset.variety }}{% endif %}
-  {% if asset.life_stage %} · <span class="badge badge-{{ asset.life_stage }}">{{ asset.life_stage }}</span>{% endif %}
+  {% if asset.life_stage %} · <span class="badge badge-{{ asset.life_stage }}">{{ stage_label(asset.life_stage) }}</span>{% endif %}
   {% if asset.grower_name %} · grown by <a href="{{ url_for('grower_page', grower_id=asset.grower_id) }}">{{ asset.grower_name }}</a>{% endif %}
 </p>
 
-{% if current_user %}
-<p><a href="{{ url_for('log_new', asset_id=asset.id) }}">+ Log an event</a></p>
-{% endif %}
+<p class="asset-actions">
+  <a class="btn btn-primary" href="{{ url_for('log_action', asset=asset.id) }}">Log an action for {{ asset.name }}</a>
+  <a class="btn btn-ghost" href="{{ url_for('activity', plant=asset.id) }}">Full history</a>
+</p>
 
 <h3>History</h3>
-<table class="history-table">
-<tr><th>Time</th><th>Type</th><th>Details</th><th>Notes</th></tr>
-{% for log in logs %}
-<tr>
-  <td>{{ log.timestamp }}</td>
-  <td><span class="badge badge-log-{{ log.log_type }}">{{ log.log_type }}</span></td>
-  <td>
-    {% for q in quantities.get(log.id, []) %}
-      {{ q.value }} {{ q.units or '' }} {{ q.label or '' }}<br>
-    {% endfor %}
-    {% if log.recipient %}→ {{ log.recipient }}{% endif %}
-    {% if log.location %}@ {{ log.location }}{% endif %}
-  </td>
-  <td>{{ log.notes or '' }}</td>
-</tr>
-{% else %}
-<tr><td colspan="4">No history yet.</td></tr>
-{% endfor %}
-</table>
+{{ ui.feed(history, empty='Nothing logged for this plant yet.') }}
 {% endblock %}

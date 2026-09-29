@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
+{% block title %}Add a plant{% endblock %}
+{% block fab %}{% endblock %}
+{% block content %}
+<form method="post" class="auth-card plant-form" id="plant-form">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <h2>Add a plant</h2>
+  <p class="auth-sub">It'll be listed as yours, and the planting counts as your action.</p>
+  {% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
+
+  <fieldset class="log-step">
+    <legend class="hero-field-label">What is it?</legend>
+    <div class="seg-choice">
+      <label><input type="radio" name="asset_type" value="plant" {% if form.get('asset_type', 'plant') == 'plant' %}checked{% endif %}><span>{{ ui.icon('sprout', 18) }} Plant</span></label>
+      <label><input type="radio" name="asset_type" value="worm_bin" {% if form.get('asset_type') == 'worm_bin' %}checked{% endif %}><span>{{ ui.icon('worm', 18) }} Worm bin</span></label>
+    </div>
+  </fieldset>
+
+  <label class="hero-field">
+    <span class="hero-field-label">Name</span>
+    <input type="text" name="name" maxlength="40" required value="{{ form.get('name', '') }}" placeholder="e.g. Cherry tomato" autofocus>
+  </label>
+  <label class="hero-field">
+    <span class="hero-field-label">Variety <span class="muted">(optional)</span></span>
+    <input type="text" name="variety" maxlength="40" value="{{ form.get('variety', '') }}" placeholder="e.g. Sungold">
+  </label>
+
+  <fieldset class="log-step" data-plant-only>
+    <legend class="hero-field-label">How did you start it?</legend>
+    <div class="choice-list">
+      {% for value, label, icon_name in [('seeding', 'Sowed seeds', 'seed'), ('planting', 'Planted a seedling', 'sprout'), ('growing', "It's already growing", 'leaf')] %}
+      <label class="choice"><input type="radio" name="how" value="{{ value }}" {% if form.get('how', 'planting') == value %}checked{% endif %}>
+        <span>{{ ui.icon(icon_name, 18) }} {{ label }}</span></label>
+      {% endfor %}
+    </div>
+  </fieldset>
+
+  <label class="hero-field">
+    <span class="hero-field-label">Note <span class="muted">(optional)</span></span>
+    <textarea name="notes" rows="2" maxlength="500" placeholder="Where it is, where the seeds came from...">{{ form.get('notes', '') }}</textarea>
+  </label>
+
+  <button type="submit" class="btn btn-primary auth-submit">Add it</button>
+  <p class="auth-alt"><a href="{{ url_for('log_action') }}">Back to logging</a></p>
+</form>
+<script>
+(function () {
+  var form = document.getElementById('plant-form');
+  function update() {
+    var bin = form.querySelector('input[name=asset_type]:checked').value === 'worm_bin';
+    form.querySelectorAll('[data-plant-only]').forEach(function (el) { el.hidden = bin; });
+    form.querySelector('input[name=name]').placeholder = bin ? 'e.g. Worm bin 2' : 'e.g. Cherry tomato';
+  }
+  form.addEventListener('change', update);
+  update();
+})();
+</script>
+{% endblock %}

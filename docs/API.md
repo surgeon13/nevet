@@ -5,14 +5,31 @@ The web app runs on port 8000. All routes are relative to
 
 ## Pages (browser routes)
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| GET | `/` | none | Gallery — photos/videos grouped by date, with asset counts and storage used |
-| GET | `/media/<path>` | none | Serves one media file (path-traversal guarded to stay inside `CAMERA_BASE_DIR`) |
-| GET, POST | `/login` | none | Login form; POST with `password` form field |
-| GET | `/logout` | none | Clears the session |
-| GET | `/stats` | session login | Game stats dashboard (latest snapshot + 50-row history) |
-| GET | `/logs` | session login | Live log console (watchdog/capture/webapp), auto-refreshing every 5s |
+Every page needs a logged-in player except `/login`, `/register`,
+`/healthz` and `POST /api/stats` (API key). All POST forms carry a
+`_csrf` token.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/` | Dashboard: 3D hub, last 3 photos, garden activity (Everyone / Just me) |
+| GET, POST | `/login` | Tap-your-hero picker + password |
+| GET, POST | `/register` | Sign up (or claim an existing hero without a password); `?name=` prefills |
+| POST | `/logout` | Log out |
+| GET, POST | `/account` | Change your password |
+| GET, POST | `/log` | Log an action (watering, pruning, harvest...) on one or more plants or the whole garden; `?asset=ID` preselects a plant |
+| GET, POST | `/plants/new` | Add a plant or worm bin (logs the planting as your action) |
+| GET | `/activity` | Full history; filters `who`, `type`, `plant`, `period` (7/30/90), `page` |
+| GET | `/growers` | Heroes roster |
+| GET | `/growers/<id>` | Hero profile: level/XP, gear, growing now, grown before, actions |
+| GET, POST | `/growers/<id>/customize` | Edit hero look (own hero, or admin) |
+| POST | `/growers/<id>/password` | Admin sets a new password for a player |
+| GET | `/assets` | Plants: 3D garden + table |
+| GET | `/assets/<id>` | One plant with its full history |
+| GET | `/gallery` | Photos/videos grouped by date |
+| GET | `/media/<path>` | One media file (guarded to stay inside `CAMERA_BASE_DIR`) |
+| GET | `/stats` | Game stats (latest snapshot + history) |
+| GET | `/logs` | System logs (watchdog, capture, web app, updates), refreshes every 5s |
+| GET | `/healthz` | `ok` when the app and database respond (used by the watchdog and updater) |
 
 ## JSON API
 
@@ -70,7 +87,24 @@ lines of each log file:
 
 ## Database schema
 
-`webapp/game_stats.db` (SQLite), table `stats_log`:
+**`farm.db`** (`FARM_DB`, default `~/webapp/farm.db`), created and
+migrated automatically by `webapp/farm_db.py`:
+
+| Table | What it holds |
+|---|---|
+| `growers` | Heroes/players: `name`, `hero_class`, `appearance` (JSON), `password_hash`, `is_admin`, `last_login` |
+| `assets` | Plants and worm bins: `name`, `asset_type`, `variety`, `life_stage`, `grower_id` (owner) |
+| `logs` | Actions: `log_type`, `asset_id` (NULL = whole garden), `grower_id` (who did it), `timestamp`, `notes`, `recipient` |
+| `quantities` | Amounts attached to a log (harvest weight, pieces given away) |
+| `captures` | Every photo/video the camera took |
+
+Action types (`log_type`): watering, pruning, fertilizing, weeding,
+pest_control, feeding (worm bins), harvest, germination, transplant,
+observation, delivery, planting, seeding, setup (new worm bin); older
+data may also contain input and movement. A plant is "growing now"
+until its stage is harvested or archived.
+
+**`game_stats.db`** (`STATS_DB`), table `stats_log`:
 
 | Column | Type | Notes |
 |---|---|---|
@@ -84,8 +118,7 @@ lines of each log file:
 | `extra` | TEXT | free-form note, nullable |
 
 Both `app.py` (`/api/stats`) and `webapp/game_stats.py` (`log_stat()`)
-read/write this same table via `STATS_DB` (env var, defaults to
-`~/webapp/game_stats.db`).
+read/write `stats_log`.
 
 ## Environment variables
 
