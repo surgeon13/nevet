@@ -27,9 +27,18 @@ fi
 
 echo ""
 echo "--- WiFi ---"
-nmcli -t -f DEVICE,STATE,CONNECTION device 2>/dev/null | grep wlan0 || echo "nmcli not available"
-echo "Signal:        $(nmcli -t -f ACTIVE,SIGNAL dev wifi 2>/dev/null | awk -F: '$1=="yes"{print $2"%"; exit}')"
-echo "Power save:    $(iw dev wlan0 get power_save 2>/dev/null | awk -F': ' '{print $2}')  (should be off)"
+command -v nmcli >/dev/null 2>&1 || echo "nmcli not available"
+for f in /sys/class/net/wl*; do          # built-in (wlan0) and USB antennas (wlan1...)
+    [ -e "$f" ] || continue
+    w=${f##*/}
+    case "$(readlink -f "$f/device")" in */usb*) kind="USB antenna" ;; *) kind="built-in" ;; esac
+    echo "$w ($kind):"
+    echo "  State:       $(nmcli -t -f DEVICE,STATE,CONNECTION device 2>/dev/null | awk -F: -v d="$w" '$1==d{print $2" "$3}')"
+    echo "  Signal:      $(nmcli -t -f DEVICE,ACTIVE,SIGNAL dev wifi 2>/dev/null | awk -F: -v d="$w" '$1==d && $2=="yes"{print $3"%"; exit}')"
+    echo "  Link rate:   $(iw dev "$w" link 2>/dev/null | awk -F': ' '/tx bitrate/{print $2}')"
+    echo "  Power save:  $(iw dev "$w" get power_save 2>/dev/null | awk -F': ' '{print $2}')  (should be off)"
+done
+echo "Internet via:  $(ip route show default 2>/dev/null | awk '{for(i=1;i<NF;i++) if($i=="dev"){print $(i+1); exit}}')"
 echo "IP address:    $(hostname -I 2>/dev/null)"
 
 echo ""

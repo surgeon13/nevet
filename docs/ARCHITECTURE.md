@@ -115,9 +115,19 @@ database work offline). Each run:
    radio off/on to a NetworkManager restart (at most every ~10 min).
    Internet down only: logs it and leaves WiFi alone.
 3. Checks the web app on `/healthz` and restarts it after two misses.
-4. Logs signal, under-voltage, temperature, memory and disk every time.
+4. Logs the adapter in use, signal, link rate, router ping, under-voltage,
+   temperature, memory and disk every time.
 
-`scripts/health_report.sh` summarises the last 24 hours.
+It works with several WiFi adapters (built-in `wlan0` plus USB antennas):
+it watches the one that carries the internet (the default route; set
+`NEVET_WIFI_IFACE` to force one), turns power saving off on all of them,
+and logs camera plug/unplug. `scripts/wifi_antenna.sh usb` makes a USB
+antenna the preferred route with the built-in WiFi as backup, and
+`nevet net` measures each adapter. `scripts/health_report.sh` summarises
+the last 24 hours.
+
+The camera is optional: `scripts/lib/camera.sh` makes the capture scripts
+skip quietly (logged once) while `/dev/video0` is missing.
 
 ## The web app
 
@@ -140,6 +150,10 @@ A Flask app served by waitress on port 8000:
   in the viewer's browser, not on the Pi.
 - **System logs (`/logs`)** — tails watchdog, capture, web app and
   update logs every 5 seconds.
+- **Traffic** — `traffic.py` counts every response (requests, bytes in
+  and out) per day, by type and by home network / Tailscale, buffers the
+  counts in memory and writes them to the `web_traffic` table every 30 s
+  and on shutdown. `nevet` shows the totals.
 
 See `docs/API.md` for the full HTTP surface and `docs/TROUBLESHOOTING.md`
 for known failure modes and fixes.

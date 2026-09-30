@@ -8,13 +8,14 @@
 #   nevet-update      - checks GitHub for a new version every N minutes,
 #                       pulls it and restarts the web app
 #
-# Usage: sudo ./install.sh [photo_interval_minutes] [update_interval_minutes|off]
+# Usage: sudo ./install.sh [photo_interval_minutes|off] [update_interval_minutes|off]
 #   e.g. sudo ./install.sh 5 15    photo every 5 min, update check every 15 min
 #        sudo ./install.sh 5 off   photo every 5 min, no automatic updates
+#        sudo ./install.sh off 15  no camera: timelapse off, updates every 15 min
 set -e
 
 if [ "$EUID" -ne 0 ]; then
-    echo "Run with sudo: sudo ./install.sh [photo_interval_minutes] [update_interval_minutes|off]"
+    echo "Run with sudo: sudo ./install.sh [photo_interval_minutes|off] [update_interval_minutes|off]"
     exit 1
 fi
 
@@ -25,16 +26,17 @@ INTERVAL_MIN="${1:-5}"
 UPDATE_MIN="${2:-15}"
 
 is_minutes() { [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge 1 ] && [ "$1" -le 1440 ]; }
-if ! is_minutes "$INTERVAL_MIN"; then
-    echo "Photo interval must be a number of minutes (1-1440), got: $INTERVAL_MIN"; exit 1
+if [ "$INTERVAL_MIN" != "off" ] && ! is_minutes "$INTERVAL_MIN"; then
+    echo "Photo interval must be minutes (1-1440) or 'off', got: $INTERVAL_MIN"; exit 1
 fi
+TIMER_MIN="$INTERVAL_MIN"; [ "$INTERVAL_MIN" = "off" ] && TIMER_MIN=5   # unit file needs a number
 if [ "$UPDATE_MIN" != "off" ] && ! is_minutes "$UPDATE_MIN"; then
     echo "Update interval must be minutes (1-1440) or 'off', got: $UPDATE_MIN"; exit 1
 fi
 
 echo "Repo:      $REPO_DIR"
 echo "User/home: $REAL_USER / $REAL_HOME"
-echo "Timelapse: every ${INTERVAL_MIN} minute(s)"
+echo "Timelapse: $([ "$INTERVAL_MIN" = off ] && echo off || echo "every ${INTERVAL_MIN} minute(s)")"
 echo "Updates:   $([ "$UPDATE_MIN" = off ] && echo off || echo "check every ${UPDATE_MIN} minute(s)")"
 echo ""
 
@@ -76,7 +78,9 @@ wifi.powersave = 2
 EOF
 # apply right now without dropping the connection (the file above
 # makes it permanent from the next reconnect/boot)
-command -v iw >/dev/null 2>&1 && iw dev wlan0 set power_save off 2>/dev/null || true
+for f in /sys/class/net/wl*; do
+    [ -e "$f" ] && command -v iw >/dev/null 2>&1 && { iw dev "${f##*/}" set power_save off 2>/dev/null || true; }
+done
 echo "WiFi power saving: off"
 
 # ---- render systemd unit templates for this exact repo path/user ----
@@ -84,7 +88,7 @@ render_unit() {
     sed -e "s|__USER__|${REAL_USER}|g" \
         -e "s|__HOME__|${REAL_HOME}|g" \
         -e "s|__REPO_DIR__|${REPO_DIR}|g" \
-        -e "s|__INTERVAL__|${INTERVAL_MIN}|g" \
+        -e "s|__INTERVAL__|${TIMER_MIN}|g" \
         -e "s|__UPDATE_INTERVAL__|${UPDATE_MIN}|g" \
         "$1" > "$2"
 }
@@ -107,8 +111,14 @@ SYSTEMCTL=$(command -v systemctl)
 CMDS="$SYSTEMCTL restart nevet-webapp, $SYSTEMCTL restart NetworkManager, $SYSTEMCTL restart wpa_supplicant"
 NMCLI=$(command -v nmcli || true)
 IW=$(command -v iw || true)
-[ -n "$NMCLI" ] && CMDS="$CMDS, $NMCLI device reconnect wlan0, $NMCLI radio wifi off, $NMCLI radio wifi on"
-[ -n "$IW" ] && CMDS="$CMDS, $IW dev wlan0 set power_save off"
+# every WiFi adapter: wlan0 (built-in), wlan1+ (USB antennas), plus any
+# adapter present now under another name
+WIFI_IFS=$( { printf 'wlan%s\n' 0 1 2 3; for f in /sys/class/net/wl*; do [ -e "$f" ] && echo "${f##*/}"; done; } | sort -u)
+[ -n "$NMCLI" ] && CMDS="$CMDS, $NMCLI radio wifi off, $NMCLI radio wifi on"
+for w in $WIFI_IFS; do
+    [ -n "$NMCLI" ] && CMDS="$CMDS, $NMCLI device reconnect $w"
+    [ -n "$IW" ] && CMDS="$CMDS, $IW dev $w set power_save off"
+done
 TMP_SUDOERS=$(mktemp)
 echo "${REAL_USER} ALL=(root) NOPASSWD: ${CMDS}" > "$TMP_SUDOERS"
 if visudo -cf "$TMP_SUDOERS" >/dev/null 2>&1; then
@@ -126,7 +136,12 @@ ln -sf "$REPO_DIR/scripts/nevet_status.py" /usr/local/bin/nevet
 systemctl daemon-reload
 systemctl enable nevet-webapp.service
 systemctl restart nevet-webapp.service
-systemctl enable --now nevet-timelapse.timer
+if [ "$INTERVAL_MIN" = "off" ]; then
+    systemctl disable --now nevet-timelapse.timer 2>/dev/null || true
+else
+    systemctl enable nevet-timelapse.timer
+    systemctl restart nevet-timelapse.timer    # picks up a changed interval
+fi
 systemctl enable --now nevet-watchdog.timer
 if [ "$UPDATE_MIN" = "off" ]; then
     systemctl disable --now nevet-update.timer 2>/dev/null || true
@@ -140,7 +155,11 @@ echo ""
 echo "=============================================="
 echo " Installed and running:"
 echo "   nevet-webapp.service    -> http://${IP}:8000"
-echo "   nevet-timelapse.timer   -> photo every ${INTERVAL_MIN} min"
+if [ "$INTERVAL_MIN" = "off" ]; then
+echo "   nevet-timelapse.timer   -> off (no camera)"
+else
+echo "   nevet-timelapse.timer   -> photo every ${INTERVAL_MIN} min (skips while no camera is plugged in)"
+fi
 echo "   nevet-watchdog.timer    -> WiFi + web app health check every 2 min"
 if [ "$UPDATE_MIN" = "off" ]; then
 echo "   nevet-update.timer      -> off (update by hand: ./scripts/auto_update.sh)"

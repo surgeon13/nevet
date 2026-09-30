@@ -7,6 +7,9 @@
   nevet -w 2       live view, refreshes every 2 s
   nevet --no-color plain text (colours are also off when piped)
   nevet --color | less -R   keep colours when paging
+  nevet net        network test: each WiFi adapter's signal, speed and
+                   delay (built-in vs USB antenna), saved for comparison
+  nevet net --quick   same without the 5 MB download
 
 Installed as the `nevet` command by install.sh; also runnable as
 python3 ~/nevet/scripts/nevet_status.py
@@ -20,6 +23,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import textwrap
 import time
 import urllib.request
 from datetime import date, datetime, timedelta
@@ -31,6 +35,10 @@ BASE = Path(os.environ.get("CAMERA_BASE_DIR", str(HOME / "camera_captures")))
 LOGS = BASE / "logs"
 FARM_DB = Path(os.environ.get("FARM_DB", str(HOME / "webapp" / "farm.db")))
 UPDATE_STATUS = BASE / ".update" / "status.json"
+NETWORK_LOG = LOGS / "network.log"
+SYS_NET = Path(os.environ.get("NEVET_SYS_NET", "/sys/class/net"))
+PROC_NET_DEV = Path(os.environ.get("NEVET_PROC_NET_DEV", "/proc/net/dev"))
+SPEED_URL = "https://speed.cloudflare.com/__down?bytes=5000000"
 
 sys.path.insert(0, str(REPO / "webapp"))
 try:
@@ -146,7 +154,7 @@ def parsed(path):
 
 def unit_info(unit):
     raw = run(["systemctl", "show", unit, "--timestamp=unix",
-               "-p", "LoadState", "-p", "ActiveState", "-p", "NextElapseUSecRealtime"])
+               "-p", "LoadState", "-p", "ActiveState", "-p", "UnitFileState", "-p", "NextElapseUSecRealtime"])
     if raw is None:
         return None
     info = dict(line.split("=", 1) for line in raw.splitlines() if "=" in line)
@@ -187,15 +195,23 @@ def collect_system(logs):
     else:
         st.row("bad", "Web app", "stopped" if active else "not answering", "sudo systemctl restart nevet-webapp")
 
-    # timelapse: last saved photo
+    # camera + timelapse (both optional: the Pi works fine without a camera)
+    cam = os.environ.get("CAMERA_DEVICE", "/dev/video0")
+    cam_ok = os.path.exists(cam)
     photos = [t for t, m in logs["capture"] if re.match(r"Photo #\d+: saved", m)]
     last_photo = photos[-1] if photos else None
     tl = unit_info("nevet-timelapse.timer")
     age = (now - last_photo).total_seconds() / 60 if last_photo else None
-    if tl and tl.get("LoadState") == "not-found":
+    tl_missing = bool(tl) and tl.get("LoadState") == "not-found"
+    tl_off = bool(tl) and tl.get("UnitFileState") in ("disabled", "masked")
+    if tl_off or (tl_missing and not cam_ok):
+        st.row("off", "Timelapse", "off")
+    elif tl_missing:
         st.row("bad", "Timelapse", "timer not installed", "cd ~/nevet && sudo ./install.sh 5 15")
     elif tl and tl.get("ActiveState") != "active":
         st.row("bad", "Timelapse", "timer stopped", "sudo systemctl start nevet-timelapse.timer")
+    elif not cam_ok:
+        st.row("off", "Timelapse", "paused: no camera")
     else:
         level = "ok" if age is not None and age < 20 else "warn" if age is not None and age < 90 else "bad"
         nxt = f", next {until(tl['next'])}" if tl and tl.get("next") else ""
@@ -230,20 +246,20 @@ def collect_system(logs):
     else:
         st.row("off", "Updates", "no check yet")
 
-    # camera
-    cam = os.environ.get("CAMERA_DEVICE", "/dev/video0")
-    st.row("ok" if os.path.exists(cam) else "bad", "Camera", "connected" if os.path.exists(cam) else f"not found ({cam})",
-           "Check the camera's USB cable (lsusb)")
+    # camera (optional)
+    st.row("ok" if cam_ok else "off", "Camera", "connected" if cam_ok else "not connected")
 
-    # WiFi
-    wifi = run(["nmcli", "-t", "-f", "ACTIVE,SSID,SIGNAL", "dev", "wifi"])
-    line = next((l for l in (wifi or "").splitlines() if l.startswith("yes:")), None)
-    if line:
-        ssid, sig = line.split(":")[1], line.split(":")[-1]
-        sig_n = int(sig) if sig.isdigit() else 0
-        st.row("ok" if sig_n >= 55 else "warn" if sig_n >= 35 else "bad", "WiFi", f"{ssid} {SEP} {sig}%",
-               "Weak WiFi: move Pi nearer the router")
-    elif wifi is not None:
+    # network: the adapter that carries the internet
+    adapters = wifi_adapters()
+    used = next((a for a in adapters if a["default"]), None)
+    dev = default_dev()
+    if used and used.get("signal") is not None:
+        sig = used["signal"]
+        st.row("ok" if sig >= 55 else "warn" if sig >= 35 else "bad", "WiFi",
+               f"{used['ssid']} {SEP} {sig}% {SEP} {used['kind']}", "Weak WiFi: move Pi/antenna nearer the router")
+    elif dev and not dev.startswith("wl"):
+        st.row("ok", "Network", f"{dev} (cable)" if dev.startswith(("eth", "en")) else dev)
+    elif adapters or run(["nmcli", "-t", "device"]) is not None:
         st.row("bad", "WiFi", "not connected", "The watchdog reconnects on its own")
 
     # power + temperature
@@ -276,15 +292,150 @@ def collect_system(logs):
     return st
 
 
-def addresses():
+def split_terse(line):
+    """Split an `nmcli -t` line on ':' (nmcli escapes ':' inside values as '\\:')."""
+    out, cur, esc = [], "", False
+    for ch in line:
+        if esc:
+            cur += ch; esc = False
+        elif ch == "\\":
+            esc = True
+        elif ch == ":":
+            out.append(cur); cur = ""
+        else:
+            cur += ch
+    out.append(cur)
+    return out
+
+
+def default_dev():
+    line = run(["ip", "route", "show", "default"]) or ""
+    m = re.search(r"\bdev (\S+)", line)
+    return m.group(1) if m else None
+
+
+def gateway(iface=None):
+    line = run(["ip", "route", "show", "default"] + (["dev", iface] if iface else [])) or ""
+    m = re.search(r"\bvia (\S+)", line)
+    return m.group(1) if m else (gateway() if iface else None)
+
+
+def wifi_adapters():
+    """Every WiFi adapter: built-in (wlan0) and USB antennas, with their link."""
+    names = sorted(p.name for p in SYS_NET.glob("wl*")) if SYS_NET.exists() else []
+    if not names:
+        return []
+    default = default_dev()
+    live = {}
+    for line in (run(["nmcli", "-t", "-f", "DEVICE,ACTIVE,SSID,SIGNAL,CHAN,FREQ", "dev", "wifi"]) or "").splitlines():
+        f = split_terse(line)
+        if len(f) >= 6 and f[1] == "yes":
+            live[f[0]] = f
+    states = {}
+    for line in (run(["nmcli", "-t", "-f", "DEVICE,STATE", "device"]) or "").splitlines():
+        f = split_terse(line)
+        if len(f) >= 2:
+            states[f[0]] = f[1]
     out = []
-    for a in (run(["hostname", "-I"]) or "").split():
-        try:
-            ip = ipaddress.ip_address(a)
-        except ValueError:
+    for n in names:
+        dev_path = os.path.realpath(SYS_NET / n / "device")
+        usb = "/usb" in dev_path
+        driver = os.path.basename(os.path.realpath(SYS_NET / n / "device" / "driver")) if (SYS_NET / n / "device" / "driver").exists() else ""
+        rate = re.search(r"tx bitrate:\s*([\d.]+)", run(["iw", "dev", n, "link"]) or "")
+        ip = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", run(["ip", "-o", "-4", "addr", "show", "dev", n]) or "")
+        f = live.get(n)
+        out.append({
+            "name": n, "usb": usb, "kind": "USB antenna" if usb else "built-in", "driver": driver,
+            "state": states.get(n, "connected" if f else "?"),
+            "ssid": f[2] if f else None, "signal": int(f[3]) if f and f[3].isdigit() else None,
+            "chan": f[4] if f else None, "freq": f[5] if f else None,
+            "rate": float(rate.group(1)) if rate else None, "ip": ip.group(1) if ip else None,
+            "default": n == default,
+        })
+    return out
+
+
+def net_bytes():
+    """{iface: (rx_bytes, tx_bytes)} since boot."""
+    out = {}
+    try:
+        for line in PROC_NET_DEV.read_text().splitlines()[2:]:
+            name, _, rest = line.partition(":")
+            vals = rest.split()
+            if len(vals) >= 9:
+                out[name.strip()] = (int(vals[0]), int(vals[8]))
+    except (OSError, ValueError):
+        pass
+    return out
+
+
+def human_bytes(n):
+    n = float(n or 0)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if n < 1024 or unit == "TB":
+            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1024
+
+
+NETLOG = re.compile(r"(\w+)=(\S+)")
+
+
+def speed_tests():
+    """Past `nevet net` results, oldest first: [(time, {key: value})]."""
+    return [(t, dict(NETLOG.findall(m))) for t, m in parsed(NETWORK_LOG)]
+
+
+def web_traffic():
+    if not FARM_DB.exists():
+        return None
+    try:
+        con = sqlite3.connect(f"file:{FARM_DB}?mode=ro", uri=True, timeout=3)
+        if not con.execute("SELECT 1 FROM sqlite_master WHERE name = 'web_traffic'").fetchone():
+            con.close()
+            return None
+        today = date.today()
+        def span(first, last):
+            r = con.execute("SELECT COALESCE(SUM(requests),0), COALESCE(SUM(bytes_in),0), COALESCE(SUM(bytes_out),0) "
+                            "FROM web_traffic WHERE day BETWEEN ? AND ?", (first.isoformat(), last.isoformat())).fetchone()
+            return {"requests": r[0], "in": r[1], "out": r[2]}
+        week_start = (today - timedelta(days=6)).isoformat()
+        out = {
+            "today": span(today, today),
+            "yesterday": span(today - timedelta(days=1), today - timedelta(days=1)),
+            "week": span(today - timedelta(days=6), today),
+            "kinds": con.execute("SELECT kind, SUM(bytes_out) FROM web_traffic WHERE day >= ? GROUP BY kind "
+                                 "ORDER BY 2 DESC", (week_start,)).fetchall(),
+            "vias": dict(con.execute("SELECT via, SUM(bytes_out + bytes_in) FROM web_traffic WHERE day >= ? "
+                                     "GROUP BY via", (week_start,)).fetchall()),
+        }
+        con.close()
+        return out
+    except sqlite3.Error:
+        return None
+
+
+def addresses():
+    """[(ip, label)] for every IPv4 address, labelled by adapter."""
+    out = []
+    for line in (run(["ip", "-o", "-4", "addr", "show"]) or "").splitlines():
+        m = re.match(r"\d+:\s+(\S+)\s+inet (\d+\.\d+\.\d+\.\d+)", line)
+        if not m or m.group(1) == "lo":
             continue
-        if ip.version == 4:
-            out.append((a, "Tailscale" if ip in ipaddress.ip_network("100.64.0.0/10") else "WiFi/LAN"))
+        dev, ip = m.group(1), m.group(2)
+        if dev.startswith("tailscale") or ipaddress.ip_address(ip) in ipaddress.ip_network("100.64.0.0/10"):
+            label = "Tailscale"
+        elif dev.startswith("wl"):
+            label = f"{dev} {'USB' if '/usb' in os.path.realpath(SYS_NET / dev / 'device') else 'built-in'}"
+        else:
+            label = dev
+        out.append((ip, label))
+    if not out:                                   # no `ip`? fall back to hostname -I
+        for a in (run(["hostname", "-I"]) or "").split():
+            try:
+                if ipaddress.ip_address(a).version == 4:
+                    out.append((a, "Tailscale" if ipaddress.ip_address(a) in ipaddress.ip_network("100.64.0.0/10") else "LAN"))
+            except ValueError:
+                pass
     return out
 
 
@@ -295,7 +446,13 @@ def classify(src, msg):
     if src == "watchdog":
         if msg.startswith("OK  online"):
             sig = re.search(r"signal=(\S+)", msg)
-            return "wifi_ok", "ok", f"WiFi OK {SEP} {sig.group(1)} signal" if sig else "WiFi OK"
+            via = re.search(r"via (\S+)", msg)
+            text = "WiFi OK" + (f" {SEP} {sig.group(1)}" if sig else "") + (f" via {via.group(1)}" if via else "")
+            return "wifi_ok", "ok", text
+        if msg.startswith("Camera connected"):
+            return None, "ok", "Camera connected"
+        if msg.startswith("Camera disconnected"):
+            return None, "info", "Camera disconnected"
         if msg.startswith("OK"):
             return None, "ok", msg[3:].strip()
         if "no internet" in msg:
@@ -314,6 +471,10 @@ def classify(src, msg):
             return None, "info", "WiFi " + msg.strip()
         return None, ("bad" if "FAIL" in msg else "warn" if "WARN" in msg else "info"), msg.strip()
     if src == "capture":
+        if msg.startswith("Camera not connected"):
+            return None, "info", "No camera: photos paused"
+        if msg.startswith("Camera connected again"):
+            return None, "ok", "Camera back: photos resumed"
         m = re.match(r"Photo #(\d+): saved \S+ \((.+)\)", msg)
         if m:
             return "photo", "ok", f"Photo #{m.group(1)} saved ({m.group(2)})"
@@ -348,6 +509,10 @@ def classify(src, msg):
             return None, "ok", "Web app started"
         if "waitress not installed" in text:
             return None, "warn", "Web app started (dev server)"
+        m = re.match(r"Traffic (\d{4}-\d{2}-\d{2}): .*?, (.+?) sent", text)
+        if m:
+            day = datetime.strptime(m.group(1), "%Y-%m-%d")
+            return None, "info", f"Web app sent {m.group(2)} on {day:%d %b}"
         if re.search(r" logged \w+ x\d+", text) or text.startswith("Stats logged"):
             return None                        # garden actions are listed in their own section
         return None, {"ERROR": "bad", "WARNING": "warn"}.get(level, "info"), text
@@ -431,7 +596,38 @@ def uptime():
     return f"{d}d {h}h" if d else f"{h}h {m}m" if h else f"{m}m"
 
 
+ANTENNA_CMD = "sudo ~/nevet/scripts/wifi_antenna.sh usb"
+
+
+def antenna_tip(adapters):
+    """A hint when a USB antenna is plugged in but isn't carrying the internet."""
+    usb = next((a for a in adapters if a["usb"]), None)
+    if not usb or usb["default"]:
+        return None
+    if usb["ip"]:
+        return f"USB antenna {usb['name']} is only the backup. To use it first:"
+    return f"USB antenna {usb['name']} isn't connected. To use it:"
+
+
+def tip_lines(text, W, style="cyan", cmd=None):
+    """'→ text' word-wrapped to the screen, then an optional command on its own line."""
+    lines = textwrap.wrap(text, max(20, W - 3)) or [""]
+    out = [C.wrap(f" {ARROW} ", style) + lines[0]] + ["   " + ln for ln in lines[1:]]
+    if cmd:
+        out.append("   " + C.wrap(cmd, "cyan", "bold"))
+    return out
+
+
 # ---------------------------------------------------------------- render
+KIND_NAMES = {"media": "Photos & videos", "static": "3D & page files", "page": "Pages", "api": "API"}
+VIA_NAMES = {"lan": "Home network", "tailscale": "Tailscale", "internet": "Internet"}
+
+
+def lbl(text, width=10):
+    """Grey row label padded to a fixed width (padding before colouring)."""
+    return C.wrap(f"{text:<{width}}", "grey")
+
+
 def render(n):
     W = max(36, min(shutil.get_terminal_size((60, 24)).columns, 66))
     logs = {k: parsed(LOGS / f"{k}.log") for k in ("watchdog", "capture", "update", "webapp")}
@@ -470,6 +666,64 @@ def render(n):
         for level, hint in dict.fromkeys(hints):
             P(fit(C.wrap(f" {ARROW} ", *LEVEL_STYLE[level]) + hint, W))
 
+    # ---- network: which adapter, how good, last speed test, data moved
+    heading("Network")
+    adapters = wifi_adapters()
+    for a in adapters:
+        if a["signal"] is not None:
+            level = ("ok" if a["signal"] >= 55 else "warn" if a["signal"] >= 35 else "bad") if a["default"] else "info"
+            detail = f"{a['signal']}% signal" + (f" {SEP} " + C.wrap("in use", "bold") if a["default"] else f" {SEP} standby")
+        else:
+            level, detail = "off", ("not connected" if a["state"] in ("disconnected", "?") else a["state"])
+        P(fit(f" {C.wrap(DOT, *LEVEL_STYLE[level])} {a['name']:<6}{a['kind']:<12}{detail}", W))
+    if not adapters:
+        P(C.wrap(" No WiFi adapters found.", "grey"))
+    tip = antenna_tip(adapters)
+    if tip:
+        out.extend(tip_lines(tip, W, cmd=ANTENNA_CMD))
+    last_ok = next((m for t, m in reversed(logs["watchdog"]) if m.startswith("OK  online")), "")
+    router = re.search(r"router=([\d.]+)ms", last_ok)
+    if router:
+        P(fit(f" {lbl('Router')} {C.wrap(router.group(1), 'bold')} ms ping", W))
+    tests = [(t, r) for t, r in speed_tests() if r.get("down", "-") != "-"]
+    if tests:
+        t, r = tests[-1]
+        P(fit(f" {lbl('Download')} {C.wrap(r['down'], 'bold')} Mb/s"
+              + C.wrap(f" {SEP} {r.get('iface', '?')} {SEP} {ago(t)}", "grey"), W))
+    else:
+        P(fit(f" {lbl('Download')} not tested yet: run {C.wrap('nevet net', 'cyan')}", W))
+    counters = net_bytes()
+    used = next((a["name"] for a in adapters if a["default"]), None) or default_dev()
+    if used in counters:
+        rx, tx = counters[used]
+        P(fit(f" {lbl('Since boot')} {C.wrap(human_bytes(rx), 'bold')} in {SEP} "
+              f"{C.wrap(human_bytes(tx), 'bold')} out {C.wrap(f'({used})', 'grey')}", W))
+
+    # ---- web app traffic (counted by the web app itself)
+    wt = web_traffic()
+    heading("Web app traffic")
+    if wt is None:
+        P(C.wrap(" Nothing counted yet (starts after this update).", "grey"))
+    else:
+        for label, key in (("Today", "today"), ("Yesterday", "yesterday"), ("7 days", "week")):
+            v = wt[key]
+            P(fit(f" {lbl(label)} {C.wrap(human_bytes(v['out']), 'bold')} sent {SEP} "
+                  f"{v['requests']:,} requests", W))
+        wk = wt["week"]
+        if wk["in"]:
+            P(fit(f" {lbl('')} {C.wrap(human_bytes(wk['in']), 'bold')} received in 7 days", W))
+        top = max((b for _, b in wt["kinds"]), default=0)
+        for kind, b in wt["kinds"]:
+            if not b:
+                continue
+            bar = BAR * max(1, round(max(4, W - 29) * b / top))
+            P(fit(f" {KIND_NAMES.get(kind, kind):<16}{human_bytes(b):>9} {C.wrap(bar, 'green')}", W))
+        vias = wt["vias"]
+        if vias:
+            parts = [f"{VIA_NAMES.get(k, k)} {C.wrap(human_bytes(v), 'bold')}"
+                     for k, v in sorted(vias.items(), key=lambda kv: -kv[1])]
+            P(fit(" " + f" {SEP} ".join(parts), W))
+
     heading("Last 24 hours")
     stats = last_24h(logs)
     cols = 2 if W >= 44 else 1
@@ -493,7 +747,7 @@ def render(n):
                                    ("This week", g["week"], "actions"),
                                    ("Growing", g["growing"], "plants & bins"),
                                    ("Players", g["players"], "")):
-            P(fit(f" {C.wrap(f'{label:<10}', 'grey')} {C.wrap(str(value), 'bold')} {unit}".rstrip(), W))
+            P(fit(f" {lbl(label)} {C.wrap(str(value), 'bold')} {unit}".rstrip(), W))
         if g["top"]:
             top_n = g["top"][0]["n"]
             bar_w = max(4, W - 22)
@@ -526,9 +780,137 @@ def render(n):
     return "\n".join(out)
 
 
+# ---------------------------------------------------------------- nevet net
+def ping_stats(target, iface, count=10):
+    out = run(["ping", "-I", iface, "-c", str(count), "-i", "0.2", "-W", "2", target], timeout=count + 8) or ""
+    loss = re.search(r"([\d.]+)% packet loss", out)
+    rtt = re.search(r"= [\d.]+/([\d.]+)/([\d.]+)/", out)
+    if not loss:
+        return None
+    return {"loss": float(loss.group(1)), "avg": float(rtt.group(1)) if rtt else None, "max": float(rtt.group(2)) if rtt else None}
+
+
+def download_mbps(iface):
+    out = run(["curl", "--interface", iface, "-s", "-o", "/dev/null", "-m", "40",
+               "-w", "%{speed_download} %{size_download}", SPEED_URL], timeout=45)
+    try:
+        speed, size = (float(x) for x in out.split())
+    except (AttributeError, ValueError):
+        return None
+    return round(speed * 8 / 1e6, 1) if size > 100_000 else None
+
+
+def net_test(quick=False):
+    W = max(36, min(shutil.get_terminal_size((60, 24)).columns, 66))
+    P = print
+
+    def heading(text):
+        line = "─" if UTF8 else "-"
+        P(""); P(C.wrap(text.upper(), "bold", "green") + " " + C.wrap(line * max(0, W - len(text) - 1), "grey"))
+
+    P(C.wrap(" NEVET NET ", "title") + "  " + C.wrap("network test", "bold"))
+    P(C.wrap(f"{datetime.now():%a %d %b %H:%M}", "grey"))
+    adapters = wifi_adapters()
+    heading("WiFi adapters")
+    if not adapters:
+        P(C.wrap(" No WiFi adapters found (is the USB antenna plugged in? try: lsusb)", "bred"))
+    for a in adapters:
+        on = a["signal"] is not None
+        level = "ok" if on and a["default"] else "info" if on else "off"
+        P(fit(f" {C.wrap(DOT, *LEVEL_STYLE[level])} {C.wrap(a['name'], 'bold')}  {a['kind']}"
+              + (C.wrap(f" ({a['driver']})", "grey") if a["driver"] else "") + (C.wrap("  in use", "bgreen") if a["default"] else ""), W))
+        if on:
+            band = ""
+            try:
+                band = " 5 GHz" if int(re.sub(r"\D", "", a["freq"] or "0")) >= 5000 else " 2.4 GHz"
+            except ValueError:
+                pass
+            P(fit(f"     {a['ssid']} {SEP} {a['signal']}%" + (f" {SEP} {a['rate']:g} Mb/s" if a["rate"] else "")
+                  + (f" {SEP}{band} ch {a['chan']}" if a["chan"] else ""), W))
+        else:
+            P(fit(C.wrap(f"     {a['state']}", "grey"), W))
+
+    testable = [a for a in adapters if a["ip"]]
+    if not testable:
+        P(C.wrap("\n No connected adapter to test.", "bred"))
+        return
+    idle_usb = next((a for a in adapters if a["usb"] and not a["ip"]), None)
+    if idle_usb:
+        for line in tip_lines(f"{idle_usb['name']} (USB antenna) isn't connected, so it can't be tested. "
+                              "Connect it, then test again:", W, cmd=ANTENNA_CMD):
+            P(line)
+    results = []
+    for a in testable:
+        heading(f"Testing {a['name']} ({a['kind']})")
+        gw = gateway(a["name"])
+        r = {"iface": a["name"], "kind": "USB" if a["usb"] else "built-in", "ssid": a["ssid"] or "-",
+             "signal": a["signal"], "rate": a["rate"]}
+        for label, target, key in (("Router", gw, "router"), ("Internet", "1.1.1.1", "internet")):
+            sys.stdout.write(f" {label:<10}"); sys.stdout.flush()
+            st = ping_stats(target, a["name"]) if target else None
+            r[key] = st
+            if st and st["avg"] is not None:
+                lvl = "bgreen" if st["loss"] == 0 else "byellow" if st["loss"] < 10 else "bred"
+                print(C.wrap(f"{st['avg']:.1f} ms", "bold") + f" avg {SEP} " + C.wrap(f"{st['loss']:g}% lost", lvl))
+            else:
+                print(C.wrap("no answer", "bred"))
+        if quick:
+            r["down"] = None
+        else:
+            sys.stdout.write(f" {'Download':<10}"); sys.stdout.flush()
+            r["down"] = download_mbps(a["name"])
+            print(C.wrap(f"{r['down']:g} Mb/s", "bold") + C.wrap(" (5 MB test)", "grey") if r["down"] else C.wrap("failed", "bred"))
+        results.append(r)
+
+    # save for comparison over time (e.g. before/after moving the antenna)
+    LOGS.mkdir(parents=True, exist_ok=True)
+    with open(NETWORK_LOG, "a") as f:
+        for r in results:
+            fmt = lambda st: f"{st['avg']:.1f}/{st['loss']:g}" if st and st["avg"] is not None else "-"
+            f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} iface={r['iface']} kind={r['kind']} ssid={r['ssid'].replace(' ', '_')} "
+                    f"signal={r['signal'] if r['signal'] is not None else '-'} rate={r['rate'] if r['rate'] else '-'} "
+                    f"router={fmt(r['router'])} internet={fmt(r['internet'])} down={r['down'] if r['down'] else '-'}\n")
+
+    if len(results) > 1 and all(r["down"] for r in results):
+        best = max(results, key=lambda r: r["down"])
+        other = min(results, key=lambda r: r["down"])
+        heading("Verdict")
+        factor = best["down"] / other["down"] if other["down"] else 0
+        P(fit(f" {C.wrap(best['iface'], 'bold')} ({best['kind']}) is " +
+              (C.wrap(f"{factor:.1f}x faster", "bgreen") if factor >= 1.2 else C.wrap("about the same", "bold")) +
+              f" than {other['iface']}", W))
+        used = next((a["name"] for a in adapters if a["default"]), None)
+        if factor >= 1.2 and best["kind"] == "USB":
+            tip = (tip_lines("Good: the antenna already carries the internet.", W, "bgreen") if best["iface"] == used
+                   else tip_lines("Use the antenna first:", W, cmd=ANTENNA_CMD))
+        elif factor >= 1.2:
+            tip = tip_lines("The antenna isn't helping here. Try another spot, or a USB extension "
+                            "cable to lift it away from the Pi.", W, "byellow")
+        else:
+            tip = []
+        for line in tip:
+            P(line)
+
+    tests = speed_tests()[-8:]
+    heading("Recent tests")
+    for t, r in reversed(tests):
+        down = r.get("down", "-")
+        internet = r.get("internet", "-").split("/")[0]
+        speed = f"{down} Mb/s" if down != "-" else "-"
+        try:
+            ping = f"{float(internet):.0f} ms"
+        except ValueError:
+            ping = ""
+        P(fit(f" {C.wrap(f'{t:%a %H:%M}', 'grey')} {r.get('iface', '?'):<6}{r.get('kind', ''):<8}"
+              f"{r.get('signal', '-'):>4}%{' ' * max(1, 10 - len(speed))}{C.wrap(speed, 'bold')} {ping}", W))
+    P(C.wrap("\n Saved to ~/camera_captures/logs/network.log", "grey"))
+
+
 def main():
     ap = argparse.ArgumentParser(prog="nevet", description="Nevet status for the terminal.")
-    ap.add_argument("command", nargs="?", default="status", choices=["status"], help=argparse.SUPPRESS)
+    ap.add_argument("command", nargs="?", default="status", choices=["status", "net"],
+                    help="status (default) or net (network test)")
+    ap.add_argument("--quick", action="store_true", help="net: skip the 5 MB download test")
     ap.add_argument("-n", type=int, default=5, metavar="N", help="how many latest actions/events (default 5)")
     ap.add_argument("-w", "--watch", nargs="?", const=5, type=float, metavar="SEC", help="refresh every SEC seconds")
     ap.add_argument("--no-color", action="store_true", help="plain text")
@@ -538,6 +920,9 @@ def main():
     if os.geteuid() == 0 and "FARM_DB" not in os.environ:
         print("Tip: run `nevet` as your normal user (not sudo) so it finds your logs and garden data.\n")
     n = max(1, min(a.n, 50))
+    if a.command == "net":
+        net_test(quick=a.quick)
+        return
     if not a.watch:
         print(render(n))
         return

@@ -103,6 +103,18 @@ def get_conn():
             online INTEGER
         );
         CREATE INDEX IF NOT EXISTS idx_captures_taken_at ON captures(taken_at);
+
+        -- How much data the web app sent/received, per day, kind of
+        -- request and how the visitor connected (see traffic.py).
+        CREATE TABLE IF NOT EXISTS web_traffic (
+            day TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            via TEXT NOT NULL,
+            requests INTEGER NOT NULL DEFAULT 0,
+            bytes_in INTEGER NOT NULL DEFAULT 0,
+            bytes_out INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (day, kind, via)
+        );
     """)
     # Hero avatars (added later): older databases get the new columns
     # in place, existing growers keep all their data.

@@ -97,6 +97,7 @@ migrated automatically by `webapp/farm_db.py`:
 | `logs` | Actions: `log_type`, `asset_id` (NULL = whole garden), `grower_id` (who did it), `timestamp`, `notes`, `recipient` |
 | `quantities` | Amounts attached to a log (harvest weight, pieces given away) |
 | `captures` | Every photo/video the camera took |
+| `web_traffic` | Data the web app moved, per `day` × `kind` (media / static / page / api) × `via` (lan / tailscale / internet): `requests`, `bytes_in`, `bytes_out`. Requests from the Pi itself aren't counted |
 
 Action types (`log_type`): watering, pruning, fertilizing, weeding,
 pest_control, feeding (worm bins), harvest, germination, transplant,

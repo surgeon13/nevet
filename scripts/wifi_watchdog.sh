@@ -16,8 +16,9 @@
 # Web app: checks http://127.0.0.1:8000/healthz. Two failed checks in a
 # row (i.e. hung, not just busy) -> restart nevet-webapp.
 #
-# Also logs Pi health each run (under-voltage, temperature, memory,
-# disk), which are the usual hidden causes of Pi 3B WiFi dropouts.
+# Also logs which adapter is in use (built-in WiFi or a USB antenna),
+# its signal, link speed and router ping, plus Pi health (under-voltage,
+# temperature, memory, disk), the usual hidden causes of WiFi dropouts.
 #
 # Test without changing anything: NEVET_WATCHDOG_DRY_RUN=1 ./wifi_watchdog.sh
 set -u
@@ -28,7 +29,7 @@ log_init "watchdog"
 
 DATA_DIR="$HOME/camera_captures"
 STATE_DIR="$DATA_DIR/.watchdog"
-IFACE="${NEVET_WIFI_IFACE:-wlan0}"
+SYS_NET="${NEVET_SYS_NET:-/sys/class/net}"
 WEBAPP_URL="http://127.0.0.1:8000/healthz"
 DRY_RUN="${NEVET_WATCHDOG_DRY_RUN:-0}"
 
@@ -47,11 +48,53 @@ act() {
     "$@" >/dev/null 2>&1
 }
 
+# ---------- which network adapter? ----------
+# The Pi may have the built-in WiFi (wlan0) and a USB WiFi antenna
+# (usually wlan1). Watch whichever one carries the internet right now;
+# when nothing does, the last one that worked, then a USB antenna.
+is_usb() { readlink -f "$SYS_NET/$1/device" 2>/dev/null | grep -q '/usb'; }
+iface_label() {
+    if is_usb "$1"; then echo "$1 (USB)"
+    elif [[ "$1" == wl* ]]; then echo "$1 (built-in)"
+    else echo "$1"; fi
+}
+wifi_ifaces() {
+    local f
+    for f in "$SYS_NET"/wl*; do [ -e "$f" ] && echo "${f##*/}"; done
+}
+default_dev() { ip route show default 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "dev") {print $(i + 1); exit}}'; }
+pick_iface() {
+    [ -n "${NEVET_WIFI_IFACE:-}" ] && { echo "$NEVET_WIFI_IFACE"; return; }
+    local dev last f first=""
+    dev=$(default_dev)
+    [ -n "$dev" ] && { echo "$dev"; return; }
+    last=$(cat "$STATE_DIR/iface" 2>/dev/null)
+    [ -n "$last" ] && [ -e "$SYS_NET/$last" ] && { echo "$last"; return; }
+    for f in $(wifi_ifaces); do
+        is_usb "$f" && { echo "$f"; return; }
+        [ -z "$first" ] && first="$f"
+    done
+    echo "${first:-wlan0}"
+}
+IFACE=$(pick_iface)
+
 get_signal() {
     command -v nmcli >/dev/null 2>&1 || { echo "?"; return; }
     local sig
-    sig=$(nmcli -t -f ACTIVE,SIGNAL dev wifi 2>/dev/null | awk -F: '$1=="yes"{print $2; exit}')
+    sig=$(nmcli -t -f DEVICE,ACTIVE,SIGNAL dev wifi 2>/dev/null | awk -F: -v d="$IFACE" '$1 == d && $2 == "yes" {print $3; exit}')
     echo "${sig:-?}"
+}
+get_bitrate() { iw dev "$IFACE" link 2>/dev/null | awk '/tx bitrate/ {print $3; exit}'; }
+router_ms() {
+    local gw
+    gw=$(ip route show default dev "$IFACE" 2>/dev/null | awk '{print $3; exit}')
+    [ -z "$gw" ] && gw=$(ip route 2>/dev/null | awk '/^default/ {print $3; exit}')
+    [ -n "$gw" ] && ping -c1 -W2 "$gw" 2>/dev/null | grep -oE 'time=[0-9.]+' | cut -d= -f2
+}
+link_line() {   # "via wlan1 (USB) signal=78% rate=72.2Mb/s router=3.1ms"
+    local rate ms
+    rate=$(get_bitrate); ms=$(router_ms)
+    echo "via $(iface_label "$IFACE") signal=$(get_signal)%${rate:+ rate=${rate}Mb/s}${ms:+ router=${ms}ms}"
 }
 
 has_ip() { ip -4 addr show "$IFACE" 2>/dev/null | grep -q "inet "; }
@@ -130,41 +173,46 @@ reconnect() {
     [ "$DRY_RUN" = "1" ] || sleep 15
 }
 
-# Keep WiFi power saving off; it's a classic cause of Pi 3B dropouts.
+# Keep WiFi power saving off on every adapter; it's a classic cause of dropouts.
 powersave_off() {
     command -v iw >/dev/null 2>&1 || return
-    if iw dev "$IFACE" get power_save 2>/dev/null | grep -qi "on"; then
-        log_msg "  WiFi power save was ON - turning it off"
-        act sudo -n iw dev "$IFACE" set power_save off
-    fi
+    local f
+    for f in $(wifi_ifaces); do
+        if iw dev "$f" get power_save 2>/dev/null | grep -qi "on"; then
+            log_msg "  WiFi power save was ON on $f - turning it off"
+            act sudo -n iw dev "$f" set power_save off
+        fi
+    done
 }
 
 # ---------- network ----------
 powersave_off
-SIGNAL=$(get_signal)
 STATE=$(net_state)
+LINK=$(link_line)
 LINK_FAILS=$(read_count link_fails)
 LAN_ONLY_COUNT=$(read_count lan_only)
 
 case "$STATE" in
     ONLINE)
-        log_msg "OK  online signal=${SIGNAL}% $(health_line)"
+        log_msg "OK  online $LINK $(health_line)"
+        echo "$IFACE" > "$STATE_DIR/iface"
         [ "$LINK_FAILS" -ne 0 ] && log_msg "WiFi recovered after $LINK_FAILS failed check(s)"
         [ "$LAN_ONLY_COUNT" -ne 0 ] && log_msg "Internet back after $LAN_ONLY_COUNT check(s) of LAN-only"
         LINK_FAILS=0; LAN_ONLY_COUNT=0
         ;;
     LAN_ONLY)
         LAN_ONLY_COUNT=$((LAN_ONLY_COUNT + 1)); LINK_FAILS=0
-        log_msg "WARN WiFi+router OK but no internet (check #$LAN_ONLY_COUNT: ISP outage or captive portal) - not touching WiFi, local access still works. signal=${SIGNAL}% $(health_line)"
+        log_msg "WARN WiFi+router OK but no internet (check #$LAN_ONLY_COUNT: ISP outage or captive portal) - not touching WiFi, local access still works. $LINK $(health_line)"
         ;;
     LINK_DOWN)
         LINK_FAILS=$((LINK_FAILS + 1)); LAN_ONLY_COUNT=0
-        log_msg "FAIL WiFi link down (no IP or router unreachable, consecutive: $LINK_FAILS) signal=${SIGNAL}% $(health_line)"
+        log_msg "FAIL WiFi link down (no IP or router unreachable, consecutive: $LINK_FAILS) $LINK $(health_line)"
         reconnect "$LINK_FAILS"
         if [ "$DRY_RUN" != "1" ]; then
             STATE=$(net_state)
             if [ "$STATE" != "LINK_DOWN" ]; then
-                log_msg "OK  link restored ($STATE) signal=$(get_signal)%"
+                IFACE=$(pick_iface)
+                log_msg "OK  link restored ($STATE) $(link_line)"
                 LINK_FAILS=0
             else
                 log_msg "     still down - capture continues offline, will retry next check"
@@ -192,7 +240,17 @@ fi
 write_count web_fails "$WEB_FAILS"
 
 # ---------- camera + services ----------
-[ -e "/dev/video0" ] || log_msg "WARN camera /dev/video0 missing (unplugged or USB power issue)"
-systemctl is-active --quiet nevet-timelapse.timer 2>/dev/null || log_msg "WARN nevet-timelapse.timer not active"
+CAM="${CAMERA_DEVICE:-/dev/video0}"
+CAM_NOW=0; [ -e "$CAM" ] && CAM_NOW=1
+if [ -f "$STATE_DIR/camera" ] && [ "$(cat "$STATE_DIR/camera")" != "$CAM_NOW" ]; then
+    if [ "$CAM_NOW" = 1 ]; then log_msg "Camera connected ($CAM)"; else log_msg "Camera disconnected ($CAM) - photos paused"; fi
+fi
+echo "$CAM_NOW" > "$STATE_DIR/camera"
+# Timelapse may be switched off on purpose (no camera): only complain when
+# it's enabled but not running.
+if [ "$(systemctl is-enabled nevet-timelapse.timer 2>/dev/null)" = "enabled" ] && \
+   ! systemctl is-active --quiet nevet-timelapse.timer 2>/dev/null; then
+    log_msg "WARN nevet-timelapse.timer is enabled but not running"
+fi
 
 exit 0

@@ -8,11 +8,18 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib/log.sh"
 log_init "capture"
+source "$SCRIPT_DIR/lib/camera.sh"
+
+# No camera plugged in: nothing to do (the timelapse timer just waits).
+if ! camera_ready; then
+    echo "No camera connected ($CAMERA_DEVICE) - skipping."
+    exit 0
+fi
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'
 BLUE='\033[0;34m'; BOLD='\033[1m'; NC='\033[0m'
 
-DEVICE="/dev/video0"
+DEVICE="$CAMERA_DEVICE"
 RESOLUTION="3008x1504"
 BASE_DIR="$HOME/camera_captures"
 PHOTO_DIR="$BASE_DIR/photos"

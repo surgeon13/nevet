@@ -13,18 +13,27 @@ and fixes, and [`CHANGELOG.md`](CHANGELOG.md) for the project's history.
 ## Hardware
 
 - Raspberry Pi 3B
-- Insta360 Air (USB, exposes itself as a UVC webcam — no vendor SDK needed)
-- Camera capture device: `/dev/video0` (MJPEG up to 3008x1504, H264 at 1920x960)
+- Optional: Insta360 Air (USB, exposes itself as a UVC webcam — no vendor SDK needed),
+  capture device `/dev/video0` (MJPEG up to 3008x1504, H264 at 1920x960)
+- Optional: a USB WiFi antenna (dongle) for a stronger connection
+
+**The camera is optional.** The web app never depends on it. Without one,
+install with the timelapse off (`sudo ./install.sh off 15`); if the timer is
+left on, photos are simply paused (logged once, not every 5 minutes) and
+resume by themselves when a camera is plugged back in.
 
 ## Repo layout
 
 ```
-scripts/                    capture_photo.sh, capture_video.sh, test_camera_scripts.sh, wifi_watchdog.sh
+scripts/                    capture_photo.sh, capture_video.sh, test_camera_scripts.sh, wifi_watchdog.sh,
+                            wifi_antenna.sh, nevet_status.py (the `nevet` command)
   scripts/lib/log.sh          shared timestamped logging helper
+  scripts/lib/camera.sh       "is a camera plugged in?" check shared by the capture scripts
 webapp/                      Flask app: gallery, login, live logs, game stats
   webapp/app.py
   webapp/game_stats.py         importable helper for logging game stats
   webapp/logging_config.py     rotating file logging setup
+  webapp/traffic.py            counts the web app's data transfer
 systemd/                     unit file templates (rendered by install.sh)
 config/
   config/.env.example          secrets template — copy to .env, never committed
@@ -40,7 +49,8 @@ CHANGELOG.md                  project history
 git clone https://github.com/surgeon13/nevet.git
 cd nevet
 sudo ./install.sh 5 15     # photo every 5 min, check for updates every 15 min
-                           # (defaults 5 and 15; use "off" to disable updates)
+                           # (defaults 5 and 15; "off" disables either one)
+sudo ./install.sh off 15   # no camera: timelapse off, updates every 15 min
 ```
 
 The installer creates `.env` from `config/.env.example` on first run. The
@@ -93,14 +103,60 @@ Everything it does is in `~/camera_captures/logs/update.log` and in the
 After `sudo ./install.sh`, type **`nevet`** in any SSH/terminal session for a
 coloured one-screen summary: web app, timelapse, watchdog, updates, camera,
 WiFi, power and disk (with a fix hint for anything wrong), the addresses to
-open the website, the last 24 hours, the garden totals, and the **latest 5
-garden actions and system events**.
+open the website, the **network** (each WiFi adapter, which one carries the
+internet, router ping, last speed test, data since boot), the **web app
+traffic** (data sent today / yesterday / 7 days, split by photos, 3D files,
+pages and API, home network vs Tailscale), the last 24 hours, the garden
+totals, and the **latest 5 garden actions and system events**.
 
 ```bash
 nevet            # summary
 nevet -n 10      # latest 10 instead of 5
 nevet -w         # live view, refreshes every 5 s (Ctrl+C to stop)
+nevet net        # network test: every WiFi adapter, ping + 5 MB download (~30 s)
+nevet net --quick   # same without the download
 ```
+
+## Network and the USB WiFi antenna
+
+The Pi 3B's built-in WiFi is 2.4 GHz only with a tiny antenna. A USB WiFi
+dongle usually does better (bigger antenna, often 5 GHz). Nevet handles any
+number of adapters: the watchdog watches and reconnects whichever one
+carries the internet, and turns WiFi power saving off on all of them.
+
+1. **Measure first:** `nevet net`. It tests every connected adapter
+   (router ping, internet ping, packet loss, 5 MB download), says which is
+   faster, and saves the result to `~/camera_captures/logs/network.log`, so
+   you can compare before/after moving the Pi or the antenna.
+2. **Use the antenna first:**
+   ```bash
+   sudo ~/nevet/scripts/wifi_antenna.sh usb    # antenna first, built-in = backup
+   ~/nevet/scripts/wifi_antenna.sh             # show which adapter is used
+   sudo ~/nevet/scripts/wifi_antenna.sh undo   # back to built-in only
+   ```
+   `usb` copies the WiFi network the Pi is on (name + password) into a
+   NetworkManager profile tied to the USB adapter and gives it a better
+   route, so traffic goes through the antenna. The built-in WiFi stays
+   connected: if the antenna is unplugged or fails, nothing is lost. It
+   survives reboots.
+3. **Run `nevet net` again** to confirm the antenna wins.
+
+Tips: a short USB extension cable lets you raise the antenna away from the
+Pi (the board and its power supply are noisy). A dongle draws power too;
+if `nevet` shows under-voltage, use the official 5.1 V / 2.5 A supply with a
+short cable. If the antenna doesn't show up at all, check `lsusb` and
+`ip link`: some dongles need a driver that isn't in Raspberry Pi OS.
+
+## Web app traffic
+
+The web app counts every request and the bytes it sent and received,
+per day, by type (photos & videos, static files such as the 3D libraries,
+pages, API) and by how the visitor connected (home network or Tailscale).
+Counts are kept in memory and written to `farm.db` (table `web_traffic`)
+every 30 seconds, so the SD card isn't written on every request. Checks
+the Pi makes to itself (watchdog, updater) aren't counted. Sizes include
+HTTP headers but not WiFi/TCP overhead, so the radio moves a bit more.
+Yesterday's totals are also written to `webapp.log` once a day.
 
 Before re-running the installer it also works as
 `python3 ~/nevet/scripts/nevet_status.py`.
@@ -114,6 +170,7 @@ Before re-running the installer it also works as
 ./scripts/fix_orientation.sh --before YYYY-MM-DD   # flip photos taken before the camera fix
 python3 scripts/backfill_captures.py  # one-time: add existing photos/videos to the database
 ./scripts/health_report.sh            # why is the Pi dropping offline? paste this output
+./scripts/wifi_antenna.sh             # which WiFi adapter carries the internet
 ```
 
 Captured media lives in `~/camera_captures/{photos,videos}/YYYY-MM-DD/`,
@@ -128,7 +185,8 @@ All logs live under `~/camera_captures/logs/` — one file per subsystem:
 |---|---|
 | `logs/capture.log` | `capture_photo.sh` / `capture_video.sh` — every attempt, success, and failure |
 | `logs/watchdog.log` | `wifi_watchdog.sh` — every WiFi and web app check (signal, power, temperature), reconnects, restarts |
-| `logs/webapp.log` | The Flask app — logins, rejected API calls, stats writes |
+| `logs/webapp.log` | The Flask app — logins, rejected API calls, stats writes, daily traffic totals |
+| `logs/network.log` | `nevet net` — one line per adapter per test (signal, ping, loss, download) |
 
 Shell scripts share `scripts/lib/log.sh` for consistent timestamped logging.
 `webapp.log` self-rotates via Python's `RotatingFileHandler` (1MB × 3 backups);

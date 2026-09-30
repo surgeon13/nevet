@@ -13,6 +13,7 @@ import activity_views as av
 import auth
 import farm_db
 import heroes
+import traffic
 
 BASE_DIR = Path(os.environ.get("CAMERA_BASE_DIR", str(Path.home() / "camera_captures")))
 PHOTO_DIR = BASE_DIR / "photos"
@@ -28,6 +29,7 @@ app.config.update(
 )
 logger = setup_logging(app)
 av.register(app)
+traffic_counter = traffic.TrafficCounter(farm_db.get_conn).install(app)
 
 # Pages anyone can open without logging in. Everything else needs an account.
 PUBLIC_ENDPOINTS = {"login", "register", "healthz", "static", "api_add_stats"}
@@ -601,7 +603,15 @@ def healthz():
     return "ok", 200
 
 
+def _stop(signum, frame):
+    """systemd stops the service with SIGTERM: save traffic counts first."""
+    traffic_counter.flush()
+    raise SystemExit(0)
+
+
 if __name__ == "__main__":
+    import signal
+    signal.signal(signal.SIGTERM, _stop)
     # waitress is a production-grade server (multi-threaded, doesn't hang
     # on slow clients the way Flask's built-in dev server can). Falls back
     # to the dev server if waitress isn't installed yet.

@@ -57,21 +57,34 @@ Cosmetic; the server keeps running and serving other requests fine.
 
 **Pi keeps dropping off WiFi**
 `nevet-watchdog.timer` runs every 2 minutes and logs every check
-(not just failures) to `logs/watchdog.log`, including latency and
-signal strength — e.g. `OK  latency=14ms signal=78%` vs
-`FAIL no response from 8.8.8.8 (signal=?%)`. Patterns worth checking in
-that log:
-- Signal strength dropping toward 0% before failures → range/interference issue.
-- Failures with signal still reported high → likely a driver/power-saving
-  issue rather than range (worth trying `iwconfig wlan0 power off` to
-  disable WiFi power management, a known flaky-reconnect cause on the Pi 3B's
-  onboard adapter).
+(not just failures) to `logs/watchdog.log`, including the adapter,
+signal, link rate and router ping — e.g.
+`OK  online via wlan1 (USB) signal=78% rate=72.2Mb/s router=3.1ms ...` vs
+`FAIL WiFi link down ...`. Patterns worth checking in that log:
+- Signal strength dropping toward 0% before failures → range/interference
+  issue: a USB WiFi antenna helps (see README, "Network and the USB WiFi
+  antenna"); `nevet net` measures the difference.
+- Failures with signal still reported high → likely power (check
+  `nevet` for under-voltage) or a driver issue. Power saving is turned off
+  on every adapter by install.sh and the watchdog.
 - Failures clustered at regular intervals → check for a scheduled task or
   another device causing interference/DHCP churn on the network.
 
-If it fails 3 consecutive checks (~6 minutes), the watchdog reboots the
-Pi automatically as a last resort; all three services come back up on
-their own after boot.
+The watchdog never reboots the Pi: it reconnects the adapter, then
+toggles the WiFi radio, then restarts NetworkManager (at most every
+~10 minutes).
+
+**USB WiFi antenna plugged in but not used**
+`nevet` shows each adapter; one marked "standby" or "not connected"
+isn't carrying traffic. `sudo ~/nevet/scripts/wifi_antenna.sh usb` makes
+it the main connection (built-in stays as backup). If it isn't listed at
+all, check `lsusb` and `ip link`: the dongle may need a driver that isn't
+in Raspberry Pi OS.
+
+**After disconnecting the camera**
+Nothing breaks: the web app doesn't use the camera. Photos pause (one
+"Camera not connected" line in `capture.log`) and resume when it's
+plugged back in. To stop the timer entirely: `sudo ./install.sh off 15`.
 
 ## Git / GitHub
 

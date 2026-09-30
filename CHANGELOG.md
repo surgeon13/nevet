@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-09-30 (no camera, USB WiFi antenna, traffic)
+
+- Camera is optional. Photo/video capture checks for the camera first:
+  without one it logs "photos paused" once (not a failure every 5
+  minutes) and resumes by itself when a camera is plugged back in.
+  `sudo ./install.sh off 15` turns the timelapse off. The watchdog logs
+  camera plug/unplug and no longer warns about a stopped timelapse you
+  turned off; `nevet` shows Camera "not connected" and Timelapse "off"
+  in grey instead of as problems.
+- Multiple WiFi adapters: the watchdog detects USB antennas, checks and
+  reconnects whichever adapter carries the internet, logs it
+  ("via wlan1 (USB) signal=78% rate=... router=3.1ms"), and turns power
+  saving off on every adapter. install.sh allows reconnects on wlan0-3.
+- New `nevet net`: tests every connected adapter (router and internet
+  ping, packet loss, 5 MB download), compares them, logs results to
+  `logs/network.log`. `--quick` skips the download.
+- New `scripts/wifi_antenna.sh usb`: makes the USB antenna the main
+  connection, built-in WiFi stays connected as a backup; `undo` reverts.
+- Web app traffic accounting: requests and bytes sent/received per day,
+  by type and by home network / Tailscale, in the new `web_traffic`
+  table (buffered, written every 30 s and on shutdown); daily totals in
+  webapp.log.
+- `nevet` gained Network (adapters, router ping, last speed test, data
+  since boot) and Web app traffic (today / yesterday / 7 days, by type
+  and connection) sections; the addresses list shows which adapter each
+  address belongs to.
+- health_report.sh reports every WiFi adapter, not just wlan0.
+
 ## 2026-09-30 (terminal status)
 
 - New `nevet` command (installed by install.sh): coloured status summary
