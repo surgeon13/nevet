@@ -38,8 +38,17 @@ for f in /sys/class/net/wl*; do          # built-in (wlan0) and USB antennas (wl
     echo "  Link rate:   $(iw dev "$w" link 2>/dev/null | awk -F': ' '/tx bitrate/{print $2}')"
     echo "  Power save:  $(iw dev "$w" get power_save 2>/dev/null | awk -F': ' '{print $2}')  (should be off)"
 done
-echo "Internet via:  $(ip route show default 2>/dev/null | awk '{for(i=1;i<NF;i++) if($i=="dev"){print $(i+1); exit}}')"
+echo "Internet via:  $(ip route show default 2>/dev/null | awk '{for(i=1;i<NF;i++) if($i=="dev"){print $(i+1); exit}}')  (IPv6: $(ip -6 route show default 2>/dev/null | awk '{for(i=1;i<NF;i++) if($i=="dev"){print $(i+1); exit}}'))"
 echo "IP address:    $(hostname -I 2>/dev/null)"
+
+echo ""
+echo "--- Tailscale (access from outside) ---"
+if command -v tailscale >/dev/null 2>&1; then
+    echo "Service:       $(systemctl is-active tailscaled 2>/dev/null)"
+    timeout 6 tailscale status 2>&1 | head -8
+else
+    echo "not installed"
+fi
 
 echo ""
 echo "--- Last 24h from watchdog log ---"

@@ -115,7 +115,36 @@ nevet -n 10      # latest 10 instead of 5
 nevet -w         # live view, refreshes every 5 s (Ctrl+C to stop)
 nevet net        # network test: every WiFi adapter, ping + 5 MB download (~30 s)
 nevet net --quick   # same without the download
+nevet ts         # can Nevet be opened from outside? (Tailscale check)
 ```
+
+## Open Nevet from outside (Tailscale)
+
+[Tailscale](https://tailscale.com) gives the Pi a private address
+(`100.x.y.z`) that works from anywhere, on mobile data too, but only for
+devices logged in to **your** Tailscale account. Nothing is opened to the
+internet. It also works on guest/café WiFi, where devices often can't
+reach each other directly.
+
+1. On the Pi (once):
+   ```bash
+   curl -fsSL https://tailscale.com/install.sh | sh
+   sudo tailscale up          # open the link it prints, log in
+   ```
+2. On your phone/laptop: install the Tailscale app and log in with the
+   **same account**, then switch it on.
+3. Open `http://100.x.y.z:8000` (or `http://raspi03b:8000` with MagicDNS).
+
+**`nevet ts`** checks every step and says what's missing: service
+running, logged in, the Pi's address, key expiry, whether the web app
+answers on the Tailscale address, the internet path (UDP / relays), and
+which of your devices are online in Tailscale. The most common reasons it
+"never connects": the phone isn't on Tailscale or uses another account,
+the app is switched off, or the Pi's login key expired (in the admin
+console, open the Pi and choose **Disable key expiry**).
+
+The watchdog restarts `tailscaled` if it stops and logs when Tailscale
+goes online or gets logged out; `nevet` shows a Tailscale row.
 
 ## Network and the USB WiFi antenna
 
@@ -144,8 +173,27 @@ carries the internet, and turns WiFi power saving off on all of them.
 Tips: a short USB extension cable lets you raise the antenna away from the
 Pi (the board and its power supply are noisy). A dongle draws power too;
 if `nevet` shows under-voltage, use the official 5.1 V / 2.5 A supply with a
-short cable. If the antenna doesn't show up at all, check `lsusb` and
-`ip link`: some dongles need a driver that isn't in Raspberry Pi OS.
+short cable.
+
+**Not every USB WiFi adapter works on Linux.** If `lsusb` lists it but no
+`wlan1` appears in `ip link`, Linux has no driver for its chip (`nevet`
+and `nevet net` point this out). Old adapters are often unsupported, e.g.
+Netgear WNA3100 v1 (Broadcom BCM43231) and Linksys WUSB300N (Marvell
+88W8360). Chips with built-in Linux drivers: MediaTek MT7601U / MT7610U /
+MT7612U, Ralink RT5370 / RT5372, Atheros AR9271 (e.g. TP-Link TL-WN722N
+**v1**; later versions use other chips). The same model name can hide
+different chips in different hardware versions, so check the version.
+
+**A WiFi extender is often the better fix**: no driver needed. Best of all,
+connect the Pi to the extender's Ethernet port with a cable; Nevet uses
+the cable automatically.
+
+`nevet net` also lists the WiFi networks in range with their signal and
+says when a saved network is clearly stronger than the one in use. When
+the WiFi gives the Pi no IPv4 address (weak signal, or a busy guest
+network running out of addresses) the Pi may still be online over IPv6,
+but GitHub updates and the home-network address need IPv4: `nevet` shows
+an IPv4 warning and the watchdog reconnects to ask for one.
 
 ## Web app traffic
 

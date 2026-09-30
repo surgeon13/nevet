@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-09-30 (Tailscale, WiFi diagnosis)
+
+- New `nevet ts`: step-by-step remote access check (installed, service,
+  logged in, address, key expiry, web app on the Tailscale address,
+  UDP/relay path, your devices online) with the exact fix for each step
+  and how to open Nevet from a phone.
+- `nevet` shows a Tailscale row and the MagicDNS address; hints now
+  wrap instead of being cut off on phone screens.
+- Watchdog restarts `tailscaled` if it stops and logs Tailscale state
+  changes; install.sh enables tailscaled and prints the Tailscale URL.
+- Faster WiFi recovery: NetworkManager restart from the 3rd failed check
+  (was the 5th), repeated every ~8 min.
+- IPv6-only detection: when the WiFi gives no IPv4 address the watchdog
+  logs it and reconnects for a new lease; `nevet` warns, and
+  `nevet net` tests over IPv6 instead of giving up.
+- `nevet` / `nevet net` point out USB WiFi adapters Linux has no
+  driver for; `nevet net` lists networks in range and suggests a clearly
+  stronger saved network.
+- health_report.sh includes Tailscale.
+
 ## 2026-09-30 (no camera, USB WiFi antenna, traffic)
 
 - Camera is optional. Photo/video capture checks for the camera first:

@@ -71,8 +71,8 @@ signal, link rate and router ping — e.g.
   another device causing interference/DHCP churn on the network.
 
 The watchdog never reboots the Pi: it reconnects the adapter, then
-toggles the WiFi radio, then restarts NetworkManager (at most every
-~10 minutes).
+toggles the WiFi radio, then restarts NetworkManager (from the 3rd
+failed check, then every ~8 minutes).
 
 **USB WiFi antenna plugged in but not used**
 `nevet` shows each adapter; one marked "standby" or "not connected"
@@ -80,6 +80,26 @@ isn't carrying traffic. `sudo ~/nevet/scripts/wifi_antenna.sh usb` makes
 it the main connection (built-in stays as backup). If it isn't listed at
 all, check `lsusb` and `ip link`: the dongle may need a driver that isn't
 in Raspberry Pi OS.
+
+**USB WiFi adapter shows in `lsusb` but never becomes `wlan1`**
+Linux has no driver for its chip; it can't be used on the Pi (the
+Windows-driver workaround ndiswrapper doesn't run on ARM). Known examples:
+Netgear WNA3100 v1 (Broadcom BCM43231), Linksys WUSB300N (Marvell
+88W8360). See README for chips that work, or use a WiFi extender.
+
+**`ip route show default` is empty / `nevet` says "IPv4 none"**
+The WiFi didn't give the Pi an IPv4 address (weak signal, or a guest
+network that ran out of addresses) but IPv6 works, so the Pi looks
+"online" while GitHub updates fail and the `10.0.0.x` address is gone.
+The watchdog reconnects to ask for a new address; by hand:
+`sudo nmcli device reconnect wlan0`. A stronger signal fixes it for good.
+
+**Can't open Nevet from outside / Tailscale never connects**
+Run `nevet ts`. It shows whether the Pi is logged in, its `100.x`
+address, key expiry, whether the web app answers there, and which of your
+devices are online in Tailscale. The phone must run the Tailscale app,
+switched on, logged in to the same account. On guest WiFi, devices on the
+same network often can't see each other at all; Tailscale works anyway.
 
 **After disconnecting the camera**
 Nothing breaks: the web app doesn't use the camera. Photos pause (one

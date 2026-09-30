@@ -112,7 +112,8 @@ database work offline). Each run:
    networks) and tells apart *link down* (no IP / router unreachable)
    from *internet down but WiFi fine*.
 2. Link down: reconnects, escalating from a device reconnect to a WiFi
-   radio off/on to a NetworkManager restart (at most every ~10 min).
+   radio off/on to a NetworkManager restart (from the 3rd failed check,
+   then every ~8 min).
    Internet down only: logs it and leaves WiFi alone.
 3. Checks the web app on `/healthz` and restarts it after two misses.
 4. Logs the adapter in use, signal, link rate, router ping, under-voltage,
@@ -125,6 +126,12 @@ and logs camera plug/unplug. `scripts/wifi_antenna.sh usb` makes a USB
 antenna the preferred route with the built-in WiFi as backup, and
 `nevet net` measures each adapter. `scripts/health_report.sh` summarises
 the last 24 hours.
+
+It also restarts `tailscaled` if it stopped, logs Tailscale state
+changes, and when the WiFi gives no IPv4 address (online over IPv6 only)
+it reconnects to ask for one. Reconnect escalation: device reconnect,
+then radio off/on, then a NetworkManager restart from the 3rd failed
+check (repeated every ~8 min).
 
 The camera is optional: `scripts/lib/camera.sh` makes the capture scripts
 skip quietly (logged once) while `/dev/video0` is missing.

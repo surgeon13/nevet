@@ -11,7 +11,11 @@
 #                                 would cut local/Tailscale access
 #   LINK_DOWN    no IP or router unreachable -> reconnect, escalating:
 #                reconnect device -> WiFi radio off/on -> restart
-#                NetworkManager (never a reboot)
+#                NetworkManager (from the 3rd failed check, then every
+#                ~8 min; never a reboot)
+#
+# Tailscale (if installed): restarts tailscaled if it died, and logs
+# when Tailscale goes online / gets logged out.
 #
 # Web app: checks http://127.0.0.1:8000/healthz. Two failed checks in a
 # row (i.e. hung, not just busy) -> restart nevet-webapp.
@@ -62,7 +66,10 @@ wifi_ifaces() {
     local f
     for f in "$SYS_NET"/wl*; do [ -e "$f" ] && echo "${f##*/}"; done
 }
-default_dev() { ip route show default 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "dev") {print $(i + 1); exit}}'; }
+default_dev() {   # adapter with the internet route: IPv4 first, else IPv6
+    { ip route show default; ip -6 route show default; } 2>/dev/null \
+        | awk '{for (i = 1; i < NF; i++) if ($i == "dev") {print $(i + 1); exit}}'
+}
 pick_iface() {
     [ -n "${NEVET_WIFI_IFACE:-}" ] && { echo "$NEVET_WIFI_IFACE"; return; }
     local dev last f first=""
@@ -151,18 +158,19 @@ reconnect() {
         return
     fi
     case "$level" in
-        1|2)
+        1)
             log_msg "  reconnect step 1: nmcli device reconnect $IFACE"
             act sudo -n nmcli device reconnect "$IFACE" ;;
-        3|4)
+        2)
             log_msg "  reconnect step 2: WiFi radio off/on"
             act sudo -n nmcli radio wifi off
             [ "$DRY_RUN" = "1" ] || sleep 3
             act sudo -n nmcli radio wifi on ;;
         *)
-            # From here on, repeat the strongest step every 5th check
-            # (~10 min) instead of hammering it every 2 minutes.
-            if [ $(( level % 5 )) -eq 0 ]; then
+            # Step 3 (restart NetworkManager, what usually brings a weak
+            # link back), then repeated every 4th check (~8 min) instead
+            # of hammering it every 2 minutes.
+            if [ $(( (level - 3) % 4 )) -eq 0 ]; then
                 log_msg "  reconnect step 3: restarting NetworkManager"
                 act sudo -n systemctl restart NetworkManager
             else
@@ -194,7 +202,25 @@ LAN_ONLY_COUNT=$(read_count lan_only)
 
 case "$STATE" in
     ONLINE)
-        log_msg "OK  online $LINK $(health_line)"
+        NO_V4=$(read_count no_ipv4)
+        if has_ip; then
+            log_msg "OK  online $LINK $(health_line)"
+            [ "$NO_V4" -ne 0 ] && log_msg "IPv4 address back on $IFACE after $NO_V4 check(s)"
+            NO_V4=0
+        else
+            # Online over IPv6 only: the WiFi's DHCP didn't give an IPv4
+            # address (common with a weak signal). GitHub updates and the
+            # home-network address need IPv4, so ask for a new lease: at
+            # the 2nd check, then every ~10 min, later every ~30 min.
+            NO_V4=$((NO_V4 + 1))
+            log_msg "OK  online (IPv6 only, no IPv4 address) $LINK $(health_line)"
+            if [ "$NO_V4" -eq 2 ] || { [ "$NO_V4" -le 12 ] && [ $(( (NO_V4 - 2) % 5 )) -eq 0 ]; } || \
+               { [ "$NO_V4" -gt 12 ] && [ $(( (NO_V4 - 12) % 15 )) -eq 0 ]; }; then
+                log_msg "WARN no IPv4 address for $NO_V4 checks - reconnecting $IFACE to get one"
+                command -v nmcli >/dev/null 2>&1 && act sudo -n nmcli device reconnect "$IFACE"
+            fi
+        fi
+        write_count no_ipv4 "$NO_V4"
         echo "$IFACE" > "$STATE_DIR/iface"
         [ "$LINK_FAILS" -ne 0 ] && log_msg "WiFi recovered after $LINK_FAILS failed check(s)"
         [ "$LAN_ONLY_COUNT" -ne 0 ] && log_msg "Internet back after $LAN_ONLY_COUNT check(s) of LAN-only"
@@ -222,6 +248,34 @@ case "$STATE" in
 esac
 write_count link_fails "$LINK_FAILS"
 write_count lan_only "$LAN_ONLY_COUNT"
+
+# ---------- Tailscale (remote access) ----------
+tailscale_check() {
+    command -v tailscale >/dev/null 2>&1 || return 0
+    local state prev
+    if systemctl is-active --quiet tailscaled 2>/dev/null; then
+        state=$(timeout 6 tailscale status --json 2>/dev/null | grep -m1 -o '"BackendState": *"[A-Za-z]*"' | grep -o '[A-Za-z]*"$' | tr -d '"')
+        state="${state:-no-answer}"
+    else
+        state="stopped"
+        if [ "$(systemctl is-enabled tailscaled 2>/dev/null)" = "enabled" ]; then
+            log_msg "WARN tailscaled isn't running - restarting it"
+            act sudo -n systemctl restart tailscaled
+        fi
+    fi
+    prev=$(cat "$STATE_DIR/tailscale" 2>/dev/null)
+    echo "$state" > "$STATE_DIR/tailscale"
+    [ "$state" = "$prev" ] && return 0
+    case "$state" in
+        Running) log_msg "Tailscale online ($(timeout 4 tailscale ip -4 2>/dev/null | head -1))" ;;
+        NeedsLogin) log_msg "WARN Tailscale is logged out - remote access is off. Fix: sudo tailscale up" ;;
+        NeedsMachineAuth) log_msg "WARN Tailscale waits for approval of this Pi in the admin console" ;;
+        Stopped) log_msg "WARN Tailscale is switched off (tailscale down). Fix: sudo tailscale up" ;;
+        stopped) log_msg "WARN tailscaled service isn't running" ;;
+        *) log_msg "WARN Tailscale state: $state" ;;
+    esac
+}
+tailscale_check
 
 # ---------- web app ----------
 WEB_FAILS=$(read_count web_fails)

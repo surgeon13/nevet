@@ -10,6 +10,8 @@
   nevet net        network test: each WiFi adapter's signal, speed and
                    delay (built-in vs USB antenna), saved for comparison
   nevet net --quick   same without the 5 MB download
+  nevet ts         Tailscale check: why Nevet can(not) be opened from
+                   outside the home network, and exactly what to do
 
 Installed as the `nevet` command by install.sh; also runnable as
 python3 ~/nevet/scripts/nevet_status.py
@@ -86,10 +88,10 @@ def fit(s, width):
 
 
 # ---------------------------------------------------------------- helpers
-def run(cmd, timeout=4):
+def run(cmd, timeout=4, any_rc=False):
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-        return r.stdout.strip() if r.returncode == 0 else None
+        return r.stdout.strip() if r.returncode == 0 or any_rc else None
     except (OSError, subprocess.TimeoutExpired):
         return None
 
@@ -113,6 +115,8 @@ def until(t):
     s = int((t - datetime.now()).total_seconds())
     if s <= 60:
         return "in <1 min"
+    if s >= 2 * 86400:
+        return f"in {s // 86400} days"
     return f"in {s // 60} min" if s < 3600 else f"in {s // 3600} h"
 
 
@@ -168,6 +172,7 @@ class Status:
     def __init__(self):
         self.issues = []     # (level, fix hint or None)
         self.rows = []       # (level, label, value)
+        self.ts = None       # tailscale_info(), reused by the address list
 
     def row(self, level, label, value, hint=None):
         self.rows.append((level, label, value))
@@ -253,10 +258,17 @@ def collect_system(logs):
     adapters = wifi_adapters()
     used = next((a for a in adapters if a["default"]), None)
     dev = default_dev()
+    if not used:                                  # connected but no route at all
+        used = next((a for a in adapters if a.get("signal") is not None), None)
     if used and used.get("signal") is not None:
         sig = used["signal"]
-        st.row("ok" if sig >= 55 else "warn" if sig >= 35 else "bad", "WiFi",
-               f"{used['ssid']} {SEP} {sig}% {SEP} {used['kind']}", "Weak WiFi: move Pi/antenna nearer the router")
+        level = "ok" if sig >= 55 else "warn" if sig >= 35 else "bad"
+        st.row(level, "WiFi", f"{used['ssid']} {SEP} {sig}%" + (f" {SEP} USB antenna" if used["usb"] else ""),
+               "Weak WiFi: move the Pi nearer the router or add an extender (nevet net)")
+        if not has_ipv4_route():
+            st.row("warn", "IPv4", "none: no updates, no LAN address",
+                   "WiFi gave no IPv4 address (weak signal?). The watchdog retries; now: sudo nmcli device reconnect "
+                   + used["name"])
     elif dev and not dev.startswith("wl"):
         st.row("ok", "Network", f"{dev} (cable)" if dev.startswith(("eth", "en")) else dev)
     elif adapters or run(["nmcli", "-t", "device"]) is not None:
@@ -280,6 +292,14 @@ def collect_system(logs):
             st.row("warn" if temp and temp >= 75 else "ok", "Power", "OK" + tstr, "Hot: give the Pi some air")
     elif temp is not None:
         st.row("warn" if temp >= 75 else "ok", "Temp", f"{temp:.0f}°C", "Hot: give the Pi some air")
+
+    # Tailscale: remote access from outside the home network
+    ts = st.ts = tailscale_info()
+    if ts is None:
+        st.row("off", "Tailscale", "not installed (nevet ts)")
+    else:
+        lvl, text, hint = tailscale_summary(ts)
+        st.row(lvl, "Tailscale", text, hint)
 
     # disk
     try:
@@ -309,15 +329,27 @@ def split_terse(line):
 
 
 def default_dev():
-    line = run(["ip", "route", "show", "default"]) or ""
-    m = re.search(r"\bdev (\S+)", line)
-    return m.group(1) if m else None
+    """Adapter carrying the internet (IPv4 default route, else IPv6)."""
+    for cmd in (["ip", "route", "show", "default"], ["ip", "-6", "route", "show", "default"]):
+        m = re.search(r"\bdev (\S+)", run(cmd) or "")
+        if m:
+            return m.group(1)
+    return None
+
+
+def has_ipv4_route():
+    return bool(re.search(r"\bdev \S+", run(["ip", "route", "show", "default"]) or ""))
 
 
 def gateway(iface=None):
     line = run(["ip", "route", "show", "default"] + (["dev", iface] if iface else [])) or ""
     m = re.search(r"\bvia (\S+)", line)
     return m.group(1) if m else (gateway() if iface else None)
+
+
+def gateway6(iface):
+    m = re.search(r"\bvia (\S+)", run(["ip", "-6", "route", "show", "default", "dev", iface]) or "")
+    return m.group(1) if m else None
 
 
 def wifi_adapters():
@@ -353,6 +385,41 @@ def wifi_adapters():
             "default": n == default,
         })
     return out
+
+
+def wifi_networks():
+    """Networks in range, strongest first: [{ssid, signal, chan, in_use, saved (profile name)}]."""
+    saved = {}
+    for line in (run(["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"]) or "").splitlines():
+        f = split_terse(line)
+        if len(f) >= 2 and f[1] == "802-11-wireless":
+            ssid = run(["nmcli", "-g", "802-11-wireless.ssid", "connection", "show", f[0]])
+            if ssid:
+                saved[split_terse(ssid)[0]] = f[0]
+    nets = {}
+    for line in (run(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,CHAN", "dev", "wifi", "list"], timeout=12) or "").splitlines():
+        f = split_terse(line)
+        if len(f) < 4 or not f[1]:
+            continue
+        sig = int(f[2]) if f[2].isdigit() else 0
+        n = nets.setdefault(f[1], {"ssid": f[1], "signal": 0, "chan": f[3], "in_use": False, "saved": saved.get(f[1])})
+        if sig > n["signal"]:
+            n["signal"], n["chan"] = sig, f[3]
+        n["in_use"] = n["in_use"] or f[0].strip() == "*"
+    return sorted(nets.values(), key=lambda n: -n["signal"])
+
+
+def better_saved_network(nets, margin=15):
+    """A saved network clearly stronger than the one in use -> (net, current) or None."""
+    cur = next((n for n in nets if n["in_use"]), None)
+    if not cur:
+        return None
+    best = next((n for n in nets if n["saved"] and not n["in_use"]), None)
+    return (best, cur) if best and best["signal"] >= cur["signal"] + margin else None
+
+
+def shq(v):
+    return v if re.fullmatch(r"[\w.@%+=:,/-]+", v) else "'" + v.replace("'", "'\\''") + "'"
 
 
 def net_bytes():
@@ -414,6 +481,108 @@ def web_traffic():
         return None
 
 
+def iso_time(v):
+    """Tailscale RFC 3339 time -> local naive datetime (None for 'never')."""
+    if not v or v.startswith("0001-"):
+        return None
+    try:
+        return datetime.fromisoformat(v.replace("Z", "+00:00")).astimezone().replace(tzinfo=None)
+    except (ValueError, OverflowError):
+        return None
+
+
+def tailscale_info():
+    """None if Tailscale isn't installed, else what `tailscale status` knows."""
+    if not shutil.which("tailscale"):
+        return None
+    info = {"service": run(["systemctl", "is-active", "tailscaled"], any_rc=True) or "?",
+            "state": None, "peers": [], "ips": [], "health": []}
+    raw = run(["tailscale", "status", "--json"], timeout=6, any_rc=True)
+    try:
+        j = json.loads(raw) if raw else None
+    except ValueError:
+        j = None
+    if not isinstance(j, dict):
+        return info
+    me = j.get("Self") or {}
+    users = {str(k): v for k, v in (j.get("User") or {}).items()}
+    tailnet = j.get("CurrentTailnet") or {}
+    info.update(
+        state=j.get("BackendState"), auth_url=j.get("AuthURL") or "",
+        version=(j.get("Version") or "").split("-")[0],
+        ips=[ip for ip in (j.get("TailscaleIPs") or me.get("TailscaleIPs") or []) if "." in ip],
+        name=(me.get("DNSName") or "").split(".")[0] or me.get("HostName") or "",
+        dns=(me.get("DNSName") or "").rstrip("."),
+        expiry=iso_time(me.get("KeyExpiry")), health=j.get("Health") or [],
+        login=(users.get(str(me.get("UserID"))) or {}).get("LoginName", ""),
+        magic=bool(tailnet.get("MagicDNSEnabled")), tailnet=tailnet.get("Name", ""),
+    )
+    for p in (j.get("Peer") or {}).values():
+        info["peers"].append({
+            "name": (p.get("DNSName") or "").split(".")[0] or p.get("HostName") or "?",
+            "os": p.get("OS") or "", "online": bool(p.get("Online")),
+            "seen": iso_time(p.get("LastSeen")), "direct": bool(p.get("CurAddr")),
+            "relay": p.get("Relay") or "",
+        })
+    info["peers"].sort(key=lambda p: (not p["online"], p["name"]))
+    return info
+
+
+TS_ADMIN = "login.tailscale.com/admin/machines"
+
+
+def tailscale_summary(ts):
+    """-> (level, short text, fix hint) for the status screen."""
+    if ts["service"] != "active":
+        return "bad", "service not running", "sudo systemctl enable --now tailscaled"
+    state = ts["state"]
+    if state == "NeedsLogin":
+        return "bad", "logged out", "sudo tailscale up  (open the link it prints)"
+    if state == "NeedsMachineAuth":
+        return "bad", "waiting for approval", f"Approve {ts.get('name') or 'the Pi'} at {TS_ADMIN}"
+    if state == "Stopped":
+        return "bad", "switched off", "sudo tailscale up"
+    if state != "Running":
+        return "warn", f"{state or 'not answering'}", "Details: nevet ts"
+    exp = ts.get("expiry")
+    if exp and exp <= datetime.now():
+        return "bad", "login key expired", f"sudo tailscale up, then 'Disable key expiry' at {TS_ADMIN}"
+    text = f"online {SEP} {ts['ips'][0] if ts['ips'] else '?'}"
+    if exp and (exp - datetime.now()).days < 14:
+        return "warn", text, f"Tailscale key expires {until(exp)}: see nevet ts"
+    if not ts["peers"]:
+        return "warn", text, "No phone/laptop on your Tailscale yet: nevet ts"
+    return "ok", text, None
+
+
+# USB WiFi dongles that are plugged in but have no driver never get a wlanN.
+USB_WIFI = re.compile(r"wlan|802\.11|wi-?fi|wireless[- ](n|g|ac|ax|lan|adapter|network)|\bwna\d|archer\s*t\d|"
+                      r"tl-wn|rtl8\d{3}|mt76\d\d|ar9271|rt5370|rt5372", re.I)
+
+
+def driverless_usb_wifi(adapters):
+    """[names] of USB WiFi devices that lsusb sees but Linux can't use."""
+    if any(a["usb"] for a in adapters):
+        return []
+    out = []
+    for line in (run(["lsusb"]) or "").splitlines():
+        m = re.match(r"Bus \d+ Device \d+: ID [0-9a-f]{4}:[0-9a-f]{4}\s*(.*)", line)
+        if m and USB_WIFI.search(m.group(1)) and not re.search(r"bluetooth|hub|receiver|keyboard|mouse", m.group(1), re.I):
+            out.append(short_usb_name(m.group(1)))
+    return out
+
+
+def short_usb_name(desc):
+    """'NetGear, Inc. WNA3100(v1) Wireless-N 300 [Broadcom BCM43231]' -> 'NetGear WNA3100(v1) (Broadcom BCM43231)'."""
+    chip = re.search(r"\[(.+?)\]", desc)
+    words = []
+    for w in re.sub(r",? (Inc|Corp|Co|Ltd|Technology|Semiconductor)\b\.?,?", "", desc.split("[")[0]).split():
+        words.append(w)
+        if re.search(r"\d", w):
+            break
+    return " ".join(words) + (f" ({chip.group(1)})" if chip else "")
+
+
 def addresses():
     """[(ip, label)] for every IPv4 address, labelled by adapter."""
     out = []
@@ -448,7 +617,23 @@ def classify(src, msg):
             sig = re.search(r"signal=(\S+)", msg)
             via = re.search(r"via (\S+)", msg)
             text = "WiFi OK" + (f" {SEP} {sig.group(1)}" if sig else "") + (f" via {via.group(1)}" if via else "")
+            if "IPv6 only" in msg:
+                return "wifi_v6", "warn", text + " (no IPv4)"
             return "wifi_ok", "ok", text
+        if msg.startswith("WARN no IPv4"):
+            return None, "warn", "No IPv4 address: reconnecting"
+        if msg.startswith("IPv4 address back"):
+            return None, "ok", "IPv4 address back"
+        if msg.startswith("Tailscale online"):
+            return None, "ok", msg
+        for key, level, text in (("logged out", "bad", "Tailscale logged out"),
+                                 ("restarting it", "warn", "Tailscale service restarted"),
+                                 ("tailscaled service", "bad", "Tailscale service down"),
+                                 ("waits for approval", "bad", "Tailscale: approve the Pi"),
+                                 ("switched off", "bad", "Tailscale switched off"),
+                                 ("Tailscale state:", "warn", None)):
+            if key in msg:
+                return None, level, text or msg.split("WARN ", 1)[-1]
         if msg.startswith("Camera connected"):
             return None, "ok", "Camera connected"
         if msg.startswith("Camera disconnected"):
@@ -656,6 +841,9 @@ def render(n):
     for level, label, value in st.rows:
         P(fit(f" {C.wrap(DOT, *LEVEL_STYLE[level])} {label:<10} {value}", W))
     addrs = addresses()
+    ts = st.ts
+    if ts and ts.get("state") == "Running" and ts.get("magic") and ts.get("name"):
+        addrs.append((ts["name"], "Tailscale name"))
     if addrs:
         P(C.wrap(" Open in a browser:", "grey"))
         for ip, kind in addrs:
@@ -664,7 +852,7 @@ def render(n):
     if hints:
         P(C.wrap(" To fix:", "grey"))
         for level, hint in dict.fromkeys(hints):
-            P(fit(C.wrap(f" {ARROW} ", *LEVEL_STYLE[level]) + hint, W))
+            out.extend(tip_lines(hint, W, LEVEL_STYLE[level][0]))
 
     # ---- network: which adapter, how good, last speed test, data moved
     heading("Network")
@@ -681,6 +869,8 @@ def render(n):
     tip = antenna_tip(adapters)
     if tip:
         out.extend(tip_lines(tip, W, cmd=ANTENNA_CMD))
+    for dongle in driverless_usb_wifi(adapters):
+        out.extend(tip_lines(f"USB WiFi {dongle} has no Linux driver, so it can't be used. Unplug it.", W, "byellow"))
     last_ok = next((m for t, m in reversed(logs["watchdog"]) if m.startswith("OK  online")), "")
     router = re.search(r"router=([\d.]+)ms", last_ok)
     if router:
@@ -830,7 +1020,35 @@ def net_test(quick=False):
         else:
             P(fit(C.wrap(f"     {a['state']}", "grey"), W))
 
-    testable = [a for a in adapters if a["ip"]]
+    for dongle in driverless_usb_wifi(adapters):
+        for line in tip_lines(f"USB WiFi {dongle} has no Linux driver, so it can't be used. "
+                              "Unplug it; use an extender or a Linux-supported USB adapter.", W, "byellow"):
+            P(line)
+
+    nets = wifi_networks()
+    if nets:
+        heading("WiFi networks in range")
+        for n in nets[:6]:
+            level = "ok" if n["in_use"] else "info" if n["saved"] else "off"
+            tag = C.wrap("connected", "bgreen") if n["in_use"] else ("saved" if n["saved"] else "")
+            chan = f"ch {n['chan']:<3}"
+            P(fit(f" {C.wrap(DOT, *LEVEL_STYLE[level])} {n['ssid'][:18]:<18} {n['signal']:>3}% {C.wrap(chan, 'grey')} {tag}", W))
+        better = better_saved_network(nets)
+        if better:
+            best, cur = better
+            for line in tip_lines(f"{best['ssid']} is saved and stronger here ({best['signal']}% vs {cur['signal']}%). "
+                                  "Switch to it:", W, cmd=f"sudo nmcli connection up {shq(best['saved'])}"):
+                P(line)
+            for line in tip_lines("and make the Pi prefer it from now on:", W,
+                                  cmd=f"sudo nmcli connection modify {shq(best['saved'])} connection.autoconnect-priority 10"):
+                P(line)
+        cur = next((n for n in nets if n["in_use"]), None)
+        if cur and cur["signal"] < 40 and not better:
+            for line in tip_lines(f"Weak signal ({cur['signal']}%): move the Pi closer to the router, add a WiFi extender "
+                                  "(best: Pi on the extender's Ethernet port), or use a supported USB antenna.", W, "byellow"):
+                P(line)
+
+    testable = [a for a in adapters if a["ip"] or a["signal"] is not None]
     if not testable:
         P(C.wrap("\n No connected adapter to test.", "bred"))
         return
@@ -842,10 +1060,16 @@ def net_test(quick=False):
     results = []
     for a in testable:
         heading(f"Testing {a['name']} ({a['kind']})")
-        gw = gateway(a["name"])
+        v4 = bool(a["ip"])
+        gw = gateway(a["name"]) if v4 else gateway6(a["name"])
         r = {"iface": a["name"], "kind": "USB" if a["usb"] else "built-in", "ssid": a["ssid"] or "-",
              "signal": a["signal"], "rate": a["rate"]}
-        for label, target, key in (("Router", gw, "router"), ("Internet", "1.1.1.1", "internet")):
+        if not v4:
+            for line in tip_lines("No IPv4 address on this adapter (the WiFi didn't give one): testing over IPv6. "
+                                  "GitHub updates and the home-network address need IPv4.", W, "byellow"):
+                P(line)
+        internet = "1.1.1.1" if v4 else "2606:4700:4700::1111"
+        for label, target, key in (("Router", gw, "router"), ("Internet", internet, "internet")):
             sys.stdout.write(f" {label:<10}"); sys.stdout.flush()
             st = ping_stats(target, a["name"]) if target else None
             r[key] = st
@@ -906,10 +1130,135 @@ def net_test(quick=False):
     P(C.wrap("\n Saved to ~/camera_captures/logs/network.log", "grey"))
 
 
+# ---------------------------------------------------------------- nevet ts
+def ts_check():
+    """Can Nevet be opened from outside the home network? Step-by-step check."""
+    W = max(36, min(shutil.get_terminal_size((60, 24)).columns, 66))
+    P = print
+
+    def heading(text):
+        line = "─" if UTF8 else "-"
+        P(""); P(C.wrap(text.upper(), "bold", "green") + " " + C.wrap(line * max(0, W - len(text) - 1), "grey"))
+
+    def row(level, label, value):
+        P(fit(f" {C.wrap(DOT, *LEVEL_STYLE[level])} {label:<11}{value}", W))
+
+    def say(text, style="cyan", cmd=None):
+        for line in tip_lines(text, W, style, cmd):
+            P(line)
+
+    P(C.wrap(" NEVET TS ", "title") + "  " + C.wrap("remote access check", "bold"))
+    P(C.wrap(f"{datetime.now():%a %d %b %H:%M}", "grey"))
+    heading("Tailscale on the Pi")
+    ts = tailscale_info()
+    if ts is None:
+        row("bad", "Installed", "no")
+        say("Tailscale gives the Pi an address that works from anywhere, only for your own devices. Install it:",
+            cmd="curl -fsSL https://tailscale.com/install.sh | sh")
+        say("Then log in (open the link it prints, on your phone):", cmd="sudo tailscale up")
+        return
+    row("ok", "Installed", ts.get("version") or "yes")
+    if ts["service"] != "active":
+        row("bad", "Service", ts["service"])
+        say("Start it and keep it on after reboots:", "bred", "sudo systemctl enable --now tailscaled")
+        return
+    row("ok", "Service", "running")
+    state = ts["state"]
+    if state != "Running":
+        row("bad", "Logged in", {"NeedsLogin": "no (logged out)", "Stopped": "switched off",
+                                 "NeedsMachineAuth": "waiting for approval"}.get(state, state or "not answering"))
+        if state == "NeedsMachineAuth":
+            say(f"Approve this Pi at {TS_ADMIN}", "bred")
+        else:
+            say("Log in: run this and open the link it prints (on your phone is fine):", "bred", "sudo tailscale up")
+        if ts.get("auth_url"):
+            P("   or open: " + C.wrap(ts["auth_url"], "cyan"))
+        return
+    row("ok", "Logged in", ts.get("login") or "yes")
+    ip = ts["ips"][0] if ts["ips"] else None
+    row("ok" if ip else "bad", "Pi address", f"{ip or '?'}" + (f" {SEP} {ts['name']}" if ts.get("name") else ""))
+    exp = ts.get("expiry")
+    if exp is None:
+        row("ok", "Key expiry", "disabled (good)")
+    elif exp <= datetime.now():
+        row("bad", "Key expiry", "EXPIRED")
+    else:
+        days = (exp - datetime.now()).days
+        row("warn" if days < 14 else "info", "Key expiry", f"in {days} days ({exp:%d %b %Y})")
+    if exp is not None:
+        say(f"The Pi drops off Tailscale when its key expires. At {TS_ADMIN} open "
+            f"{ts.get('name') or 'the Pi'} > ... > Disable key expiry.", "byellow" if exp and (exp - datetime.now()).days < 14 else "cyan")
+    if ip:
+        try:
+            ok = urllib.request.urlopen(f"http://{ip}:8000/healthz", timeout=4).read().strip() == b"ok"
+        except Exception:
+            ok = False
+        row("ok" if ok else "bad", "Web app", f"answers on {ip}" if ok else f"not answering on {ip}")
+        if not ok:
+            say("The web app isn't reachable on the Tailscale address. Check: nevet  (Web app row), "
+                "and any firewall (sudo nft list ruleset).", "bred")
+    for h in ts.get("health") or []:
+        row("warn", "Warning", h)
+
+    heading("Internet path")
+    tty = sys.stdout.isatty()
+    if tty:
+        sys.stdout.write(C.wrap(" checking (a few seconds)...", "grey")); sys.stdout.flush()
+    nc = run(["tailscale", "netcheck"], timeout=25, any_rc=True) or ""
+    if tty:
+        sys.stdout.write("\r" + " " * 30 + "\r")
+    f = dict(re.findall(r"\*\s*([\w ]+?):\s*(.*)", nc))
+    if not f:
+        row("warn", "Netcheck", "no result")
+    else:
+        udp = f.get("UDP", "").startswith("true")
+        row("ok" if udp else "warn", "UDP", "open (direct links possible)" if udp else "blocked: uses relays")
+        row("info", "IPv4", f.get("IPv4", "?").split(",")[0])
+        row("info", "IPv6", f.get("IPv6", "?").split(",")[0])
+        if f.get("Nearest DERP"):
+            row("info", "Relay", f["Nearest DERP"])
+        if not udp:
+            say("Still works, just slower. Common on guest/café WiFi.", "grey")
+
+    heading("Your other devices")
+    peers = ts["peers"]
+    for p in peers[:10]:
+        if p["online"]:
+            how = "direct" if p["direct"] else (f"relay {p['relay']}" if p["relay"] else "online")
+            row("ok", p["name"][:10], f"{p['os']:<8}online {SEP} {how}")
+        else:
+            row("off", p["name"][:10], f"{p['os']:<8}offline {SEP} {ago(p['seen'])}")
+    if len(peers) > 10:
+        P(C.wrap(f" ...and {len(peers) - 10} more", "grey"))
+    if not peers:
+        P(C.wrap(" None yet.", "grey"))
+
+    heading("Open Nevet from outside")
+    online = [p for p in peers if p["online"]]
+    if not peers:
+        say("No other device is on your Tailscale yet, so nothing outside can reach the Pi. "
+            "That's why it never connected.", "bred")
+    elif not online:
+        say("Your devices are all offline in Tailscale: open the Tailscale app and switch it on.", "byellow")
+    else:
+        say(f"Ready: {len(online)} device{'s are' if len(online) > 1 else ' is'} online and can open Nevet now.", "bgreen")
+    P(" 1. Install the Tailscale app on your phone")
+    P(" 2. Log in with the SAME account as the Pi" + (":" if ts.get("login") else ""))
+    if ts.get("login"):
+        P("    " + C.wrap(ts["login"], "bold"))
+    P(" 3. Switch Tailscale on, then open:")
+    if ip:
+        P("    " + C.wrap(f"http://{ip}:8000", "cyan", "bold"))
+    if ts.get("magic") and ts.get("name"):
+        P("    " + C.wrap(f"http://{ts['name']}:8000", "cyan", "bold"))
+    for line in textwrap.wrap("Works on mobile data too. Only your own devices can connect.", W - 1):
+        P(C.wrap(" " + line, "grey"))
+
+
 def main():
     ap = argparse.ArgumentParser(prog="nevet", description="Nevet status for the terminal.")
-    ap.add_argument("command", nargs="?", default="status", choices=["status", "net"],
-                    help="status (default) or net (network test)")
+    ap.add_argument("command", nargs="?", default="status", choices=["status", "net", "ts", "tailscale"],
+                    help="status (default), net (network test) or ts (Tailscale / remote access check)")
     ap.add_argument("--quick", action="store_true", help="net: skip the 5 MB download test")
     ap.add_argument("-n", type=int, default=5, metavar="N", help="how many latest actions/events (default 5)")
     ap.add_argument("-w", "--watch", nargs="?", const=5, type=float, metavar="SEC", help="refresh every SEC seconds")
@@ -922,6 +1271,9 @@ def main():
     n = max(1, min(a.n, 50))
     if a.command == "net":
         net_test(quick=a.quick)
+        return
+    if a.command in ("ts", "tailscale"):
+        ts_check()
         return
     if not a.watch:
         print(render(n))

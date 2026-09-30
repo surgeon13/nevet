@@ -108,7 +108,7 @@ sed -e "s|__HOME__|${REAL_HOME}|g" "$REPO_DIR/config/nevet-logrotate.conf" > /et
 # Only the exact commands they need (the updater only restarts the web app). Validated with visudo
 # before installing, so a mistake here can never break sudo.
 SYSTEMCTL=$(command -v systemctl)
-CMDS="$SYSTEMCTL restart nevet-webapp, $SYSTEMCTL restart NetworkManager, $SYSTEMCTL restart wpa_supplicant"
+CMDS="$SYSTEMCTL restart nevet-webapp, $SYSTEMCTL restart NetworkManager, $SYSTEMCTL restart wpa_supplicant, $SYSTEMCTL restart tailscaled"
 NMCLI=$(command -v nmcli || true)
 IW=$(command -v iw || true)
 # every WiFi adapter: wlan0 (built-in), wlan1+ (USB antennas), plus any
@@ -150,7 +150,20 @@ else
     systemctl restart nevet-update.timer    # picks up a changed interval
 fi
 
-IP=$(hostname -I | awk '{print $1}')
+# ---- Tailscale (remote access from outside the home network), if installed ----
+if command -v tailscale >/dev/null 2>&1; then
+    systemctl enable --now tailscaled >/dev/null 2>&1 || true
+    TS_IP=$(timeout 5 tailscale ip -4 2>/dev/null | head -1 || true)
+    if [ -n "$TS_IP" ] && timeout 5 tailscale status >/dev/null 2>&1; then
+        TS_LINE="http://${TS_IP}:8000 from anywhere (devices on your Tailscale)"
+    else
+        TS_LINE="installed but not logged in - run: sudo tailscale up"
+    fi
+else
+    TS_LINE="not installed - see README, \"Open Nevet from outside\""
+fi
+
+IP=$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -m1 -E '^[0-9]+\.' || true)
 echo ""
 echo "=============================================="
 echo " Installed and running:"
@@ -166,8 +179,10 @@ echo "   nevet-update.timer      -> off (update by hand: ./scripts/auto_update.s
 else
 echo "   nevet-update.timer      -> check GitHub for updates every ${UPDATE_MIN} min"
 fi
+echo "   Tailscale               -> ${TS_LINE}"
 echo ""
 echo " Status in the terminal:  nevet     (live view: nevet -w)"
+echo " Remote access check:     nevet ts    Network test: nevet net"
 echo "=============================================="
 echo ""
 echo "If you edited .env after this ran:"
