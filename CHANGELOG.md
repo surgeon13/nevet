@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-30 (terminal status)
+
+- New `nevet` command (installed by install.sh): coloured status summary
+  for SSH — system health with fix hints, website addresses, last 24 h
+  counts, garden totals, latest 5 garden actions and system events.
+  Fits phone-width terminals; `-n N`, `-w` live view, `--no-color`.
+
 ## 2026-09-29 (activity)
 
 - Log in with one tap: saved players appear as hero portraits (last

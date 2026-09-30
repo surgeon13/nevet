@@ -119,6 +119,10 @@ else
 fi
 rm -f "$TMP_SUDOERS"
 
+# ---- `nevet` command: coloured status summary in the terminal ----
+chmod +x "$REPO_DIR/scripts/nevet_status.py"
+ln -sf "$REPO_DIR/scripts/nevet_status.py" /usr/local/bin/nevet
+
 systemctl daemon-reload
 systemctl enable nevet-webapp.service
 systemctl restart nevet-webapp.service
@@ -143,6 +147,8 @@ echo "   nevet-update.timer      -> off (update by hand: ./scripts/auto_update.s
 else
 echo "   nevet-update.timer      -> check GitHub for updates every ${UPDATE_MIN} min"
 fi
+echo ""
+echo " Status in the terminal:  nevet     (live view: nevet -w)"
 echo "=============================================="
 echo ""
 echo "If you edited .env after this ran:"

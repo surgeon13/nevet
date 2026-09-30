@@ -88,6 +88,23 @@ sudo systemctl start nevet-update     # same, via the service
 Everything it does is in `~/camera_captures/logs/update.log` and in the
 **Updates** panel on the Logs page.
 
+## Status in the terminal
+
+After `sudo ./install.sh`, type **`nevet`** in any SSH/terminal session for a
+coloured one-screen summary: web app, timelapse, watchdog, updates, camera,
+WiFi, power and disk (with a fix hint for anything wrong), the addresses to
+open the website, the last 24 hours, the garden totals, and the **latest 5
+garden actions and system events**.
+
+```bash
+nevet            # summary
+nevet -n 10      # latest 10 instead of 5
+nevet -w         # live view, refreshes every 5 s (Ctrl+C to stop)
+```
+
+Before re-running the installer it also works as
+`python3 ~/nevet/scripts/nevet_status.py`.
+
 ## Manual commands
 
 ```bash
