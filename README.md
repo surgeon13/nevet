@@ -316,6 +316,18 @@ Levels and XP come from real farm activity. Heroes are drawn by code
 from `webapp/static/assets/heroes/catalog.json`; see the README in that
 folder for adding items or real artwork.
 
+Customizing: 11 skins, 15 hair styles (ponytail, braid, afro, locs...),
+16 hair colours, 9 eye styles (including glasses), 9 mouths, facial hair,
+14 outfit colours, 17 head items (caps, ranch hat, beekeeper veil, crown...),
+13 outfits, 13 tools, 10 back items and 5 companions.
+
+Heroes move on the profile and customize pages: they breathe and blink,
+and every few seconds play a short emote (wave, look around, hop, tool
+swing, fist pump, nod, twirl, stretch, cheer), never the same one twice
+in a row. Tap a hero to make it emote; trying on a new item makes it hop.
+With "reduce motion" switched on in the device settings, heroes only
+breathe and blink.
+
 ## Game stats
 
 `webapp/game_stats.py` is a small helper for logging XP / time played /

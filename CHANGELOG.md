@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-01 (hero variety and movement)
+
+- Many more hero options (companions unchanged): 9 new hair styles
+  (ponytail, pigtails, side braid, bob, side swept, curly, afro, locs,
+  buzz cut), new hair, skin, eye and outfit colours, 4 new eye styles
+  (starry, hearts, fierce, glasses), 4 new mouths, a new Facial hair
+  category (stubble, mustache, handlebar, goatee, full beard), 10 new
+  head items (backwards cap, trucker cap, bucket hat, bandana, sweatband,
+  beret, ranch hat, beekeeper veil, acorn helmet, harvest crown), 7 new
+  outfits, 6 new tools and 5 new back items.
+- Existing heroes keep their exact look: default looks only pick from
+  the original options, and the new facial hair starts at "None".
+- Heroes move: idle breathing and sway, blinking, and an emote every
+  4-9 seconds (wave, look around, hop, tool swing, fist pump, nod,
+  twirl, stretch, cheer). Tools move with the hand. Tap a hero to make
+  it emote; a hop when trying on items in the customizer. Reduced-motion
+  settings are respected.
+
 ## 2026-10-01 (IPv6)
 
 - The web app also listens on IPv6 when the system supports it (falls
