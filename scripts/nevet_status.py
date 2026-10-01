@@ -632,6 +632,14 @@ def addresses():
         else:
             label = dev
         out.append((ip, label))
+    if not any(label != "Tailscale" for _, label in out):
+        # no IPv4 on the home network (e.g. the WiFi gave only IPv6): the
+        # web app also listens on IPv6, so show that address
+        for line in (run(["ip", "-o", "-6", "addr", "show", "scope", "global"]) or "").splitlines():
+            m = re.match(r"\d+:\s+(\S+)\s+inet6 ([0-9a-f:]+)/", line)
+            if m and m.group(1).startswith(("wl", "eth", "en")) and "temporary" not in line and "deprecated" not in line:
+                out.append((f"[{m.group(2)}]", f"{m.group(1)} IPv6"))
+                break
     if not out:                                   # no `ip`? fall back to hostname -I
         for a in (run(["hostname", "-I"]) or "").split():
             try:
@@ -882,7 +890,11 @@ def render(n):
     if addrs:
         P(C.wrap(" Open in a browser:", "grey"))
         for ip, kind in addrs:
-            P(fit(f"   {C.wrap(f'http://{ip}:8000', 'cyan', 'bold')} {C.wrap(kind, 'grey')}", W))
+            url = f"http://{ip}:8000"
+            if len(url) + 4 + len(kind) > W:          # long IPv6 URL: own line, never cut
+                P("   " + C.wrap(url, "cyan", "bold")); P(C.wrap(f"     ({kind})", "grey"))
+            else:
+                P(f"   {C.wrap(url, 'cyan', 'bold')} {C.wrap(kind, 'grey')}")
     hints = [(lv, h) for lv, h in st.issues if h]
     if hints:
         P(C.wrap(" To fix:", "grey"))

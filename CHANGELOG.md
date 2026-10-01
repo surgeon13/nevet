@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-01 (IPv6)
+
+- The web app also listens on IPv6 when the system supports it (falls
+  back to IPv4 only otherwise), so it still answers when the WiFi gives
+  the Pi no IPv4 address.
+- `nevet` shows the Pi's IPv6 address to open when there's no IPv4
+  address on the home network; long addresses are never cut off.
+
 ## 2026-10-01 (PC / Ubuntu Server)
 
 - Installs on a regular PC with Ubuntu Server: tested on Ubuntu 24.04

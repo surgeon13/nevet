@@ -609,6 +609,21 @@ def _stop(signum, frame):
     raise SystemExit(0)
 
 
+def _ipv6_works():
+    """Can we listen on IPv6? (Not on every system; checked on a spare port.)"""
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        try:
+            s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+            s.bind(("::", 0))
+        finally:
+            s.close()
+        return True
+    except (OSError, AttributeError):
+        return False
+
+
 if __name__ == "__main__":
     import signal
     signal.signal(signal.SIGTERM, _stop)
@@ -617,8 +632,11 @@ if __name__ == "__main__":
     # to the dev server if waitress isn't installed yet.
     try:
         from waitress import serve
-        app.logger.info("Starting web app with waitress on :8000")
-        serve(app, host="0.0.0.0", port=8000, threads=6, channel_timeout=60)
+        # IPv6 too when available: some WiFi networks give the Pi only an
+        # IPv6 address, and the site should still answer there.
+        listen = "0.0.0.0:8000 [::]:8000" if _ipv6_works() else "0.0.0.0:8000"
+        app.logger.info("Starting web app with waitress on :8000 (%s)", "IPv4 + IPv6" if "[::]" in listen else "IPv4")
+        serve(app, listen=listen, threads=6, channel_timeout=60)
     except ImportError:
         app.logger.warning("waitress not installed - using Flask dev server")
         app.run(host="0.0.0.0", port=8000, threaded=True)
