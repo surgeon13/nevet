@@ -17,7 +17,7 @@
 </head>
 <body>
 <nav class="topnav{% if current_user %} has-user{% endif %}">
-  <a href="{{ url_for('hub') }}" class="brand">📷 Nevet</a>
+  <a href="{{ url_for('hub') }}" class="brand">Nevet</a>
   {% if current_user %}
   <a href="{{ url_for('grower_page', grower_id=current_user.id) }}" class="nav-heroes" title="Your hero"><span class="nav-hero-dot" aria-hidden="true"></span><span class="nav-hero-name">{{ current_user.name }}</span></a>
   {% endif %}
