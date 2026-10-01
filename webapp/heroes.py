@@ -49,17 +49,22 @@ def default_appearance(name, hero_class=None):
     c = catalog()
     cls = class_by_id(hero_class) if hero_class else c["classes"][digest[0] % len(c["classes"])]
     looks = {cat["id"]: cat for cat in c["looks"]}
-    base_skins = [o for o in looks["skin"]["options"] if o.get("rarity") is None]
-    base_hair = [o for o in looks["hairColor"]["options"] if o.get("rarity") is None]
+    # Picks come from the first (original) options only, so adding new
+    # options to the catalog never changes an existing hero's default look.
+    base_skins = [o for o in looks["skin"]["options"] if o.get("rarity") is None][:6]
+    base_hair = [o for o in looks["hairColor"]["options"] if o.get("rarity") is None][:7]
     appearance = {
         "skin": _pick(base_skins, digest[1]),
         "hair": _pick(looks["hair"]["options"][:5], digest[2]),
         "hairColor": _pick(base_hair, digest[3]),
-        "eyes": _pick(looks["eyes"]["options"], digest[4]),
-        "eyeColor": _pick(looks["eyeColor"]["options"], digest[5]),
-        "mouth": _pick(looks["mouth"]["options"], digest[6]),
+        "eyes": _pick(looks["eyes"]["options"][:5], digest[4]),
+        "eyeColor": _pick(looks["eyeColor"]["options"][:6], digest[5]),
+        "mouth": _pick(looks["mouth"]["options"][:5], digest[6]),
     }
     appearance.update(cls["preset"])
+    # anything else (categories added later, e.g. facial hair) starts at its first option
+    for cat in c["looks"] + c["gear"]:
+        appearance.setdefault(cat["id"], cat["options"][0]["id"])
     return cls["id"], appearance
 
 

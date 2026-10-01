@@ -11,8 +11,8 @@ file is all you need to add or rename options (no restart needed).
 
 - `classes`: starting presets (Gardener, Worm Tamer, ...). Picking a
   class sets its `preset` gear; everything stays customizable.
-- `looks`: skin, hair, colours, eyes, mouth. `type: "color"` options
-  need a `color`.
+- `looks`: skin, hair, colours, eyes, mouth, facial hair. `type: "color"`
+  options need a `color`; `type: "face"` options are drawn on the face.
 - `gear`: head, outfit, tool, back, companion slots.
 - `rarity`: `common`, `uncommon`, `rare`, `epic`, `legendary`, shown
   as coloured tiles like in RPG inventories.

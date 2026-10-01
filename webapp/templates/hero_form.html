@@ -115,8 +115,9 @@
 
   // ---- option icons (drawn by code; a catalog "icon" image wins) ----
   var ICON_DEPENDS = {                 // which icons need redrawing when a look changes
-    skin: ['hair', 'eyes', 'mouth'], hairColor: ['hair'], eyeColor: ['eyes', 'mouth'],
-    eyes: ['mouth'], mouth: ['eyes'], outfitColor: ['body']
+    skin: ['hair', 'eyes', 'mouth', 'facialHair'], hairColor: ['hair', 'facialHair'],
+    eyeColor: ['eyes', 'mouth', 'facialHair'], eyes: ['mouth', 'facialHair'], mouth: ['eyes', 'facialHair'],
+    facialHair: ['eyes', 'mouth'], outfitColor: ['body']
   };
   function drawIcons(catIds) {
     var slots = [];
@@ -131,7 +132,7 @@
       for (; i < end; i++) {
         var el = slots[i], cat = el.dataset.iconCat, id = el.dataset.iconId, url = null;
         try {
-          if (cat === 'eyes' || cat === 'mouth') {
+          if (cat === 'eyes' || cat === 'mouth' || cat === 'facialHair') {
             var a = Object.assign({}, appearance); a[cat] = id;
             url = NevetHero.faceIcon(a, CATALOG, 64);
           } else if (has3D) {
