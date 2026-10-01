@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-01 (PC / Ubuntu Server)
+
+- Installs on a regular PC with Ubuntu Server: tested on Ubuntu 24.04
+  (Python 3.12, Flask 3.0) and the 22.04 Flask 2.0 stack.
+- Watchdog reconnects through systemd-networkd (`networkctl reconfigure`,
+  then a networkd restart) when NetworkManager isn't installed; shows
+  WiFi signal in dBm without NetworkManager and no signal for a cable.
+- `nevet` and `nevet net` show and test cable adapters (eth0, enp3s0...),
+  hide Docker/VM bridge addresses, and give camera-aware install hints.
+- Tailscale timestamps with nanoseconds parse on Python 3.10.
+
 ## 2026-09-30 (Tailscale, WiFi diagnosis)
 
 - New `nevet ts`: step-by-step remote access check (installed, service,

@@ -81,7 +81,7 @@ EOF
 for f in /sys/class/net/wl*; do
     [ -e "$f" ] && command -v iw >/dev/null 2>&1 && { iw dev "${f##*/}" set power_save off 2>/dev/null || true; }
 done
-echo "WiFi power saving: off"
+ls -d /sys/class/net/wl* >/dev/null 2>&1 && echo "WiFi power saving: off"
 
 # ---- render systemd unit templates for this exact repo path/user ----
 render_unit() {
@@ -119,6 +119,15 @@ for w in $WIFI_IFS; do
     [ -n "$NMCLI" ] && CMDS="$CMDS, $NMCLI device reconnect $w"
     [ -n "$IW" ] && CMDS="$CMDS, $IW dev $w set power_save off"
 done
+# Ubuntu Server & co. manage the network with systemd-networkd, not NetworkManager
+NETWORKCTL=$(command -v networkctl || true)
+if [ -z "$NMCLI" ] && [ -n "$NETWORKCTL" ]; then
+    CMDS="$CMDS, $SYSTEMCTL restart systemd-networkd"
+    for f in /sys/class/net/*; do
+        n=${f##*/}
+        [ "$n" != lo ] && [ -e "$f/device" ] && CMDS="$CMDS, $NETWORKCTL reconfigure $n"
+    done
+fi
 TMP_SUDOERS=$(mktemp)
 echo "${REAL_USER} ALL=(root) NOPASSWD: ${CMDS}" > "$TMP_SUDOERS"
 if visudo -cf "$TMP_SUDOERS" >/dev/null 2>&1; then

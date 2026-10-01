@@ -53,6 +53,36 @@ sudo ./install.sh 5 15     # photo every 5 min, check for updates every 15 min
 sudo ./install.sh off 15   # no camera: timelapse off, updates every 15 min
 ```
 
+### On a PC with Ubuntu Server (or Debian)
+
+The same installer works on a regular PC (tested on Ubuntu 24.04 and the
+22.04 Flask version). Without a camera, turn the timelapse off:
+
+```bash
+sudo apt update && sudo apt install -y git
+git clone https://github.com/surgeon13/nevet.git ~/nevet
+cd ~/nevet
+sudo ./install.sh off 15
+nevet                      # shows the address to open: http://<pc-ip>:8000
+```
+
+- If the firewall is on (`sudo ufw status` says active):
+  `sudo ufw allow 8000/tcp`.
+- The watchdog works with NetworkManager or with systemd-networkd
+  (Ubuntu Server's default), on a cable or WiFi; `nevet net` tests cable
+  adapters too.
+- The capture scripts are tuned for the Insta360 Air; other webcams need
+  a different resolution in `scripts/capture_photo.sh`.
+- To bring over the Pi's garden (players, plants, actions), copy its
+  database once while the web app is stopped:
+  ```bash
+  sudo systemctl stop nevet-webapp
+  scp user@raspi03b:webapp/farm.db ~/webapp/farm.db
+  sudo systemctl start nevet-webapp
+  ```
+  Photos: `rsync -a user@raspi03b:camera_captures/photos/ ~/camera_captures/photos/`.
+  The two machines don't sync afterwards; each keeps its own copy.
+
 The installer creates `.env` from `config/.env.example` on first run. The
 defaults work; change `WEBAPP_API_KEY` if other devices post stats, and set
 `WEBAPP_OPEN_SIGNUP=false` if only existing players should add accounts. After

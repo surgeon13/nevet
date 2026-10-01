@@ -231,7 +231,8 @@ def collect_system(logs):
         st.row("ok" if word == "OK" else "warn" if word == "WARN" else "bad", "Watchdog", f"{word} {ago(t)}",
                "tail ~/camera_captures/logs/watchdog.log")
     else:
-        st.row("warn", "Watchdog", "no checks logged yet", "cd ~/nevet && sudo ./install.sh 5 15")
+        st.row("warn", "Watchdog", "no checks logged yet",
+               f"cd ~/nevet && sudo ./install.sh {'5' if cam_ok else 'off'} 15  (first check comes within 2 min)")
 
     # auto-update
     up = unit_info("nevet-update.timer")
@@ -240,7 +241,7 @@ def collect_system(logs):
     except (OSError, ValueError):
         us = None
     if up and up.get("LoadState") == "not-found":
-        st.row("off", "Updates", "not set up (sudo ./install.sh 5 15)")
+        st.row("off", "Updates", f"not set up (sudo ./install.sh {'5' if cam_ok else 'off'} 15)")
     elif us:
         checked = datetime.strptime(us["checked_at"], "%Y-%m-%d %H:%M:%S") if us.get("checked_at") else None
         label = {"up_to_date": "up to date", "updated": "updated", "offline": "offline",
@@ -258,9 +259,15 @@ def collect_system(logs):
     adapters = wifi_adapters()
     used = next((a for a in adapters if a["default"]), None)
     dev = default_dev()
-    if not used:                                  # connected but no route at all
+    if not used and not (dev and not dev.startswith("wl")):   # WiFi up but no route at all
         used = next((a for a in adapters if a.get("signal") is not None), None)
-    if used and used.get("signal") is not None:
+    if dev and not dev.startswith("wl"):
+        wired = next((a for a in wired_adapters() if a["name"] == dev), None)
+        speed = f" {SEP} {wired['speed']} Mb/s" if wired and wired["speed"] else ""
+        st.row("ok", "Network", f"{dev} (cable){speed}" if wired else dev)
+        if not has_ipv4_route():
+            st.row("warn", "IPv4", "none: no updates, no LAN address", f"No IPv4 address on {dev}: check the router/DHCP")
+    elif used and used.get("signal") is not None:
         sig = used["signal"]
         level = "ok" if sig >= 55 else "warn" if sig >= 35 else "bad"
         st.row(level, "WiFi", f"{used['ssid']} {SEP} {sig}%" + (f" {SEP} USB antenna" if used["usb"] else ""),
@@ -269,8 +276,6 @@ def collect_system(logs):
             st.row("warn", "IPv4", "none: no updates, no LAN address",
                    "WiFi gave no IPv4 address (weak signal?). The watchdog retries; now: sudo nmcli device reconnect "
                    + used["name"])
-    elif dev and not dev.startswith("wl"):
-        st.row("ok", "Network", f"{dev} (cable)" if dev.startswith(("eth", "en")) else dev)
     elif adapters or run(["nmcli", "-t", "device"]) is not None:
         st.row("bad", "WiFi", "not connected", "The watchdog reconnects on its own")
 
@@ -422,6 +427,32 @@ def shq(v):
     return v if re.fullmatch(r"[\w.@%+=:,/-]+", v) else "'" + v.replace("'", "'\\''") + "'"
 
 
+VIRTUAL = ("lo", "wl", "tailscale", "docker", "veth", "br-", "virbr", "tun", "tap", "vnet", "zt", "wg")
+
+
+def wired_adapters():
+    """Physical cable adapters (eth0, enp3s0...): [{name, state, speed, ip, default}]."""
+    out = []
+    default = default_dev()
+    for p in sorted(SYS_NET.glob("*")) if SYS_NET.exists() else []:
+        n = p.name
+        if n.startswith(VIRTUAL) or not (p / "device").exists() or (p / "wireless").exists():
+            continue
+        try:
+            state = (p / "operstate").read_text().strip()
+        except OSError:
+            state = "?"
+        try:
+            speed = int((p / "speed").read_text().strip())
+        except (OSError, ValueError):
+            speed = None
+        ip = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", run(["ip", "-o", "-4", "addr", "show", "dev", n]) or "")
+        out.append({"name": n, "usb": False, "kind": "cable", "state": state, "speed": speed if speed and speed > 0 else None,
+                    "ip": ip.group(1) if ip else None, "default": n == default, "signal": None, "ssid": None,
+                    "rate": speed if speed and speed > 0 else None, "driver": "", "chan": None, "freq": None})
+    return out
+
+
 def net_bytes():
     """{iface: (rx_bytes, tx_bytes)} since boot."""
     out = {}
@@ -485,8 +516,9 @@ def iso_time(v):
     """Tailscale RFC 3339 time -> local naive datetime (None for 'never')."""
     if not v or v.startswith("0001-"):
         return None
+    v = re.sub(r"(\.\d{6})\d+", r"\1", v.replace("Z", "+00:00"))    # Go writes nanoseconds
     try:
-        return datetime.fromisoformat(v.replace("Z", "+00:00")).astimezone().replace(tzinfo=None)
+        return datetime.fromisoformat(v).astimezone().replace(tzinfo=None)
     except (ValueError, OverflowError):
         return None
 
@@ -591,6 +623,8 @@ def addresses():
         if not m or m.group(1) == "lo":
             continue
         dev, ip = m.group(1), m.group(2)
+        if dev.startswith(VIRTUAL) and not dev.startswith("tailscale") and not dev.startswith("wl"):
+            continue                              # docker0, virbr0...: not reachable from outside
         if dev.startswith("tailscale") or ipaddress.ip_address(ip) in ipaddress.ip_network("100.64.0.0/10"):
             label = "Tailscale"
         elif dev.startswith("wl"):
@@ -616,7 +650,8 @@ def classify(src, msg):
         if msg.startswith("OK  online"):
             sig = re.search(r"signal=(\S+)", msg)
             via = re.search(r"via (\S+)", msg)
-            text = "WiFi OK" + (f" {SEP} {sig.group(1)}" if sig else "") + (f" via {via.group(1)}" if via else "")
+            wifi = not via or via.group(1).startswith("wl")
+            text = ("WiFi OK" if wifi else "Online") + (f" {SEP} {sig.group(1)}" if sig else "") + (f" via {via.group(1)}" if via else "")
             if "IPv6 only" in msg:
                 return "wifi_v6", "warn", text + " (no IPv4)"
             return "wifi_ok", "ok", text
@@ -863,9 +898,15 @@ def render(n):
             detail = f"{a['signal']}% signal" + (f" {SEP} " + C.wrap("in use", "bold") if a["default"] else f" {SEP} standby")
         else:
             level, detail = "off", ("not connected" if a["state"] in ("disconnected", "?") else a["state"])
-        P(fit(f" {C.wrap(DOT, *LEVEL_STYLE[level])} {a['name']:<6}{a['kind']:<12}{detail}", W))
-    if not adapters:
-        P(C.wrap(" No WiFi adapters found.", "grey"))
+        P(fit(f" {C.wrap(DOT, *LEVEL_STYLE[level])} {a['name'] + ' ':<7}{a['kind']:<12}{detail}", W))
+    for a in wired_adapters():
+        if a["state"] == "up" or not adapters:
+            level = "ok" if a["default"] else "info" if a["state"] == "up" else "off"
+            detail = (f"{a['speed']} Mb/s" if a["speed"] else "connected") if a["state"] == "up" else "no cable"
+            P(fit(f" {C.wrap(DOT, *LEVEL_STYLE[level])} {a['name'] + ' ':<7}{'cable':<12}{detail}"
+                  + (f" {SEP} " + C.wrap("in use", "bold") if a["default"] else ""), W))
+    if not adapters and not any(a["state"] == "up" for a in wired_adapters()):
+        P(C.wrap(" No network adapters connected.", "grey"))
     tip = antenna_tip(adapters)
     if tip:
         out.extend(tip_lines(tip, W, cmd=ANTENNA_CMD))
@@ -1001,8 +1042,15 @@ def net_test(quick=False):
     P(C.wrap(" NEVET NET ", "title") + "  " + C.wrap("network test", "bold"))
     P(C.wrap(f"{datetime.now():%a %d %b %H:%M}", "grey"))
     adapters = wifi_adapters()
-    heading("WiFi adapters")
-    if not adapters:
+    wired = [a for a in wired_adapters() if a["state"] == "up"]
+    if wired:
+        heading("Cable")
+        for a in wired:
+            P(fit(f" {C.wrap(DOT, *LEVEL_STYLE['ok' if a['default'] else 'info'])} {C.wrap(a['name'], 'bold')}  "
+                  + (f"{a['speed']} Mb/s" if a["speed"] else "connected") + (C.wrap("  in use", "bgreen") if a["default"] else ""), W))
+    if adapters or not wired:
+        heading("WiFi adapters")
+    if not adapters and not wired:
         P(C.wrap(" No WiFi adapters found (is the USB antenna plugged in? try: lsusb)", "bred"))
     for a in adapters:
         on = a["signal"] is not None
@@ -1048,7 +1096,7 @@ def net_test(quick=False):
                                   "(best: Pi on the extender's Ethernet port), or use a supported USB antenna.", W, "byellow"):
                 P(line)
 
-    testable = [a for a in adapters if a["ip"] or a["signal"] is not None]
+    testable = [a for a in wired if a["ip"]] + [a for a in adapters if a["ip"] or a["signal"] is not None]
     if not testable:
         P(C.wrap("\n No connected adapter to test.", "bred"))
         return
@@ -1062,7 +1110,7 @@ def net_test(quick=False):
         heading(f"Testing {a['name']} ({a['kind']})")
         v4 = bool(a["ip"])
         gw = gateway(a["name"]) if v4 else gateway6(a["name"])
-        r = {"iface": a["name"], "kind": "USB" if a["usb"] else "built-in", "ssid": a["ssid"] or "-",
+        r = {"iface": a["name"], "kind": "cable" if a["kind"] == "cable" else "USB" if a["usb"] else "built-in", "ssid": a["ssid"] or "-",
              "signal": a["signal"], "rate": a["rate"]}
         if not v4:
             for line in tip_lines("No IPv4 address on this adapter (the WiFi didn't give one): testing over IPv6. "
@@ -1125,8 +1173,10 @@ def net_test(quick=False):
             ping = f"{float(internet):.0f} ms"
         except ValueError:
             ping = ""
-        P(fit(f" {C.wrap(f'{t:%a %H:%M}', 'grey')} {r.get('iface', '?'):<6}{r.get('kind', ''):<8}"
-              f"{r.get('signal', '-'):>4}%{' ' * max(1, 10 - len(speed))}{C.wrap(speed, 'bold')} {ping}", W))
+        when = f"{t:%H:%M}" if t.date() == date.today() else f"{t:%d/%m}"
+        sig = f"{r.get('signal', '-'):>4}%" if r.get("signal", "-") != "-" else " " * 5
+        P(fit(f" {C.wrap(when, 'grey')} {r.get('iface', '?') + ' ':<7}{r.get('kind', ''):<8}"
+              f"{sig}{' ' * max(1, 10 - len(speed))}{C.wrap(speed, 'bold')} {ping}", W))
     P(C.wrap("\n Saved to ~/camera_captures/logs/network.log", "grey"))
 
 

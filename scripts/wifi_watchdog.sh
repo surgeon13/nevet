@@ -85,11 +85,16 @@ pick_iface() {
 }
 IFACE=$(pick_iface)
 
-get_signal() {
-    command -v nmcli >/dev/null 2>&1 || { echo "?"; return; }
+get_signal() {   # "78%" (NetworkManager) or "-52dBm" (iw), empty for a cable
+    [[ "$IFACE" == wl* ]] || return 0
     local sig
-    sig=$(nmcli -t -f DEVICE,ACTIVE,SIGNAL dev wifi 2>/dev/null | awk -F: -v d="$IFACE" '$1 == d && $2 == "yes" {print $3; exit}')
-    echo "${sig:-?}"
+    if command -v nmcli >/dev/null 2>&1; then
+        sig=$(nmcli -t -f DEVICE,ACTIVE,SIGNAL dev wifi 2>/dev/null | awk -F: -v d="$IFACE" '$1 == d && $2 == "yes" {print $3; exit}')
+        echo "${sig:-?}%"
+    else
+        sig=$(iw dev "$IFACE" link 2>/dev/null | awk '/signal:/ {print $2; exit}')
+        echo "${sig:-?}${sig:+dBm}"
+    fi
 }
 get_bitrate() { iw dev "$IFACE" link 2>/dev/null | awk '/tx bitrate/ {print $3; exit}'; }
 router_ms() {
@@ -101,7 +106,9 @@ router_ms() {
 link_line() {   # "via wlan1 (USB) signal=78% rate=72.2Mb/s router=3.1ms"
     local rate ms
     rate=$(get_bitrate); ms=$(router_ms)
-    echo "via $(iface_label "$IFACE") signal=$(get_signal)%${rate:+ rate=${rate}Mb/s}${ms:+ router=${ms}ms}"
+    local sig
+    sig=$(get_signal)
+    echo "via $(iface_label "$IFACE")${sig:+ signal=$sig}${rate:+ rate=${rate}Mb/s}${ms:+ router=${ms}ms}"
 }
 
 has_ip() { ip -4 addr show "$IFACE" 2>/dev/null | grep -q "inet "; }
@@ -152,6 +159,22 @@ health_line() {
 reconnect() {
     # Escalates with each consecutive LINK_DOWN check. No reboots.
     local level="$1"
+    if ! command -v nmcli >/dev/null 2>&1 && command -v networkctl >/dev/null 2>&1 && \
+       systemctl is-active --quiet systemd-networkd 2>/dev/null; then
+        # Ubuntu Server and other netplan / systemd-networkd systems
+        if [ "$level" -le 2 ]; then
+            log_msg "  reconnect: networkctl reconfigure $IFACE"
+            act sudo -n networkctl reconfigure "$IFACE"
+        elif [ $(( (level - 3) % 4 )) -eq 0 ]; then
+            log_msg "  reconnect: restarting systemd-networkd"
+            act sudo -n systemctl restart systemd-networkd
+        else
+            log_msg "  reconnect: waiting before next systemd-networkd restart"
+            return
+        fi
+        [ "$DRY_RUN" = "1" ] || sleep 15
+        return
+    fi
     if ! command -v nmcli >/dev/null 2>&1; then
         log_msg "  reconnect: nmcli not found, restarting wpa_supplicant"
         act sudo -n systemctl restart wpa_supplicant
