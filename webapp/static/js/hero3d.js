@@ -547,6 +547,181 @@
         g.add(lock);
       }
     },
+    // ---- added: punk, mullet and styles from history ----
+    long_locs: function (R, g) {                    // thick dreadlocks down the back, a few gold cuffs
+      hairCap(R, g);
+      var dark = shade(R.hairColor, -0.06);
+      for (var i = 0; i < 15; i++) {
+        var az = PI * 0.42 + i / 14 * PI * 1.16;                        // sides and back, face stays clear
+        var p = onHead(0.6, 1.15, az), len = 0.95 + ((i * 7) % 4) * 0.07;
+        var front = Math.cos(az) > -0.1;                                // the front-most fall over the shoulders
+        var lock = new THREE.Group();
+        lock.position.set(p.x * 1.05, p.y + 0.02, p.z * 1.05);
+        var strand = cyl(0.068, 0.055, len, i % 2 ? dark : R.hairColor, [0, -len / 2, 0], 9);
+        lock.add(strand);
+        lock.add(sphere(0.06, i % 2 ? dark : R.hairColor, [0, -len, 0]));
+        if (i % 4 === 1) {
+          var cuff = mesh(new THREE.CylinderGeometry(0.078, 0.078, 0.07, 12), '#e3c16f', [0, -len * 0.62, 0]);
+          lock.add(cuff);
+        }
+        lock.rotation.z = Math.sin(az) * (front ? 0.05 : 0.22);
+        lock.rotation.x = -Math.cos(az) * 0.2 - (front ? 0 : 0.12);
+        g.add(lock);
+      }
+    },
+    liberty_spikes: function (R, g, covered) {       // punk: tall spikes in a row, sides shaved
+      HAIR.buzz(R, g);
+      if (covered) return;
+      var centre = new THREE.Vector3(0, HEAD_Y, 0), tip = shade(R.hairColor, 0.18);
+      for (var i = 0; i < 6; i++) {
+        var alpha = 0.85 - i * 0.42;
+        var p = new THREE.Vector3(0, HEAD_Y + 0.56 * Math.cos(alpha), 0.56 * Math.sin(alpha));
+        var len = 0.62 - Math.abs(i - 1.5) * 0.05;
+        var spike = new THREE.Group();
+        spike.position.copy(p);
+        spike.add(mesh(new THREE.ConeGeometry(0.11, len, 10), R.hairColor, [0, len / 2, 0]));
+        spike.add(mesh(new THREE.ConeGeometry(0.045, len * 0.3, 8), tip, [0, len * 0.86, 0]));
+        pointOut(spike, centre, p.clone().add(new THREE.Vector3(0, 0.35, 0)));   // stand up tall
+        g.add(spike);
+      }
+    },
+    mullet: function (R, g) {                        // business in front, party in the back
+      hairCap(R, g);
+      g.add(mesh(new THREE.CylinderGeometry(0.57, 0.6, 0.62, 24, 1, true, PI * 0.7, PI * 0.6),
+        mat(R.hairColor, { side: THREE.DoubleSide }), [0, HEAD_Y - 0.3, 0]));
+      [-0.42, -0.14, 0.14, 0.42].forEach(function (az) {            // rounded, flicked ends
+        g.add(sphere(0.13, shade(R.hairColor, Math.abs(az) > 0.2 ? -0.04 : 0),
+          [0.6 * Math.sin(PI + az), HEAD_Y - 0.6, 0.6 * Math.cos(PI + az) - 0.02], [1, 0.7, 0.75]));
+      });
+    },
+    pompadour: function (R, g, covered) {            // 1950s: big glossy quiff
+      hairCap(R, g, true);
+      if (covered) return;
+      var quiff = sphere(0.36, R.hairColor, [0, HEAD_Y + 0.55, 0.22], [1.15, 0.85, 1.25]);
+      quiff.rotation.x = -0.35;
+      g.add(quiff);
+      g.add(sphere(0.2, shade(R.hairColor, 0.1), [0, HEAD_Y + 0.68, 0.42], [1.1, 0.6, 0.9]));
+      [1, -1].forEach(function (side) {             // slicked sides
+        g.add(sphere(0.2, R.hairColor, [side * 0.42, HEAD_Y + 0.25, -0.05], [0.55, 0.9, 1.3]));
+      });
+    },
+    beehive: function (R, g, covered) {              // 1960s: tall rounded hive with flicked ends
+      hairCap(R, g, true);
+      if (!covered) {
+        g.add(sphere(0.47, R.hairColor, [0, HEAD_Y + 0.5, -0.08], [1, 1.3, 1]));
+        var band = mesh(new THREE.TorusGeometry(0.46, 0.035, 8, 32), '#e27fae', [0, HEAD_Y + 0.3, -0.04]);
+        band.rotation.x = PI / 2 - 0.12;
+        g.add(band);
+      }
+      [1, -1].forEach(function (side) {             // smooth sides ending in an outward flick
+        g.add(sphere(0.15, R.hairColor, [side * 0.53, HEAD_Y - 0.1, 0.0], [0.7, 1.5, 1.1]));
+        g.add(sphere(0.085, R.hairColor, [side * 0.61, HEAD_Y - 0.36, 0.02], [1.15, 0.6, 0.85]));
+      });
+    },
+    powdered_wig: function (R, g, covered) {         // 1700s: white curls and a ribboned queue
+      var W = '#e2ded3', W2 = '#cfc9bc';
+      var cap = mesh(new THREE.SphereGeometry(0.6, 36, 18, 0, PI * 2, 0, PI * 0.5), mat(W, { side: THREE.DoubleSide }), [0, HEAD_Y + 0.02, 0]);
+      cap.rotation.x = -0.3;
+      g.add(cap);
+      if (!covered) g.add(sphere(0.3, W, [0, HEAD_Y + 0.5, 0.05], [1.3, 0.55, 1.2]));
+      [1, -1].forEach(function (side) {               // two stacked rolls over each ear
+        [0, 1].forEach(function (k) {
+          var roll = cyl(0.11, 0.11, 0.42, k ? W2 : W, [side * 0.6, HEAD_Y - 0.02 - k * 0.22, -0.02], 16);
+          roll.rotation.x = PI / 2;
+          g.add(roll);
+        });
+      });
+      var queue = cyl(0.09, 0.06, 0.4, W, [0, HEAD_Y - 0.5, -0.5], 12);
+      queue.rotation.x = 0.12;
+      g.add(queue);
+      g.add(sphere(0.05, '#1f2522', [0, HEAD_Y - 0.3, -0.56]));
+      [1, -1].forEach(function (side) {
+        var bow = sphere(0.1, '#1f2522', [side * 0.11, HEAD_Y - 0.3, -0.55], [1.5, 0.9, 0.5]);
+        bow.rotation.z = side * 0.35;
+        g.add(bow);
+      });
+    },
+    top_knot: function (R, g, covered) {             // samurai-style knot folded forward on the crown
+      hairCap(R, g, true);
+      if (covered) return;
+      var knot = cyl(0.075, 0.09, 0.42, R.hairColor, [0, HEAD_Y + 0.6, 0.04], 12);
+      knot.rotation.x = PI / 2 + 0.12;
+      g.add(knot);
+      g.add(sphere(0.12, R.hairColor, [0, HEAD_Y + 0.58, -0.17]));
+      var tie = mesh(new THREE.TorusGeometry(0.095, 0.025, 6, 14), '#f1efe9', [0, HEAD_Y + 0.6, -0.08]);
+      g.add(tie);
+    },
+    victory_rolls: function (R, g, covered) {        // 1940s: two big rolls on top, curls at the back
+      hairCap(R, g, true);
+      [1, -1].forEach(function (side) {
+        if (!covered) {
+          var roll = mesh(new THREE.TorusGeometry(0.15, 0.1, 10, 20), R.hairColor, [side * 0.27, HEAD_Y + 0.52, 0.18]);
+          roll.rotation.set(0, PI / 2, 0.3 * side);
+          g.add(roll);
+        }
+        g.add(sphere(0.16, R.hairColor, [side * 0.42, HEAD_Y - 0.3, -0.3], [1, 0.8, 1]));
+      });
+      g.add(mesh(new THREE.CylinderGeometry(0.58, 0.6, 0.4, 24, 1, true, PI * 0.68, PI * 0.64),
+        mat(R.hairColor, { side: THREE.DoubleSide }), [0, HEAD_Y - 0.16, 0]));
+      g.add(sphere(0.18, R.hairColor, [0, HEAD_Y - 0.36, -0.46], [1.5, 0.8, 0.9]));
+    },
+    space_buns: function (R, g, covered) {
+      hairCap(R, g);
+      if (covered) return;
+      [1, -1].forEach(function (side) {
+        var p = onHead(0.62, 0.62, side * 0.95);
+        g.add(sphere(0.21, R.hairColor, [p.x, p.y + 0.06, p.z - 0.05]));
+        var band = mesh(new THREE.TorusGeometry(0.14, 0.03, 8, 18), '#7fb8e2', [p.x * 0.93, p.y - 0.08, p.z * 0.93 - 0.04]);
+        band.lookAt(HEAD_CENTRE);
+        g.add(band);
+      });
+    },
+    flat_top: function (R, g, covered) {             // 80s high-top: tall and flat, faded sides
+      HAIR.buzz(R, g);
+      if (covered) return;
+      var top = group([0, HEAD_Y + 0.42, -0.03]);
+      top.rotation.x = -0.08;
+      top.add(cyl(0.47, 0.535, 0.52, R.hairColor, [0, 0, 0], 32));
+      var curl = shade(R.hairColor, 0.06);
+      for (var k = 0; k < 16; k++) {                 // tight curls around the flat top so it reads as hair
+        var a = k / 16 * PI * 2;
+        top.add(sphere(0.075, curl, [Math.sin(a) * 0.43, 0.25, Math.cos(a) * 0.43], [1, 0.8, 1]));
+      }
+      for (var m = 0; m < 6; m++) {
+        var b = m / 6 * PI * 2 + 0.4;
+        top.add(sphere(0.07, curl, [Math.sin(b) * 0.2, 0.26, Math.cos(b) * 0.2], [1, 0.7, 1]));
+      }
+      g.add(top);
+    },
+    viking_braids: function (R, g) {                 // a braid in front of each shoulder
+      hairCap(R, g);
+      var dark = shade(R.hairColor, -0.07);
+      [1, -1].forEach(function (side) {
+        for (var i = 0; i <= 7; i++) {
+          var r = 0.1 - i * 0.006;
+          g.add(sphere(r, i % 2 ? dark : R.hairColor, [side * (0.5 - i * 0.012) + (i % 2 ? 0.015 : -0.015) * side,
+            HEAD_Y - 0.1 - i * 0.11, 0.2 + Math.min(i, 3) * 0.04], [1, 0.85, 0.85]));
+        }
+        g.add(mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.07, 12), '#b0b5b3', [side * 0.41, HEAD_Y - 0.94, 0.32]));
+      });
+      g.add(mesh(new THREE.CylinderGeometry(0.58, 0.61, 0.5, 24, 1, true, PI * 0.7, PI * 0.6),
+        mat(R.hairColor, { side: THREE.DoubleSide }), [0, HEAD_Y - 0.22, 0]));
+    },
+    curtains: function (R, g) {                       // 90s: middle part, curtains to the cheeks
+      hairCap(R, g, true);
+      if (LOW_HATS[R.a.head]) return;
+      [1, -1].forEach(function (side) {
+        var p = onHead(0.565, 0.93, side * 0.34);
+        var curtain = sphere(0.23, R.hairColor, [p.x, p.y, p.z], [1.05, 0.36, 0.45]);
+        curtain.lookAt(HEAD_CENTRE);
+        curtain.rotateZ(-side * 0.5);
+        g.add(curtain);
+        var end = onHead(0.57, 1.18, side * 0.7);
+        var tip = sphere(0.1, R.hairColor, [end.x, end.y, end.z], [0.7, 0.9, 0.5]);
+        tip.lookAt(HEAD_CENTRE);
+        g.add(tip);
+      });
+    },
     buzz: function (R, g) {
       var cap = mesh(new THREE.SphereGeometry(0.565, 36, 18, 0, PI * 2, 0, PI * 0.42),
         mat(shade(R.hairColor, 0.04), { side: THREE.DoubleSide }), [0, HEAD_Y, 0]);

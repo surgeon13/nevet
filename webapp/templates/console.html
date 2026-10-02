@@ -21,6 +21,9 @@
 <div class="hub-wrap">
   <div class="hub-3d-wrap" id="hub-3d-wrap">
     <canvas id="hub-canvas"></canvas>
+    <button type="button" class="hub-about-btn" onclick="openAbout()" aria-label="About Nevet" title="About Nevet">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.6" r="0.6" fill="currentColor"/></svg>
+    </button>
   </div>
   <div class="hub-stats-row">
     <span class="hub-stat">{{ ui.icon('leaf', 15) }}<strong>{{ summary.growing }}</strong> growing</span>
@@ -108,6 +111,9 @@
     <a class="node-card" data-label="Plants" href="{{ url_for('assets_page') }}">
       Plants<span class="node-sub">Plants &amp; worm bins</span>
     </a>
+    <a class="node-card" data-label="Map" href="{{ url_for('map_page') }}">
+      Map<span class="node-sub">Beds, paths &amp; plants</span>
+    </a>
     <a class="node-card" data-label="Activity" href="{{ url_for('activity') }}">
       Activity<span class="node-sub">Who did what</span>
     </a>
@@ -129,6 +135,58 @@
   </div>
 </div>
 
+
+{% set n = about.numbers %}
+<dialog class="about" id="about-dialog" aria-labelledby="about-title">
+  <form method="dialog" class="about-close-form"><button class="about-close" aria-label="Close">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  </button></form>
+  <div class="about-head">
+    <span class="about-mark">{{ ui.icon('sprout', 28) }}</span>
+    <div>
+      <h2 id="about-title">Nevet <span class="about-he" lang="he">נבט</span></h2>
+      <p class="about-tag">Hebrew for <em>sprout</em>. The brain of this garden.</p>
+    </div>
+  </div>
+  <p class="about-lead">Nevet keeps track of everything that grows here: the plants and worm bins, who watered,
+    fed and harvested what, where it all is on the garden map, and the camera's timelapse photos.
+    Every gardener is a hero who levels up through real garden work.</p>
+
+  <div class="about-stats">
+    <div><strong>{{ n.heroes }}</strong><span>hero{{ 'es' if n.heroes != 1 }}</span></div>
+    <div><strong>{{ n.growing }}</strong><span>growing now</span></div>
+    <div><strong>{{ '{:,}'.format(n.actions) }}</strong><span>actions logged</span></div>
+    <div><strong>{{ n.harvests }}</strong><span>harvest{{ 's' if n.harvests != 1 }}</span></div>
+    <div><strong>{{ n.mapped }}</strong><span>on the map</span></div>
+    <div><strong>{{ '{:,}'.format(n.photos) }}</strong><span>photos</span></div>
+  </div>
+
+  <div class="about-paths">
+    <a href="{{ url_for('log_action') }}">{{ ui.icon('plus', 16) }} Log an action</a>
+    <a href="{{ url_for('map_page') }}">{{ ui.icon('eye', 16) }} Garden map</a>
+    <a href="{{ url_for('growers_page') }}">{{ ui.icon('sparkle', 16) }} Heroes</a>
+    <a href="{{ url_for('gallery') }}">{{ ui.icon('leaf', 16) }} Gallery</a>
+  </div>
+
+  {% if about.news and about.news['items'] %}
+  <details class="about-news">
+    <summary>What's new <span class="muted">· {{ about.news.title }}</span></summary>
+    <ul>{% for item in about.news['items'] %}<li>{{ item }}</li>{% endfor %}</ul>
+    {% if about.news.more %}<p class="muted">…and {{ about.news.more }} more in the changelog.</p>{% endif %}
+  </details>
+  {% endif %}
+
+  <dl class="about-sys">
+    <div><dt>This node</dt><dd>{{ about.node }}</dd></div>
+    <div><dt>Version</dt><dd>{{ about.version.commit }}{% if about.version.date %} · {{ about.version.date }}{% endif %}</dd></div>
+    {% if n.since %}<div><dt>Growing since</dt><dd>{{ n.since[:10] }}</dd></div>{% endif %}
+  </dl>
+  <p class="about-credits">
+    Runs on a small computer in the garden; nothing leaves it unless you share it.
+    Made with three.js, Leaflet and OpenStreetMap · MIT licence{% if about.version.repo %} ·
+    <a href="{{ about.version.repo }}" target="_blank" rel="noopener">Source code</a>{% endif %}
+  </p>
+</dialog>
 <script>
   var nodes = Array.from(document.querySelectorAll('#node-grid .node-card'));
   var current = 0;
@@ -151,6 +209,16 @@
   function hubSelect() {
     nodes[current].click();
   }
+
+  function openAbout() {
+    var d = document.getElementById('about-dialog');
+    if (!d) return;
+    if (d.showModal) { if (!d.open) d.showModal(); } else d.setAttribute('open', '');
+  }
+  (function () {                       // tap outside the panel to close it
+    var d = document.getElementById('about-dialog');
+    if (d) d.addEventListener('click', function (e) { if (e.target === d && d.close) d.close(); });
+  })();
 
   function showComingSoon(name) {
     alert(name + ' — coming soon');
@@ -354,6 +422,28 @@
   function leafColor() { return accentColor.clone().lerp(bgColor, 0.38); }
   function budColor() { return accentColor.clone().lerp(bgColor, 0.62); }
 
+  // Vines carry a soft wave of brighter "sap" from the brain out to each
+  // bud: a band of colour that moves along the tube (uv.x runs root -> tip).
+  var VINE_VERT = 'varying float vU; void main() { vU = uv.x; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
+  var VINE_FRAG = [
+    'uniform vec3 uBase; uniform vec3 uGlow; uniform float uTime; uniform float uPhase; uniform float uStrength;',
+    'varying float vU;',
+    'void main() {',
+    '  float head = fract(uTime * 0.16 + uPhase) * 1.7 - 0.35;',
+    '  float band = smoothstep(0.26, 0.0, abs(vU - head));',
+    '  float tail = smoothstep(0.55, 0.0, head - vU) * step(vU, head) * 0.25;',
+    '  gl_FragColor = vec4(mix(uBase, uGlow, clamp(band + tail, 0.0, 1.0) * uStrength), 1.0);',
+    '}'
+  ].join('\n');
+  function vineMaterial(phase) {
+    return new THREE.ShaderMaterial({
+      uniforms: { uBase: { value: vineColor() }, uGlow: { value: glowColor() }, uTime: { value: 0 },
+                  uPhase: { value: phase }, uStrength: { value: 0.9 } },
+      vertexShader: VINE_VERT, fragmentShader: VINE_FRAG
+    });
+  }
+  function glowColor() { return accentColor.clone().lerp(new THREE.Color('#e4f59a'), 0.55); }
+
   function leafGeometry(len, wid) {
     var sh = new THREE.Shape();
     sh.moveTo(0, 0);
@@ -377,7 +467,13 @@
   path.computeLineDistances();
   group.add(path);
 
+  var satBranches = [];
   nodes.forEach(function (n, i) {
+    // each node's vine, leaves and bud hang together on one branch that sways gently from the brain
+    var branch = new THREE.Group();
+    branch.userData = { phase: i * 1.37 };
+    group.add(branch);
+    satBranches.push(branch);
     // start with node 0 at the front, facing the viewer
     var angle = Math.PI / 2 + (i / nodes.length) * Math.PI * 2;
     var dx = Math.cos(angle), dz = Math.sin(angle);
@@ -393,10 +489,9 @@
       from.clone().lerp(to, 0.68).add(side.clone().multiplyScalar(-0.4 * bend)).setY(0.08),
       to.clone().sub(dir.clone().multiplyScalar(0.32))
     ]);
-    var vine = new THREE.Mesh(new THREE.TubeGeometry(curve, 48, 0.045, 6, false),
-      new THREE.MeshBasicMaterial({ color: vineColor() }));
+    var vine = new THREE.Mesh(new THREE.TubeGeometry(curve, 48, 0.045, 6, false), vineMaterial(i / nodes.length));
     vine.userData.full = vine.geometry.index.count;
-    group.add(vine);
+    branch.add(vine);
     satLines.push(vine);
 
     // leaves along the vine, alternating sides, each on its own pivot so it can sway
@@ -412,7 +507,7 @@
       leaf.scale.setScalar(0.85 + k * 0.12);
       pivot.add(leaf);
       pivot.userData = { baseY: pivot.rotation.y, phase: i * 1.7 + k * 0.9, t: t };
-      group.add(pivot);
+      branch.add(pivot);
       leaves.push(pivot);
     });
     satLeaves.push(leaves);
@@ -424,13 +519,13 @@
     );
     mesh.position.set(x, 0.05, z);
     mesh.userData.index = i;
-    group.add(mesh);
+    branch.add(mesh);
     satMeshes.push(mesh);
     [-1, 1].forEach(function (s2) {
       var sepal = new THREE.Mesh(PETAL_GEO, new THREE.MeshBasicMaterial({ color: leafColor(), side: THREE.DoubleSide }));
       sepal.position.set(x - dx * 0.3, 0, z - dz * 0.3);
       sepal.rotation.y = Math.atan2(dz, -dx) + Math.PI + s2 * 0.9;
-      group.add(sepal);
+      branch.add(sepal);
       leaves.push(sepal);
     });
 
@@ -444,7 +539,7 @@
       bloom.add(petal);
     }
     bloom.scale.setScalar(0.001);
-    group.add(bloom);
+    branch.add(bloom);
     satPetals.push(bloom);
 
     var glow = new THREE.Mesh(
@@ -452,7 +547,7 @@
       new THREE.MeshBasicMaterial({ color: accentColor, transparent: true, opacity: 0, depthWrite: false })
     );
     glow.position.copy(mesh.position);
-    group.add(glow);
+    branch.add(glow);
     satGlows.push(glow);
 
     var label = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthTest: false, depthWrite: false }));
@@ -544,13 +639,26 @@
     pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
-    var hits = raycaster.intersectObjects(satMeshes.concat(satLabels));
+    var hits = raycaster.intersectObjects(satMeshes.concat(satLabels, brainTargets()));
     if (hits.length) {
       var o = hits[0].object;
+      if (o === brainSprite || o === hubCore) { brainPoke = clock.getElapsedTime(); openAbout(); return; }
       current = o.userData.index !== undefined ? o.userData.index : satLabels.indexOf(o);
       updateHighlight();
       hubSelect();
     }
+  });
+
+  function brainTargets() { return brainSprite ? [brainSprite] : [hubCore]; }
+  var brainPoke = -10;
+  canvas.addEventListener('pointermove', function (ev) {
+    if (ev.pointerType === 'touch') return;
+    var rect = canvas.getBoundingClientRect();
+    pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+    var hit = raycaster.intersectObjects(satMeshes.concat(satLabels, brainTargets())).length > 0;
+    canvas.style.cursor = hit ? 'pointer' : '';
   });
 
   document.addEventListener('nevet-theme-changed', function () {
@@ -559,6 +667,7 @@
     bgColor.set(cssColor('--bg', '#f4f7f2'));
     path.material.color.copy(borderColor);
     satPetals.forEach(function (b) { b.children.forEach(function (p) { p.material.color.copy(petalColor()); }); });
+    satLines.forEach(function (l) { l.material.uniforms.uGlow.value.copy(glowColor()); });
     halo.material.map.dispose();
     halo.material.map = haloTexture('#' + accentColor.getHexString());
     halo.material.needsUpdate = true;
@@ -571,6 +680,7 @@
   });
 
   var lastSel = -1, growStart = 0;
+  var LEAF_LIGHT = new THREE.Color('#eaf7b0');
   window.updateThreeHighlight = function (idx) {
     satMeshes.forEach(function (m, i) {
       var sel = (i === idx);
@@ -578,11 +688,16 @@
       m.scale.setScalar(sel ? 0.7 : 1);
     });
     satGlows.forEach(function (g, i) { g.material.opacity = (i === idx) ? 0.22 : 0; });
-    satLines.forEach(function (l, i) { l.material.color.copy(i === idx ? accentColor : vineColor()); });
+    satLines.forEach(function (l, i) {
+      l.material.uniforms.uBase.value.copy(i === idx ? accentColor : vineColor());
+      l.material.uniforms.uStrength.value = i === idx ? 1 : 0.9;
+    });
     satLeaves.forEach(function (list, i) {
       list.forEach(function (lf) {
         var m = lf.children.length ? lf.children[0] : lf;
-        m.material.color.copy(i === idx ? accentColor.clone().lerp(new THREE.Color('#ffffff'), 0.12) : leafColor());
+        var base = i === idx ? accentColor.clone().lerp(new THREE.Color('#ffffff'), 0.12) : leafColor();
+        m.material.color.copy(base);
+        m.userData.base = base;
       });
     });
     satLabels.forEach(function (l, i) { setLabel(l, l.userData.text, i === idx); });
@@ -600,12 +715,23 @@
     var grow = still ? 1 : Math.min(1, (t - growStart) / 0.9);
     satLines.forEach(function (l, i) {
       l.geometry.setDrawRange(0, i === lastSel ? Math.max(6, Math.floor(l.userData.full * grow / 6) * 6) : l.userData.full);
+      l.material.uniforms.uTime.value = still ? 0.35 : t;      // sap flows from the brain to the buds
+    });
+    if (!still) satBranches.forEach(function (br) {           // each branch sways a little from its root
+      var ph = br.userData.phase;
+      br.rotation.y = Math.sin(t * 0.55 + ph) * 0.022;
+      br.rotation.x = Math.sin(t * 0.4 + ph * 1.3) * 0.012;
     });
     satLeaves.forEach(function (list, i) {
       list.forEach(function (lf) {
         if (!lf.userData || lf.userData.baseY === undefined) return;
         var sway = still ? 0 : Math.sin(t * 1.3 + lf.userData.phase) * 0.12;
         lf.rotation.y = lf.userData.baseY + sway;
+        var lm = lf.children[0];
+        if (!still && lm && lm.userData.base) {               // leaves catch the light now and then
+          var shine = Math.max(0, Math.sin(t * 0.9 + lf.userData.phase * 1.9)) * 0.22;
+          lm.material.color.copy(lm.userData.base).lerp(LEAF_LIGHT, shine);
+        }
         var show = i === lastSel ? Math.min(1, Math.max(0, (grow - lf.userData.t) * 4)) : 1;
         lf.scale.setScalar(Math.max(0.001, show));
       });
@@ -616,7 +742,8 @@
       b.scale.setScalar(Math.max(0.001, b.scale.x + (target - b.scale.x) * 0.25));
       if (!still) b.rotation.y = t * 0.3;
     });
-    var pulse = still ? 1 : 1 + Math.sin(t * 1.8) * 0.05;
+    var poke = Math.max(0, 1 - (t - brainPoke) / 0.45);        // a little bounce when the brain is tapped
+    var pulse = (still ? 1 : 1 + Math.sin(t * 1.8) * 0.05) + Math.sin(poke * Math.PI) * 0.08;
     hubCore.scale.setScalar(pulse);
     halo.scale.set(3.8 * pulse, 3.8 * pulse, 1);
     if (brainSprite) brainSprite.scale.set(BRAIN_SIZE * pulse, BRAIN_SIZE * pulse, 1);

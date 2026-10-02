@@ -106,6 +106,31 @@ def get_conn():
 
         -- How much data the web app sent/received, per day, kind of
         -- request and how the visitor connected (see traffic.py).
+        -- Garden map (garden_map.py): beds, paths, points and plant pins
+        -- as GeoJSON geometry. created_by/updated_by are growers.id.
+        CREATE TABLE IF NOT EXISTS map_features (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind TEXT NOT NULL,
+            category TEXT,
+            name TEXT NOT NULL DEFAULT '',
+            notes TEXT,
+            color TEXT,
+            geometry TEXT NOT NULL,
+            asset_id INTEGER,
+            created_by INTEGER,
+            created_at TEXT NOT NULL,
+            updated_by INTEGER,
+            updated_at TEXT,
+            deleted_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_map_features_asset ON map_features(asset_id);
+
+        -- Small key/value settings (e.g. the garden's map view).
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        );
+
         CREATE TABLE IF NOT EXISTS web_traffic (
             day TEXT NOT NULL,
             kind TEXT NOT NULL,
@@ -385,6 +410,8 @@ def purge_hero(grower_id):
     if conn.execute("SELECT 1 FROM growers WHERE id = ? AND deleted_at IS NOT NULL", (grower_id,)).fetchone():
         conn.execute("UPDATE assets SET grower_id = NULL WHERE grower_id = ?", (grower_id,))
         conn.execute("UPDATE logs SET grower_id = NULL WHERE grower_id = ?", (grower_id,))
+        conn.execute("UPDATE map_features SET created_by = NULL WHERE created_by = ?", (grower_id,))
+        conn.execute("UPDATE map_features SET updated_by = NULL WHERE updated_by = ?", (grower_id,))
         conn.execute("DELETE FROM growers WHERE id = ?", (grower_id,))
         conn.commit()
     conn.close()

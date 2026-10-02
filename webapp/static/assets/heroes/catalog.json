@@ -50,7 +50,19 @@
       {"id": "afro", "name": "Afro"},
       {"id": "dreadlocks", "name": "Locs"},
       {"id": "buzz", "name": "Buzz Cut"},
-      {"id": "bald", "name": "Bald"}
+      {"id": "bald", "name": "Bald"},
+      {"id": "long_locs", "name": "Long Dreadlocks"},
+      {"id": "liberty_spikes", "name": "Punk Spikes"},
+      {"id": "mullet", "name": "Mullet"},
+      {"id": "pompadour", "name": "Pompadour (50s)"},
+      {"id": "beehive", "name": "Beehive (60s)"},
+      {"id": "powdered_wig", "name": "Powdered Wig (1700s)"},
+      {"id": "top_knot", "name": "Samurai Top Knot"},
+      {"id": "victory_rolls", "name": "Victory Rolls (40s)"},
+      {"id": "space_buns", "name": "Space Buns"},
+      {"id": "flat_top", "name": "Flat-Top (80s)"},
+      {"id": "viking_braids", "name": "Viking Braids"},
+      {"id": "curtains", "name": "Curtains (90s)"}
     ]},
     { "id": "hairColor", "label": "Hair colour", "type": "color", "options": [
       {"id": "black", "name": "Black", "color": "#2b2826"},

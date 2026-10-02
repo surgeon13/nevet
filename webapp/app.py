@@ -2,6 +2,7 @@
 """Camera gallery + game stats web app for the Insta360 Pi camera project."""
 import os
 import re
+import hmac
 import json
 import sqlite3
 from datetime import datetime, timedelta
@@ -9,9 +10,11 @@ from pathlib import Path
 from urllib.parse import urlparse
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, jsonify, abort, g
 from logging_config import setup_logging, LOGS_DIR
+import about
 import activity_views as av
 import auth
 import farm_db
+import garden_map
 import heroes
 import traffic
 
@@ -32,7 +35,7 @@ av.register(app)
 traffic_counter = traffic.TrafficCounter(farm_db.get_conn).install(app)
 
 # Pages anyone can open without logging in. Everything else needs an account.
-PUBLIC_ENDPOINTS = {"login", "register", "healthz", "static", "api_add_stats"}
+PUBLIC_ENDPOINTS = {"login", "register", "healthz", "static", "api_add_stats", "api_map_geojson"}
 CSRF_EXEMPT = {"api_add_stats"}                        # uses its own API key
 
 LOG_FILES = {
@@ -102,8 +105,11 @@ def load_user_and_guard():
             return jsonify({"error": "login required"}), 401
         return redirect(url_for("login", next=request.full_path if request.query_string else request.path))
     if request.method == "POST" and request.endpoint not in CSRF_EXEMPT:
-        if not auth.csrf_ok(session, request.form.get("_csrf")):
+        # forms send the token as a field, the map page's JSON calls as a header
+        if not auth.csrf_ok(session, request.form.get("_csrf") or request.headers.get("X-CSRF-Token")):
             logger.warning("Rejected form without valid token: %s from %s", request.path, request.remote_addr)
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "This page was open too long. Refresh it and try again."}), 400
             return render_template("message.html", title="Form expired",
                                    message="That form was open too long or came from somewhere else. "
                                            "Go back, refresh the page and try again."), 400
@@ -184,6 +190,7 @@ def hub():
         mine=av.activity_bundle(g.user["id"]),
         players=farm_db.player_activity(),
         banner=banner,
+        about=about.info(),
     )
 
 
@@ -402,7 +409,7 @@ def asset_page(asset_id):
     asset = farm_db.get_asset(asset_id)
     if not asset:
         abort(404)
-    return render_template("asset_detail.html", asset=asset,
+    return render_template("asset_detail.html", asset=asset, pinned=garden_map.asset_pinned(asset_id),
                            history=farm_db.recent_activity(asset_id=asset_id, limit=100))
 
 
@@ -677,6 +684,128 @@ def api_add_stats():
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
+
+
+# ---------- garden map ----------
+def _map_assets(rows):
+    """Plants and worm bins for the 'pin a plant' list."""
+    pinned = {r["asset_id"] for r in rows if r["asset_id"]}
+    out = []
+    for a in farm_db.list_assets():
+        done = a["life_stage"] in ("harvested", "archived")
+        out.append({"id": a["id"], "name": a["name"], "type": a["asset_type"], "variety": a["variety"] or "",
+                    "stage": av.stage_label(a["life_stage"]), "owner": a["grower_name"] or "", "done": done,
+                    "pinned": a["id"] in pinned, "url": url_for("asset_page", asset_id=a["id"]),
+                    "log_url": url_for("log_action", asset=a["id"])})
+    out.sort(key=lambda a: (a["done"], a["type"] == "worm_bin", a["name"].lower()))
+    return out
+
+
+@app.route("/map")
+def map_page():
+    rows = garden_map.list_features()
+    data = {
+        "features": garden_map.feature_collection(rows),
+        "categories": garden_map.CATEGORIES,
+        "palette": garden_map.PALETTE,
+        "assets": _map_assets(rows),
+        "home": garden_map.get_home(),
+        "defaultView": garden_map.default_view(),
+        "isAdmin": g.user["is_admin"],
+        "focus": request.args.get("asset", type=int),
+        "urls": {"features": url_for("api_map_features"), "home": url_for("api_map_home"),
+                 "deleted": url_for("api_map_deleted"), "export": url_for("map_export")},
+    }
+    return render_template("map.html", data=data)
+
+
+def _map_json(fid, status=200):
+    return jsonify(garden_map.feature_dict(garden_map.get_feature(fid))), status
+
+
+def _map_label(fields_or_row):
+    cat = garden_map.category(fields_or_row["kind"], fields_or_row["category"])
+    return (cat["label"] if cat else fields_or_row["kind"]).lower()
+
+
+@app.route("/api/map/features", methods=["GET", "POST"])
+def api_map_features():
+    if request.method == "GET":
+        return jsonify(garden_map.feature_collection())
+    fields, err = garden_map.clean(request.get_json(silent=True))
+    if err:
+        return jsonify({"error": err}), 400
+    fid = garden_map.create_feature(fields, g.user["id"])
+    row = garden_map.get_feature(fid)
+    logger.info("%s mapped %s %s", g.user["name"], _map_label(row), row["asset_name"] or row["name"] or f"#{fid}")
+    return _map_json(fid, 201)
+
+
+@app.route("/api/map/features/<int:fid>", methods=["POST"])
+def api_map_feature_update(fid):
+    row = garden_map.get_feature(fid)
+    if not row:
+        return jsonify({"error": "That map item is gone. Refresh the map."}), 404
+    fields, err = garden_map.clean(request.get_json(silent=True), existing=row)
+    if err:
+        return jsonify({"error": err}), 400
+    garden_map.update_feature(fid, fields, g.user["id"])
+    return _map_json(fid)
+
+
+@app.route("/api/map/features/<int:fid>/delete", methods=["POST"])
+def api_map_feature_delete(fid):
+    row = garden_map.get_feature(fid)
+    if not row or not garden_map.delete_feature(fid, g.user["id"]):
+        return jsonify({"error": "That map item is already gone."}), 404
+    logger.info("%s removed %s %s from the map", g.user["name"], _map_label(row), row["asset_name"] or row["name"] or f"#{fid}")
+    return jsonify({"ok": True, "id": fid})
+
+
+@app.route("/api/map/features/<int:fid>/restore", methods=["POST"])
+def api_map_feature_restore(fid):
+    if not garden_map.restore_feature(fid, g.user["id"]):
+        return jsonify({"error": "Can't bring that back (already restored, or the plant was pinned again)."}), 409
+    return _map_json(fid)
+
+
+@app.route("/api/map/deleted")
+def api_map_deleted():
+    return jsonify({"features": [garden_map.feature_dict(r) | {"deleted_at": r["deleted_at"]}
+                                 for r in garden_map.recently_deleted()]})
+
+
+@app.route("/api/map/home", methods=["POST"])
+def api_map_home():
+    if not g.user["is_admin"]:
+        return jsonify({"error": "Only the admin can set the garden's spot."}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        garden_map.set_home(data.get("lat"), data.get("lng"), data.get("zoom"))
+    except (ValueError, TypeError):
+        return jsonify({"error": "That spot isn't on the map."}), 400
+    logger.info("%s set the garden's map spot", g.user["name"])
+    return jsonify({"ok": True, "home": garden_map.get_home()})
+
+
+@app.route("/map/export.geojson")
+def map_export():
+    body = json.dumps(garden_map.feature_collection(), ensure_ascii=False, indent=1)
+    name = f"nevet-garden-map-{datetime.now():%Y-%m-%d}.geojson"
+    return app.response_class(body, mimetype="application/geo+json",
+                              headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@app.route("/api/map.geojson")
+def api_map_geojson():
+    """Read-only garden map for other programs (e.g. other Nevet gardens):
+    a logged-in browser, or an X-API-Key header matching WEBAPP_API_KEY
+    (only when that key has been changed from the default)."""
+    key = os.environ.get("WEBAPP_API_KEY", "")
+    sent = request.headers.get("X-API-Key", "")
+    if not g.user and not (key and key != "changeme-api-key" and hmac.compare_digest(sent, key)):
+        return jsonify({"error": "login or API key required"}), 401
+    return jsonify(garden_map.feature_collection())
 
 
 @app.route("/healthz")

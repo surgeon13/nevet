@@ -187,3 +187,24 @@ journalctl -u nevet-webapp.service -f
   `python3 scripts/users.py reset-password NAME`
 - "Too many wrong tries": wait 5 minutes, or restart the web app
   (`sudo systemctl restart nevet-webapp`) to clear it.
+
+## Phone location on the map
+
+Browsers only share your location with a secure (`https://`) page, so
+the map's location button can't work at `http://10.0.0.45:8000` or
+`http://100.x.y.z:8000`. Search for the address instead, or give Nevet an
+https address inside your Tailscale network (nothing is opened to the
+internet):
+
+1. In the Tailscale admin console, under **DNS**, turn on **MagicDNS**
+   and **HTTPS Certificates**.
+2. On the Pi:
+   ```bash
+   sudo tailscale serve --bg 8000
+   tailscale serve status        # shows https://raspi03b.<your-tailnet>.ts.net
+   ```
+3. Open that `https://` address on the phone (with Tailscale switched on).
+
+Map tiles look grey or don't load: the map pictures come from
+OpenStreetMap / Esri over the internet. Check the phone or computer has
+internet; the garden's own map data still loads from the Pi.

@@ -29,8 +29,11 @@ scripts/                    capture_photo.sh, capture_video.sh, test_camera_scri
                             wifi_antenna.sh, nevet_status.py (the `nevet` command)
   scripts/lib/log.sh          shared timestamped logging helper
   scripts/lib/camera.sh       "is a camera plugged in?" check shared by the capture scripts
-webapp/                      Flask app: gallery, login, live logs, game stats
+webapp/                      Flask app: dashboard, heroes, garden map, gallery, logs, game stats
   webapp/app.py
+  webapp/garden_map.py         garden map data (GeoJSON beds, paths, points, plant pins)
+  webapp/about.py              numbers, version and "what's new" for the About popup
+  webapp/static/vendor/        Leaflet + Leaflet-Geoman (map drawing), MIT licensed
   webapp/game_stats.py         importable helper for logging game stats
   webapp/logging_config.py     rotating file logging setup
   webapp/traffic.py            counts the web app's data transfer
@@ -317,7 +320,10 @@ from `webapp/static/assets/heroes/catalog.json`; see the README in that
 folder for adding items or real artwork.
 
 Customizing: gender (female, male, non-binary, other, or not specified),
-11 skins, 15 hair styles (ponytail, braid, afro, locs...), 16 hair
+11 skins, 27 hair styles (ponytail, braid, afro, locs, long dreadlocks,
+punk spikes, mullet, and styles from history: 1700s powdered wig, samurai
+top knot, 40s victory rolls, 50s pompadour, 60s beehive, 80s flat-top,
+90s curtains...), 16 hair
 colours, 13 eye styles (glasses, shades, monocle, starry, dizzy...),
 13 mouths, 9 kinds of facial hair (up to a wizard beard), 14 outfit
 colours, 24 head items (chef hat, top hat, propeller cap, viking helmet,
@@ -339,12 +345,51 @@ plants and actions and its log-in; **Delete for good** removes the hero
 but keeps the garden history (its actions show without a name). A name
 in the bin can't be taken by a new sign-up until it's deleted for good.
 
+The dashboard's brain is the garden's hub: vines grow out to each
+section, carry soft waves of colour and sway a little (still with
+"reduce motion"). Tap the brain, or the ⓘ button, for **About Nevet**:
+the garden's numbers, the version running, what's new in the latest
+update, and links.
+
 Heroes move on the profile and customize pages: they breathe and blink,
 and every few seconds play a short emote (wave, look around, hop, tool
 swing, fist pump, nod, twirl, stretch, cheer), never the same one twice
 in a row. Tap a hero to make it emote; trying on a new item makes it hop.
 With "reduce motion" switched on in the device settings, heroes only
 breathe and blink.
+
+## Garden map
+
+The **Map** page (nav bar, or the Map bud on the dashboard) puts the
+garden on an open map: OpenStreetMap streets or satellite photos, zoomed
+in far enough to draw single beds.
+
+- **Find the garden:** search an address or place, or tap the location
+  button. The admin then opens **Garden** and taps **Save this view as
+  the garden's spot**, so the map always opens there.
+- **Add to map:** draw a **bed or area** (tap its corners), a **path or
+  line** (walkways, irrigation lines, fences), drop a **point** (water
+  tap, compost, tree, tool shed, beehive, rain barrel, gate, Nevet
+  node...) or **pin a plant or worm bin** where it grows. Corners snap to
+  nearby shapes.
+- Tap anything to name it, change its type or colour, add notes, **edit
+  its shape** (drag corners) or **move** it, or delete it (**Undo**
+  appears for a few seconds; **Recently removed** in the Garden list
+  restores older ones). Areas show square metres (and dunams), lines
+  their length.
+- A pinned plant links to its page and to **Log an action**; plant pages
+  have **Show on map** / **Pin on map**.
+- **Garden** lists everything with show/hide switches per kind, total bed
+  area and **Download map (.geojson)**. Other programs (later: other
+  Nevet gardens) can read the map at `/api/map.geojson` with the API key,
+  see `docs/API.md`.
+
+Every player can add and change map items; each remembers who added and
+last edited it. The map tiles and place search come from the internet
+(OpenStreetMap, Esri), so the map needs a connection in the viewer's
+browser; the garden's own data stays on the Pi. "My location" only works
+over a secure link (https): see "Phone location on the map" in
+`docs/TROUBLESHOOTING.md`.
 
 ## Game stats
 

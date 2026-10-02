@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Nevet — Garden map{% endblock %}
+{% block head %}
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/geoman/leaflet-geoman.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='map.css') }}">
+{% endblock %}
+{% block main_attrs %} class="map-main"{% endblock %}
+{% block fab %}{% endblock %}
+{% block content %}
+<div class="map-shell" id="map-shell">
+  <div id="garden-map" class="garden-map" role="application" aria-label="Garden map"></div>
+
+  <!-- place search (OpenStreetMap Nominatim) -->
+  <form class="map-search" id="map-search" role="search" autocomplete="off">
+    <svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+    <input type="search" id="map-search-q" placeholder="Find a street, place or address" aria-label="Find a place" enterkeyhint="search">
+    <button type="submit" class="map-search-go">Go</button>
+    <ul class="map-search-results" id="map-search-results" hidden></ul>
+  </form>
+
+  <!-- right-hand tools -->
+  <div class="map-tools" id="map-tools">
+    <div class="map-layer-seg" role="group" aria-label="Map style">
+      <button type="button" data-base="street" class="active">Map</button>
+      <button type="button" data-base="satellite">Satellite</button>
+    </div>
+    <button type="button" class="map-tool" id="map-locate" title="My location" aria-label="My location">
+      <svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2" class="fill"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+    </button>
+    <button type="button" class="map-tool" id="map-home" title="Back to the garden" aria-label="Back to the garden">
+      <svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7M5.5 9.5V20h13V9.5M10 20v-5.5h4V20"/></svg>
+    </button>
+  </div>
+
+  <!-- shown while drawing or placing -->
+  <div class="map-hint" id="map-hint" hidden role="status">
+    <p class="map-hint-text" id="map-hint-text"></p>
+    <div class="map-hint-actions">
+      <button type="button" class="btn btn-ghost btn-sm" id="hint-undo">Undo point</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="hint-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary btn-sm" id="hint-done">Finish</button>
+    </div>
+  </div>
+  <div class="map-crosshair" id="map-crosshair" hidden aria-hidden="true"></div>
+
+  <!-- bottom bar -->
+  <div class="map-bar" id="map-bar">
+    <button type="button" class="map-bar-btn" id="open-list">
+      <svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1" class="fill"/><circle cx="4.5" cy="12" r="1" class="fill"/><circle cx="4.5" cy="18" r="1" class="fill"/></svg>
+      Garden <span class="map-count" id="map-count">0</span>
+    </button>
+    <button type="button" class="map-bar-btn primary" id="open-add">
+      <svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      Add to map
+    </button>
+  </div>
+
+  <!-- side panel (desktop) / bottom sheet (phone) -->
+  <aside class="map-sheet" id="map-sheet" hidden aria-live="polite">
+    <button type="button" class="map-sheet-close" id="sheet-close" aria-label="Close">
+      <svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <div class="map-sheet-body" id="sheet-body"></div>
+  </aside>
+
+  <div class="map-toast" id="map-toast" hidden role="status">
+    <span id="map-toast-text"></span>
+    <button type="button" id="map-toast-undo">Undo</button>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/geoman/leaflet-geoman.min.js') }}"></script>
+<script>window.NEVET_MAP = {{ data | tojson }};</script>
+<script src="{{ url_for('static', filename='js/garden_map.js') }}"></script>
+{% endblock %}

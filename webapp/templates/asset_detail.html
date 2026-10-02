@@ -12,6 +12,7 @@
 <p class="asset-actions">
   <a class="btn btn-primary" href="{{ url_for('log_action', asset=asset.id) }}">Log an action for {{ asset.name }}</a>
   <a class="btn btn-ghost" href="{{ url_for('activity', plant=asset.id) }}">Full history</a>
+  <a class="btn btn-ghost" href="{{ url_for('map_page', asset=asset.id) }}">{{ 'Show on map' if pinned else 'Pin on map' }}</a>
 </p>
 
 <h3>History</h3>

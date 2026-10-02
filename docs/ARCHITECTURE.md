@@ -156,6 +156,12 @@ A Flask app served by waitress on port 8000:
   totals exist per player and for the whole garden: dashboard
   (Everyone / Just me), hero profiles, and the filterable `/activity`
   history.
+- **Garden map** — `garden_map.py` stores beds, paths, points and plant
+  pins as GeoJSON in `map_features` (soft delete for undo) and validates
+  every shape; `/map` draws them with Leaflet and Leaflet-Geoman
+  (vendored in `static/vendor/`) over OpenStreetMap or Esri satellite
+  tiles, which the viewer's browser fetches directly. `/api/map.geojson`
+  is the read-only door for other programs and future Nevet nodes.
 - **3D** — three.js (vendored in `static/js/`) draws the dashboard hub
   (brain with vines out to bud nodes; the highlighted one blooms), the
   plant garden and procedural heroes (`hero3d.js`, with idle motion,

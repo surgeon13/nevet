@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-10-02 (garden map, living hub, more hair)
+
+- New **Garden map** page: street map or satellite view, place search and
+  "my location", zoom down to single beds. Draw beds and areas, paths and
+  irrigation lines, drop points (tap, compost, tree, tool shed, beehive,
+  Nevet node...), pin plants and worm bins. Edit names, types, colours,
+  notes and shapes; delete with Undo and a Recently removed list; areas in
+  m² and dunams, lines in metres; show/hide by kind; download as GeoJSON.
+  The admin saves the garden's spot so the map opens there.
+- Plant pages link to the map; the dashboard hub has a Map bud.
+- Read-only `/api/map.geojson` (with the API key) for other programs and,
+  later, other Nevet gardens.
+- Dashboard vines come alive: waves of colour flow from the brain to each
+  section, branches sway and leaves catch the light.
+- Tap the brain (or ⓘ) for **About Nevet**: the garden's numbers,
+  version, what's new and links.
+- 12 new hair styles: long dreadlocks, punk spikes, mullet, pompadour,
+  beehive, powdered wig, samurai top knot, victory rolls, space buns,
+  flat-top, viking braids and curtains.
+
 ## 2026-10-02 (gender, recycle bin, more hero items, plant hub)
 
 - Gender for heroes: female, male, non-binary, other or not specified

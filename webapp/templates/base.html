@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Nevet{% endblock %}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+{% block head %}{% endblock %}
 <script>
   // Applied before paint to avoid a flash of the wrong theme.
   // Light is the default; dark only applies if the visitor chose it before.
@@ -24,6 +25,7 @@
   <div class="nav-links">
     {% if current_user %}
       <a href="{{ url_for('activity') }}">Activity</a>
+      <a href="{{ url_for('map_page') }}">Map</a>
       <a href="{{ url_for('growers_page') }}">Heroes</a>
       <a href="{{ url_for('gallery') }}">Gallery</a>
       <a href="{{ url_for('logs_page') }}" title="System logs">System</a>
@@ -49,7 +51,7 @@
     </svg>
   </button>
 </nav>
-<main>
+<main{% block main_attrs %}{% endblock %}>
 {% block content %}{% endblock %}
 </main>
 {% block fab %}

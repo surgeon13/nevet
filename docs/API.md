@@ -11,7 +11,7 @@ Every page needs a logged-in player except `/login`, `/register`,
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/` | Dashboard: 3D hub, last 3 photos, garden activity (Everyone / Just me) |
+| GET | `/` | Dashboard: 3D hub (tap the brain for the About popup), last 3 photos, garden activity (Everyone / Just me) |
 | GET, POST | `/login` | Tap-your-hero picker + password |
 | GET, POST | `/register` | Sign up (or claim an existing hero without a password); `?name=` prefills |
 | POST | `/logout` | Log out |
@@ -28,6 +28,8 @@ Every page needs a logged-in player except `/login`, `/register`,
 | POST | `/recycle-bin/<id>/restore` | Bring a hero back (admin) |
 | POST | `/recycle-bin/<id>/purge` | Delete a binned hero for good; its plants and actions stay, unassigned (admin) |
 | POST | `/recycle-bin/empty` | Delete every binned hero for good (admin) |
+| GET | `/map` | Garden map: draw beds/areas, paths and points, pin plants; `?asset=ID` shows (or starts pinning) that plant |
+| GET | `/map/export.geojson` | Download the whole garden map as a GeoJSON file |
 | GET | `/assets` | Plants: 3D garden + table |
 | GET | `/assets/<id>` | One plant with its full history |
 | GET | `/gallery` | Photos/videos grouped by date |
@@ -90,6 +92,42 @@ lines of each log file:
 }
 ```
 
+### Garden map (`/api/map/...`)
+
+Used by the map page; all need a logged-in session, and every `POST`
+needs the page's CSRF token in an `X-CSRF-Token` header. Geometry is
+GeoJSON in WGS84 (`[longitude, latitude]`).
+
+| Method | Path | Does |
+|---|---|---|
+| GET | `/api/map/features` | All map items as a GeoJSON `FeatureCollection` |
+| POST | `/api/map/features` | Add one: `{"kind", "category", "name", "notes", "color", "geometry"}`; for a plant pin `{"kind": "asset", "asset_id", "geometry"}` (pinning an already pinned plant moves its pin) |
+| POST | `/api/map/features/<id>` | Change any of `name`, `category`, `notes`, `color`, `geometry` |
+| POST | `/api/map/features/<id>/delete` | Remove (soft delete, can be undone) |
+| POST | `/api/map/features/<id>/restore` | Undo a removal |
+| GET | `/api/map/deleted` | The 10 most recently removed items |
+| POST | `/api/map/home` | Admin: save `{"lat", "lng", "zoom"}` as the view the map opens on |
+
+Kinds and their categories: `area` (Polygon) bed, zone, greenhouse,
+orchard, herbs, lawn, compost, water, wild, seating, community, other;
+`path` (LineString) path, irrigation, fence, other; `point` (Point) tap,
+compost, tree, tools, seat, hive, rain, gate, node, note; `asset` (Point)
+a plant or worm bin. Each feature's `properties` also carry
+`category_label`, `area_m2` or `length_m`, `created_by`, `updated_by` and
+their times; plant pins add the plant's `name`, `variety`, `stage` and
+`owner`.
+
+### `GET /api/map.geojson`
+
+The same `FeatureCollection` for other programs, for example another
+Nevet garden sharing its map: send `X-API-Key: <WEBAPP_API_KEY>` (only
+accepted once the key has been changed from the default), or call it
+from a logged-in browser.
+
+```bash
+curl -H "X-API-Key: $WEBAPP_API_KEY" http://<pi-ip>:8000/api/map.geojson
+```
+
 ## Database schema
 
 **`farm.db`** (`FARM_DB`, default `~/webapp/farm.db`), created and
@@ -102,6 +140,8 @@ migrated automatically by `webapp/farm_db.py`:
 | `logs` | Actions: `log_type`, `asset_id` (NULL = whole garden), `grower_id` (who did it), `timestamp`, `notes`, `recipient` |
 | `quantities` | Amounts attached to a log (harvest weight, pieces given away) |
 | `captures` | Every photo/video the camera took |
+| `map_features` | Garden map items: `kind` (area / path / point / asset), `category`, `name`, `notes`, `color`, `geometry` (GeoJSON), `asset_id` (plant pins), `created_by` / `updated_by` (growers.id) with times, `deleted_at` (removed, can be restored) |
+| `app_settings` | Small key/value settings, e.g. `map_home` (the view the map opens on) |
 | `web_traffic` | Data the web app moved, per `day` × `kind` (media / static / page / api) × `via` (lan / tailscale / internet): `requests`, `bytes_in`, `bytes_out`. Requests from the Pi itself aren't counted |
 
 Action types (`log_type`): watering, pruning, fertilizing, weeding,
@@ -133,8 +173,9 @@ Set in `.env` at the repo root (copied from `config/.env.example` by
 
 | Variable | Used by | Purpose |
 |---|---|---|
-| `WEBAPP_API_KEY` | `app.py` | Required `X-API-Key` header for `POST /api/stats` |
+| `WEBAPP_API_KEY` | `app.py` | Required `X-API-Key` header for `POST /api/stats`; also lets other programs read `GET /api/map.geojson` once changed from the default |
 | `WEBAPP_SECRET` | `app.py` | Flask session signing key. If left as the placeholder, a random key is generated once and stored in `.flask_secret` next to `farm.db` |
+| `NEVET_MAP_CENTER` | `garden_map.py` | Where the map opens before the admin saves the garden's spot: `lat,lng,zoom` (default: Israel, `31.6,34.95,8`) |
 | `WEBAPP_OPEN_SIGNUP` | `app.py` | `true` (default): anyone reaching the site can sign up. `false`: only logged-in players can add accounts |
 
 `/api/logs` needs a logged-in session (returns 401 JSON otherwise);
