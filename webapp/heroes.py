@@ -13,6 +13,8 @@ from pathlib import Path
 CATALOG_PATH = Path(__file__).resolve().parent / "static" / "assets" / "heroes" / "catalog.json"
 NAME_MIN, NAME_MAX = 1, 20
 NAME_EXTRA_CHARS = set(" _-'.")
+PET_NAME_MAX = 16
+GROUPS = ("looks", "gear", "companion")
 
 _cache = {"mtime": None, "data": None}
 
@@ -28,7 +30,11 @@ def catalog():
 
 def categories():
     c = catalog()
-    return c["looks"] + c["gear"]
+    return [cat for group in GROUPS for cat in c.get(group, [])]
+
+
+def default_option(cat):
+    return cat.get("default") or cat["options"][0]["id"]
 
 
 def class_by_id(class_id):
@@ -62,10 +68,17 @@ def default_appearance(name, hero_class=None):
         "mouth": _pick(looks["mouth"]["options"][:5], digest[6]),
     }
     appearance.update(cls["preset"])
-    # anything else (categories added later, e.g. facial hair) starts at its first option
-    for cat in c["looks"] + c["gear"]:
-        appearance.setdefault(cat["id"], cat["options"][0]["id"])
+    # anything else (categories added later: gender, facial hair, companion
+    # settings...) starts at its default, so existing heroes look the same
+    for cat in categories():
+        appearance.setdefault(cat["id"], default_option(cat))
     return cls["id"], appearance
+
+
+def clean_pet_name(raw):
+    """Companion name: letters, numbers, spaces, - ' . only; '' = use the species name."""
+    name = "".join(ch for ch in str(raw or "") if ch.isalnum() or ch in " -'.")
+    return " ".join(name.split())[:PET_NAME_MAX]
 
 
 def normalize(appearance, name="", hero_class=None):
@@ -78,6 +91,9 @@ def normalize(appearance, name="", hero_class=None):
         valid = {o["id"] for o in cat["options"]}
         value = appearance.get(cat["id"])
         clean[cat["id"]] = value if value in valid else fallback[cat["id"]]
+    pet_name = clean_pet_name(appearance.get("petName"))
+    if pet_name:
+        clean["petName"] = pet_name
     return clean
 
 
@@ -94,7 +110,16 @@ def from_json(text, name="", hero_class=None):
 
 
 def from_form(form, name="", hero_class=None):
-    return normalize({cat["id"]: form.get("a_" + cat["id"]) for cat in categories()}, name, hero_class)
+    data = {cat["id"]: form.get("a_" + cat["id"]) for cat in categories()}
+    data["petName"] = form.get("pet_name")
+    return normalize(data, name, hero_class)
+
+
+def option(cat_id, opt_id):
+    for cat in categories():
+        if cat["id"] == cat_id:
+            return next((o for o in cat["options"] if o["id"] == opt_id), None)
+    return None
 
 
 def hero_for_row(row):

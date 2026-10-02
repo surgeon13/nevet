@@ -316,10 +316,28 @@ Levels and XP come from real farm activity. Heroes are drawn by code
 from `webapp/static/assets/heroes/catalog.json`; see the README in that
 folder for adding items or real artwork.
 
-Customizing: 11 skins, 15 hair styles (ponytail, braid, afro, locs...),
-16 hair colours, 9 eye styles (including glasses), 9 mouths, facial hair,
-14 outfit colours, 17 head items (caps, ranch hat, beekeeper veil, crown...),
-13 outfits, 13 tools, 10 back items and 5 companions.
+Customizing: gender (female, male, non-binary, other, or not specified),
+11 skins, 15 hair styles (ponytail, braid, afro, locs...), 16 hair
+colours, 13 eye styles (glasses, shades, monocle, starry, dizzy...),
+13 mouths, 9 kinds of facial hair (up to a wizard beard), 14 outfit
+colours, 24 head items (chef hat, top hat, propeller cap, viking helmet,
+flowerpot, halo...), 6 kinds of earrings, 20 outfits (tuxedo, disco,
+astronaut, superhero, royal robe...), 19 tools (rubber chicken, frying
+pan, bubble wand, magic wand...) and 15 back items (jet pack, aqualung,
+balloons, turtle shell, angel and dragon wings...).
+
+**Companion** tab: 8 companions (worm, snail, bee, sprout spirit, frog,
+chick, ladybug, hedgehog). Give yours a name (shown above it), a colour,
+a size (tiny to big) and an accessory (bow, party hat, flower, top hat,
+crown).
+
+**Deleting a hero:** on your hero page open **Delete my hero** and
+confirm with your password; the admin can delete any hero except the
+last admin. Deleted heroes go to the **Recycle bin** (admin only, linked
+from the Heroes page): **Restore** brings the hero back with all its
+plants and actions and its log-in; **Delete for good** removes the hero
+but keeps the garden history (its actions show without a name). A name
+in the bin can't be taken by a new sign-up until it's deleted for good.
 
 Heroes move on the profile and customize pages: they breathe and blink,
 and every few seconds play a short emote (wave, look around, hop, tool

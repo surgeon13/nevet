@@ -23,6 +23,11 @@ Every page needs a logged-in player except `/login`, `/register`,
 | GET | `/growers/<id>` | Hero profile: level/XP, gear, growing now, grown before, actions |
 | GET, POST | `/growers/<id>/customize` | Edit hero look (own hero, or admin) |
 | POST | `/growers/<id>/password` | Admin sets a new password for a player |
+| POST | `/growers/<id>/delete` | Move a hero to the recycle bin (own hero with `password`, or admin; never the last admin) |
+| GET | `/recycle-bin` | Deleted heroes (admin) |
+| POST | `/recycle-bin/<id>/restore` | Bring a hero back (admin) |
+| POST | `/recycle-bin/<id>/purge` | Delete a binned hero for good; its plants and actions stay, unassigned (admin) |
+| POST | `/recycle-bin/empty` | Delete every binned hero for good (admin) |
 | GET | `/assets` | Plants: 3D garden + table |
 | GET | `/assets/<id>` | One plant with its full history |
 | GET | `/gallery` | Photos/videos grouped by date |
@@ -92,7 +97,7 @@ migrated automatically by `webapp/farm_db.py`:
 
 | Table | What it holds |
 |---|---|
-| `growers` | Heroes/players: `name`, `hero_class`, `appearance` (JSON), `password_hash`, `is_admin`, `last_login` |
+| `growers` | Heroes/players: `name`, `hero_class`, `appearance` (JSON), `password_hash`, `is_admin`, `last_login`, `deleted_at` / `deleted_by` (set while in the recycle bin) |
 | `assets` | Plants and worm bins: `name`, `asset_type`, `variety`, `life_stage`, `grower_id` (owner) |
 | `logs` | Actions: `log_type`, `asset_id` (NULL = whole garden), `grower_id` (who did it), `timestamp`, `notes`, `recipient` |
 | `quantities` | Amounts attached to a log (harvest weight, pieces given away) |

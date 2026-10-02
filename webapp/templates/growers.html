@@ -4,7 +4,14 @@
 <div class="roster-head">
   <h2>Heroes</h2>
   <p class="roster-sub">Every player is a hero. Tap one to see their stats and gear.</p>
+  {% if current_user.is_admin %}
+  <a class="roster-bin" href="{{ url_for('recycle_bin') }}">Recycle bin{% if in_bin %} <span class="count-badge">{{ in_bin }}</span>{% endif %}</a>
+  {% endif %}
 </div>
+{% if deleted %}
+<div class="hero-welcome" role="status"><strong>{{ deleted }}</strong> was moved to the
+  <a href="{{ url_for('recycle_bin') }}">recycle bin</a>. You can restore it from there.</div>
+{% endif %}
 
 <div class="roster">
   <a class="hero-slot hero-slot-new" href="{{ url_for('register') }}">

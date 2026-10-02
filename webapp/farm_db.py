@@ -132,8 +132,11 @@ def get_conn():
     conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_time ON logs(timestamp)")
 
     cols = {r[1] for r in conn.execute("PRAGMA table_info(growers)")}
+    # Recycle bin (added later): deleted heroes keep their row with
+    # deleted_at set until an admin restores or permanently deletes them.
     for col, decl in (("hero_class", "TEXT"), ("appearance", "TEXT"), ("password_hash", "TEXT"),
-                      ("is_admin", "INTEGER NOT NULL DEFAULT 0"), ("last_login", "TEXT")):
+                      ("is_admin", "INTEGER NOT NULL DEFAULT 0"), ("last_login", "TEXT"),
+                      ("deleted_at", "TEXT"), ("deleted_by", "TEXT")):
         if col not in cols:
             conn.execute(f"ALTER TABLE growers ADD COLUMN {col} {decl}")
     return conn
@@ -198,7 +201,7 @@ def list_growers():
                (SELECT COUNT(*) FROM logs WHERE logs.grower_id = growers.id) AS log_count,
                (SELECT COUNT(*) FROM logs WHERE logs.grower_id = growers.id
                  AND logs.log_type = 'harvest') AS harvest_count
-        FROM growers ORDER BY growers.name COLLATE NOCASE
+        FROM growers WHERE growers.deleted_at IS NULL ORDER BY growers.name COLLATE NOCASE
     """).fetchall()
     conn.close()
     return rows
@@ -296,7 +299,7 @@ def dashboard_summary():
     counts["deliveries"] = conn.execute(
         "SELECT COUNT(*) c FROM logs WHERE log_type='delivery'"
     ).fetchone()["c"]
-    counts["growers"] = conn.execute("SELECT COUNT(*) c FROM growers").fetchone()["c"]
+    counts["growers"] = conn.execute("SELECT COUNT(*) c FROM growers WHERE deleted_at IS NULL").fetchone()["c"]
     conn.close()
     return counts
 
@@ -332,18 +335,72 @@ def capture_summary():
 # Accounts
 # ---------------------------------------------------------------------
 
-def find_grower_by_name(name):
+def find_grower_by_name(name, include_deleted=False):
     conn = get_conn()
-    row = conn.execute("SELECT * FROM growers WHERE lower(name) = lower(?)", (name,)).fetchone()
+    row = conn.execute("SELECT * FROM growers WHERE lower(name) = lower(?)"
+                       + ("" if include_deleted else " AND deleted_at IS NULL"), (name,)).fetchone()
     conn.close()
     return row
 
 
 def account_count():
     conn = get_conn()
-    n = conn.execute("SELECT COUNT(*) FROM growers WHERE password_hash IS NOT NULL").fetchone()[0]
+    n = conn.execute("SELECT COUNT(*) FROM growers WHERE password_hash IS NOT NULL AND deleted_at IS NULL").fetchone()[0]
     conn.close()
     return n
+
+
+def admin_count():
+    conn = get_conn()
+    n = conn.execute("SELECT COUNT(*) FROM growers WHERE is_admin = 1 AND password_hash IS NOT NULL "
+                     "AND deleted_at IS NULL").fetchone()[0]
+    conn.close()
+    return n
+
+
+# ---------------------------------------------------------------------
+# Recycle bin: deleting a hero only hides it; an admin can restore it
+# or delete it for good. Its actions and plants stay in the history.
+# ---------------------------------------------------------------------
+
+def delete_hero(grower_id, by_name):
+    conn = get_conn()
+    conn.execute("UPDATE growers SET deleted_at = ?, deleted_by = ? WHERE id = ? AND deleted_at IS NULL",
+                 (datetime.now().isoformat(timespec="seconds"), by_name, grower_id))
+    conn.commit()
+    conn.close()
+
+
+def restore_hero(grower_id):
+    conn = get_conn()
+    conn.execute("UPDATE growers SET deleted_at = NULL, deleted_by = NULL WHERE id = ?", (grower_id,))
+    conn.commit()
+    conn.close()
+
+
+def purge_hero(grower_id):
+    """Deletes a hero in the bin for good. Its logged actions and plants
+    stay, credited to nobody."""
+    conn = get_conn()
+    if conn.execute("SELECT 1 FROM growers WHERE id = ? AND deleted_at IS NOT NULL", (grower_id,)).fetchone():
+        conn.execute("UPDATE assets SET grower_id = NULL WHERE grower_id = ?", (grower_id,))
+        conn.execute("UPDATE logs SET grower_id = NULL WHERE grower_id = ?", (grower_id,))
+        conn.execute("DELETE FROM growers WHERE id = ?", (grower_id,))
+        conn.commit()
+    conn.close()
+
+
+def deleted_heroes():
+    conn = get_conn()
+    rows = conn.execute("""
+        SELECT growers.*,
+               (SELECT COUNT(*) FROM assets WHERE assets.grower_id = growers.id) AS asset_count,
+               (SELECT COUNT(*) FROM logs WHERE logs.grower_id = growers.id) AS log_count,
+               (SELECT COUNT(*) FROM logs WHERE logs.grower_id = growers.id
+                 AND logs.log_type = 'harvest') AS harvest_count
+        FROM growers WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC""").fetchall()
+    conn.close()
+    return rows
 
 
 def set_password(grower_id, password_hash):
@@ -466,6 +523,7 @@ def player_activity():
                (SELECT COUNT(*) FROM assets WHERE assets.grower_id = growers.id
                  AND (assets.life_stage IS NULL OR assets.life_stage NOT IN ('harvested', 'archived'))) AS growing
         FROM growers LEFT JOIN logs ON logs.grower_id = growers.id
+        WHERE growers.deleted_at IS NULL
         GROUP BY growers.id
         HAVING total > 0 OR growing > 0
         ORDER BY total DESC, growers.name COLLATE NOCASE""", (week,)).fetchall()
@@ -476,9 +534,9 @@ def player_activity():
 def list_players():
     """Heroes that can log in, most recently active first (for the login picker)."""
     conn = get_conn()
-    rows = conn.execute("""SELECT * FROM growers WHERE password_hash IS NOT NULL
+    rows = conn.execute("""SELECT * FROM growers WHERE password_hash IS NOT NULL AND deleted_at IS NULL
                            ORDER BY last_login IS NULL, last_login DESC, name COLLATE NOCASE""").fetchall()
-    unclaimed = conn.execute("SELECT * FROM growers WHERE password_hash IS NULL "
+    unclaimed = conn.execute("SELECT * FROM growers WHERE password_hash IS NULL AND deleted_at IS NULL "
                              "ORDER BY name COLLATE NOCASE").fetchall()
     conn.close()
     return rows, unclaimed

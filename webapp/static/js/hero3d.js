@@ -31,7 +31,7 @@
 
   // ---------- catalog lookups ----------
   function findOpt(catalog, catId, optId) {
-    var cats = catalog.looks.concat(catalog.gear);
+    var cats = catalog.looks.concat(catalog.gear, catalog.companion || []);
     for (var i = 0; i < cats.length; i++) {
       if (cats[i].id !== catId) continue;
       var opts = cats[i].options;
@@ -50,7 +50,8 @@
       skin: colorOf(catalog, 'skin', a.skin, '#efc4a3'),
       hairColor: colorOf(catalog, 'hairColor', a.hairColor, '#6b4226'),
       eyeColor: colorOf(catalog, 'eyeColor', a.eyeColor, '#6b4226'),
-      outfit: colorOf(catalog, 'outfitColor', a.outfitColor, '#4c9a5b')
+      outfit: colorOf(catalog, 'outfitColor', a.outfitColor, '#4c9a5b'),
+      petColor: a.petColor && a.petColor !== 'natural' ? colorOf(catalog, 'petColor', a.petColor, null) : null
     };
   }
 
@@ -99,6 +100,24 @@
     obj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
   }
   var noOutline = function (m) { m.userData.noOutline = true; return m; };
+  // flat 5-point star, extruded a little
+  function starGeo(r1, r2, depth) {
+    var sh = new THREE.Shape();
+    for (var i = 0; i < 10; i++) {
+      var r = i % 2 ? r2 : r1, a = PI / 2 + i * PI / 5;
+      if (i === 0) sh.moveTo(Math.cos(a) * r, Math.sin(a) * r); else sh.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    sh.closePath();
+    var geo = new THREE.ExtrudeGeometry(sh, { depth: depth || 0.02, bevelEnabled: false });
+    geo.translate(0, 0, -(depth || 0.02) / 2);
+    return geo;
+  }
+  // tiny looping effects, played by animate(): spin, flicker, bob, flap, rise
+  function fx(obj, kind, opts) {
+    obj.userData.fx = kind;
+    obj.userData.fxo = opts || {};
+    return obj;
+  }
 
   // ---------- face (drawn on a canvas, shared by 3D head and 2D icons) ----------
   function starPath(g, x, y, r1, r2) {
@@ -158,7 +177,23 @@
       g.quadraticCurveTo(cx, my + 24 * s, cx + 8 * s, my + 5 * s);
       g.quadraticCurveTo(cx, my + 9 * s, cx - 8 * s, my + 5 * s);
       g.fill(); g.stroke();
-    } else if (kind === 'beard') {
+    } else if (kind === 'chevron') {
+      g.beginPath();
+      g.moveTo(cx - 14 * s, my - 5 * s);
+      g.quadraticCurveTo(cx, my - 17 * s, cx + 14 * s, my - 5 * s);
+      g.lineTo(cx + 10 * s, my - 2.5 * s);
+      g.quadraticCurveTo(cx, my - 9 * s, cx - 10 * s, my - 2.5 * s);
+      g.closePath(); g.fill(); g.stroke();
+    } else if (kind === 'soul_patch') {
+      g.beginPath(); g.ellipse(cx, my + 9 * s, 3 * s, 4.6 * s, 0, 0, PI * 2); g.fill(); g.stroke();
+    } else if (kind === 'sideburns') {
+      [-1, 1].forEach(function (side) {
+        g.beginPath();
+        g.moveTo(cx + side * 49 * s, cy - 24 * s); g.lineTo(cx + side * 60 * s, cy - 24 * s);
+        g.lineTo(cx + side * 60 * s, cy + 14 * s); g.quadraticCurveTo(cx + side * 52 * s, cy + 22 * s, cx + side * 47 * s, cy + 12 * s);
+        g.closePath(); g.fill(); g.stroke();
+      });
+    } else if (kind === 'beard' || kind === 'wizard') {
       beardShape(); g.fill(); g.stroke();
       if (skin) {                                 // lips show through the beard
         g.fillStyle = skin;
@@ -175,7 +210,15 @@
       g.save();
       g.translate(x, cy);
       var shape = look.blink && kind !== 'happy' ? 'sleepy' : kind;     // blinking: lids closed
-      if (shape === 'happy' || shape === 'sleepy') {
+      if (shape === 'dizzy') {
+        g.strokeStyle = dark; g.lineWidth = 2.6 * s; g.lineCap = 'round';
+        g.beginPath();
+        for (var a = 0; a < PI * 5; a += 0.2) {
+          var rr = a * 1.6 * s;
+          g.lineTo(Math.cos(a * side) * rr * 0.75, Math.sin(a * side) * rr * 0.95);
+        }
+        g.stroke();
+      } else if (shape === 'happy' || shape === 'sleepy') {
         var up = shape === 'happy';
         g.lineCap = 'round';
         [['rgba(255,255,255,0.55)', 8], [dark, 4.8]].forEach(function (st) {
@@ -186,7 +229,7 @@
         });
       } else {
         // white of the eye + dark rim: reads on every skin tone
-        var big = kind === 'sparkle' ? 1.18 : 1;
+        var big = kind === 'sparkle' ? 1.18 : kind === 'puppy' ? 1.32 : 1;
         g.fillStyle = '#ffffff';
         g.strokeStyle = dark; g.lineWidth = 2.6 * s;
         g.beginPath(); g.ellipse(0, 0, 9.5 * s * big, 12.5 * s * big, 0, 0, PI * 2); g.fill(); g.stroke();
@@ -203,20 +246,51 @@
           g.beginPath(); g.ellipse(0, 3 * s, 3.2 * s * big, 4.5 * s * big, 0, 0, PI * 2); g.fill();
           g.fillStyle = '#ffffff';
           g.beginPath(); g.arc(-3.5 * s * big, -4.5 * s * big, 3.4 * s * big, 0, PI * 2); g.fill();
-          if (kind === 'sparkle') {
-            g.beginPath(); g.arc(3.5 * s, 5 * s, 1.8 * s, 0, PI * 2); g.fill();
+          if (kind === 'sparkle' || kind === 'puppy') {
+            g.beginPath(); g.arc(3.5 * s, 5 * s, 1.8 * s * (kind === 'puppy' ? 1.6 : 1), 0, PI * 2); g.fill();
           }
         }
       }
       if (kind === 'fierce') {                    // brow slanting down towards the nose
         g.strokeStyle = dark; g.lineWidth = 4.2 * s; g.lineCap = 'round';
         g.beginPath(); g.moveTo(side * 12 * s, -18 * s); g.lineTo(-side * 11 * s, -11 * s); g.stroke();
+      } else if (look.gender === 'male' && kind !== 'sunglasses') {   // fuller brows
+        g.strokeStyle = look.hairColor || dark; g.lineWidth = 4.4 * s; g.lineCap = 'round';
+        g.beginPath(); g.moveTo(-side * 9 * s, -19 * s); g.quadraticCurveTo(0, -22 * s, side * 10 * s, -18 * s); g.stroke();
+      }
+      if (look.gender === 'female' && kind !== 'sunglasses' && kind !== 'dizzy') {   // lashes at the outer corner
+        g.strokeStyle = dark; g.lineWidth = 2.2 * s; g.lineCap = 'round';
+        var top = shape === 'happy' || shape === 'sleepy' ? -2 : -9;
+        [[6, top, 11, top - 5], [8.5, top + 3, 14, top - 1]].forEach(function (l) {
+          g.beginPath(); g.moveTo(side * l[0] * s, l[1] * s); g.lineTo(side * l[2] * s, l[3] * s); g.stroke();
+        });
       }
       g.restore();
     }
     var dx = 27 * s;
     eye(cx - dx, eyes === 'wink' ? 'round' : eyes, -1);
     eye(cx + dx, eyes === 'wink' ? 'happy' : eyes, 1);
+    if (eyes === 'sunglasses') {
+      g.save();
+      g.fillStyle = '#1d1f24'; g.strokeStyle = '#0d0e10'; g.lineWidth = 2 * s;
+      [-1, 1].forEach(function (side) {
+        g.beginPath(); g.ellipse(cx + side * dx, cy + 1 * s, 17 * s, 13 * s, 0, 0, PI * 2); g.fill(); g.stroke();
+        g.fillStyle = 'rgba(255,255,255,0.35)';
+        g.beginPath(); g.ellipse(cx + side * dx - 6 * s, cy - 4 * s, 5 * s, 2.6 * s, -0.4, 0, PI * 2); g.fill();
+        g.fillStyle = '#1d1f24';
+      });
+      g.lineWidth = 3.2 * s;
+      g.beginPath(); g.moveTo(cx - dx + 16 * s, cy - 2 * s); g.lineTo(cx + dx - 16 * s, cy - 2 * s); g.stroke();
+      g.restore();
+    }
+    if (eyes === 'monocle') {
+      g.save();
+      g.strokeStyle = '#c9a227'; g.lineWidth = 3 * s; g.fillStyle = 'rgba(220, 240, 255, 0.2)';
+      g.beginPath(); g.arc(cx + dx, cy + 1 * s, 15 * s, 0, PI * 2); g.fill(); g.stroke();
+      g.lineWidth = 1.4 * s;
+      g.beginPath(); g.moveTo(cx + dx + 10 * s, cy + 12 * s); g.quadraticCurveTo(cx + dx + 22 * s, cy + 40 * s, cx + dx + 12 * s, cy + 62 * s); g.stroke();
+      g.restore();
+    }
     if (eyes === 'glasses') {
       g.save();
       g.strokeStyle = '#3a2f2a'; g.lineWidth = 3 * s; g.fillStyle = 'rgba(200, 230, 255, 0.18)';
@@ -256,6 +330,22 @@
       g.beginPath(); g.ellipse(cx + 2 * s, my + 3 * s, 4.4 * s, 3.4 * s, 0, 0, PI * 2); g.fill();
     } else if (mouth === 'whistle') {
       g.beginPath(); g.arc(cx + 3 * s, my - 1 * s, 3.6 * s, 0, PI * 2); g.fill(); g.stroke();
+    } else if (mouth === 'laugh') {
+      g.beginPath(); g.moveTo(cx - 11 * s, my - 5 * s); g.arc(cx, my - 5 * s, 11 * s, 0, PI); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#ffffff'; g.fillRect(cx - 8 * s, my - 4.5 * s, 16 * s, 3.2 * s);
+      g.fillStyle = '#ef7f8f'; g.beginPath(); g.ellipse(cx, my + 3 * s, 5.5 * s, 2.8 * s, 0, 0, PI * 2); g.fill();
+    } else if (mouth === 'kiss') {
+      g.fillStyle = '#d8576b'; g.lineWidth = 1.8 * s;
+      g.beginPath(); g.ellipse(cx + 2 * s, my - 3.5 * s, 4.2 * s, 2.8 * s, 0, 0, PI * 2); g.fill(); g.stroke();
+      g.beginPath(); g.ellipse(cx + 2 * s, my + 1 * s, 4.6 * s, 3 * s, 0, 0, PI * 2); g.fill(); g.stroke();
+    } else if (mouth === 'wavy') {
+      g.beginPath(); g.moveTo(cx - 10 * s, my - 1 * s);
+      for (var wi = 0; wi < 4; wi++) g.quadraticCurveTo(cx - 7.5 * s + wi * 5 * s, my + (wi % 2 ? 3 : -4) * s, cx - 5 * s + wi * 5 * s, my - 1 * s);
+      g.stroke();
+    } else if (mouth === 'buck') {
+      g.beginPath(); g.arc(cx, my - 6 * s, 8.5 * s, 0.3, PI - 0.3); g.stroke();
+      g.fillStyle = '#ffffff'; g.lineWidth = 1.2 * s;
+      [-2.6, 2.6].forEach(function (x) { g.beginPath(); g.rect(cx + x * s - 2.4 * s, my + 1.6 * s, 4.8 * s, 5 * s); g.fill(); g.stroke(); });
     } else if (mouth === 'fang') {
       g.beginPath(); g.arc(cx, my - 6 * s, 8 * s, 0.35, PI - 0.35); g.stroke();
       g.fillStyle = '#ffffff'; g.lineWidth = 1.2 * s;
@@ -274,7 +364,7 @@
     g.fillStyle = R.skin;
     g.fillRect(0, 0, 512, 256);
     drawFace(g, 128, 140, 1, { eyes: R.a.eyes, eyeColor: R.eyeColor, mouth: R.a.mouth, facialHair: R.a.facialHair,
-                               hairColor: R.hairColor, skin: R.skin, blink: !!blink });
+                               hairColor: R.hairColor, skin: R.skin, blink: !!blink, gender: R.a.gender });
     var t = new THREE.CanvasTexture(c);
     t.anisotropy = 4;
     return t;
@@ -284,6 +374,11 @@
   function buildHead(R) {
     var g = group();
     var head = mesh(new THREE.SphereGeometry(HEAD_R, 40, 28), mat('#ffffff', { map: headTexture(R) }), [0, HEAD_Y, 0]);
+    if (R.a.facialHair === 'wizard') {             // long beard hanging below the chin
+      var beard = mesh(new THREE.ConeGeometry(0.27, 0.62, 18), R.hairColor, [0, HEAD_Y - 0.62, 0.36]);
+      beard.rotation.x = PI + 0.25;
+      g.add(beard);
+    }
     head.userData.R = R;                          // the blink texture is drawn on first use
     head.userData.openMap = head.material.map;
     g.userData.face = head;
@@ -296,7 +391,8 @@
   // ---------- hair ----------
   // hats that sit low on the forehead hide the fringe
   var LOW_HATS = { sun_cap: 1, beanie: 1, mushroom_cap: 1, trucker_cap: 1, bucket_hat: 1, bandana: 1,
-                   beekeeper_veil: 1, acorn_helmet: 1 };
+                   beekeeper_veil: 1, acorn_helmet: 1, chef_hat: 1, propeller_cap: 1, viking_helmet: 1 };
+  var NO_COVER = { halo: 1 };                     // "hats" that leave the whole hairdo visible
   var HEAD_CENTRE = new THREE.Vector3(0, HEAD_Y, 0);
   function bangs(R, g, azimuths, size) {
     if (LOW_HATS[R.a.head]) return;
@@ -656,6 +752,126 @@
       });
       return g;
     },
+    chef_hat: function () {
+      var g = group([0, 1.86, 0]); g.rotation.x = -0.1;
+      g.add(cyl(0.45, 0.47, 0.22, '#f7f5ef', [0, 0.06, 0], 28));
+      [[0, 0.36, 0, 0.3], [0.22, 0.3, 0.05, 0.22], [-0.22, 0.3, 0.05, 0.22], [0.05, 0.3, 0.24, 0.22], [-0.05, 0.3, -0.22, 0.22]].forEach(function (p) {
+        g.add(sphere(p[3], '#ffffff', [p[0], p[1], p[2]]));
+      });
+      return g;
+    },
+    party_hat: function () {
+      var g = group([0.06, 2.02, 0]); g.rotation.z = -0.18; g.rotation.x = -0.1;
+      g.add(mesh(new THREE.ConeGeometry(0.3, 0.72, 24), '#e84d8a', [0, 0.32, 0]));
+      [0.1, 0.32, 0.52].forEach(function (y, i) {
+        var r = 0.3 * (1 - (y - 0.0) / 0.72) + 0.006;
+        var ring = mesh(new THREE.TorusGeometry(r, 0.02, 6, 24), ['#f2c230', '#3fa3e0', '#7bd36b'][i], [0, y - 0.04, 0]);
+        ring.rotation.x = PI / 2;
+        g.add(ring);
+      });
+      g.add(sphere(0.08, '#f2c230', [0, 0.7, 0]));
+      return g;
+    },
+    top_hat: function () {
+      var g = group([0, 1.98, 0]); g.rotation.x = -0.1;
+      g.add(cyl(0.62, 0.62, 0.035, '#1f2125', [0, 0, 0], 36));
+      g.add(cyl(0.36, 0.38, 0.68, '#1f2125', [0, 0.35, 0], 28));
+      g.add(cyl(0.385, 0.385, 0.09, '#9e2b2b', [0, 0.08, 0], 28));
+      return g;
+    },
+    propeller_cap: function () {
+      var g = group([0, HEAD_Y + 0.02, 0]); g.rotation.x = -0.12;
+      ['#e04848', '#f2c230', '#3d7fe0', '#3fa34d'].forEach(function (c, i) {
+        g.add(mesh(new THREE.SphereGeometry(0.6, 16, 14, i * PI / 2, PI / 2, 0, PI * 0.5), c));
+      });
+      var visor = mesh(new THREE.CylinderGeometry(0.48, 0.48, 0.03, 28, 1, false, -PI / 2, PI), '#3d7fe0', [0, 0.14, 0.28]);
+      visor.rotation.x = 0.2;
+      g.add(visor);
+      g.add(cyl(0.025, 0.025, 0.16, '#9aa3ab', [0, 0.66, 0], 8));
+      var prop = fx(group([0, 0.75, 0]), 'spin', { speed: 9 });
+      [0, PI].forEach(function (a) {
+        var blade = box(0.34, 0.02, 0.09, a ? '#f2c230' : '#e04848', [Math.cos(a) * 0.18, 0, Math.sin(a) * 0.18]);
+        blade.rotation.x = 0.3 * (a ? -1 : 1);
+        prop.add(blade);
+      });
+      prop.add(sphere(0.04, '#3a3a3a', [0, 0, 0]));
+      g.add(prop);
+      return g;
+    },
+    pirate_hat: function () {
+      var g = group([0, 1.95, 0]); g.rotation.x = -0.1;
+      var black = '#1f2125';
+      // brim folded up into three corners
+      var brimGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.04, 60, 1);
+      var pos = brimGeo.attributes.position;
+      for (var i = 0; i < pos.count; i++) {
+        var x = pos.getX(i), z = pos.getZ(i), r = Math.sqrt(x * x + z * z);
+        if (r < 0.42) continue;
+        var th = Math.atan2(x, z);
+        pos.setY(i, pos.getY(i) + (r - 0.42) * (0.55 + 0.45 * Math.cos(3 * (th + PI))));
+      }
+      brimGeo.computeVertexNormals();
+      g.add(mesh(brimGeo, black));
+      g.add(cyl(0.42, 0.47, 0.3, black, [0, 0.15, 0], 28));
+      g.add(sphere(0.07, '#f4f1e8', [0, 0.17, 0.47], [1, 1, 0.5]));                      // skull
+      [0.6, -0.6].forEach(function (a) {
+        var bone = box(0.2, 0.025, 0.02, '#f4f1e8', [0, 0.1, 0.475]);
+        bone.rotation.z = a;
+        g.add(bone);
+      });
+      return g;
+    },
+    viking_helmet: function () {
+      var g = group([0, HEAD_Y + 0.04, 0]); g.rotation.x = -0.1;
+      var steel = '#a9b1b8';
+      var dome = mesh(new THREE.SphereGeometry(0.61, 32, 16, 0, PI * 2, 0, PI * 0.5), steel);
+      dome.scale.y = 0.9;
+      g.add(dome);
+      g.add(cyl(0.615, 0.615, 0.1, '#8a6a3a', [0, 0.05, 0], 32));
+      for (var i = 0; i < 10; i++) {
+        var a = i / 10 * PI * 2;
+        g.add(sphere(0.022, '#e3c16f', [0.625 * Math.sin(a), 0.05, 0.625 * Math.cos(a)]));
+      }
+      g.add(box(0.07, 0.24, 0.05, steel, [0, -0.04, 0.6]));                               // nose guard
+      [1, -1].forEach(function (side) {
+        var horn = group([side * 0.5, 0.28, 0]);
+        horn.rotation.z = -side * 0.95;
+        horn.add(mesh(new THREE.ConeGeometry(0.1, 0.5, 14), '#efe3c8', [0, 0.25, 0]));
+        g.add(horn);
+      });
+      return g;
+    },
+    flowerpot: function () {
+      var g = group([0, 1.98, 0]); g.rotation.x = -0.08;
+      var clay = '#c8693a';
+      g.add(cyl(0.44, 0.34, 0.4, clay, [0, 0.2, 0], 24));
+      g.add(cyl(0.48, 0.48, 0.09, shade(clay, -0.06), [0, 0.42, 0], 24));
+      g.add(cyl(0.42, 0.42, 0.02, '#5b3a24', [0, 0.45, 0], 24));                           // soil
+      g.add(cyl(0.02, 0.025, 0.5, '#4f8a3a', [0, 0.7, 0], 8));
+      [[0.1, 0.62, 0.6], [-0.1, 0.72, -0.6]].forEach(function (l) {
+        var leaf = sphere(0.09, '#6bbf59', [l[0], l[1], 0], [1.4, 0.35, 0.7]);
+        leaf.rotation.z = l[2];
+        g.add(leaf);
+      });
+      var bloom = group([0, 0.98, 0]);
+      bloom.rotation.x = 0.5;
+      for (var i = 0; i < 8; i++) {
+        var a = i / 8 * PI * 2;
+        var petal = sphere(0.07, '#ffffff', [Math.cos(a) * 0.11, Math.sin(a) * 0.11, 0], [0.6, 1.3, 0.25]);
+        petal.rotation.z = a - PI / 2;
+        bloom.add(petal);
+      }
+      bloom.add(sphere(0.06, '#f2c230', [0, 0, 0.01], [1, 1, 0.5]));
+      g.add(bloom);
+      return g;
+    },
+    halo: function () {
+      var g = fx(group([0, 2.42, 0]), 'bob', { amp: 0.04, speed: 1.6 });
+      var ring = mesh(new THREE.TorusGeometry(0.36, 0.045, 10, 40), mat('#ffe27a', { emissive: new THREE.Color('#b8860b') }));
+      ring.rotation.x = PI / 2 - 0.2;
+      g.add(ring);
+      return g;
+    },
     sage_hat: function () {
       var g = group([0, 1.9, 0]); g.rotation.x = -0.15;
       g.add(cyl(0.8, 0.8, 0.035, '#5b3fa0', [0, 0, 0], 36));
@@ -664,6 +880,59 @@
       g.add(cone);
       g.add(cyl(0.458, 0.47, 0.1, '#e3c16f', [0, 0.06, 0], 28));
       g.add(mesh(new THREE.OctahedronGeometry(0.09), '#ffd54a', [0, 0.08, 0.47], { emissive: new THREE.Color('#6b4b00') }));
+      return g;
+    }
+  };
+
+  // ---------- earrings (one per side, hanging under the ear) ----------
+  var GOLD = '#e3c16f';
+  function earAt(side, dy) {                      // earrings are drawn 1.5x real size so they read on a chibi
+    var g = group([side * 0.6, HEAD_Y - 0.13 + (dy || 0), 0.03]);
+    g.scale.setScalar(1.5);
+    return g;
+  }
+  var EARRINGS = {
+    studs: function (R, side) {
+      var g = earAt(side, 0.05);
+      g.add(sphere(0.035, mat(GOLD, { emissive: new THREE.Color('#3a2a00') })));
+      return g;
+    },
+    hoops: function (R, side) {
+      var g = earAt(side, -0.04);
+      var hoop = mesh(new THREE.TorusGeometry(0.075, 0.013, 8, 24), mat(GOLD, { emissive: new THREE.Color('#3a2a00') }));
+      hoop.rotation.y = PI / 2;
+      g.add(hoop);
+      return g;
+    },
+    pearls: function (R, side) {
+      var g = earAt(side);
+      g.add(cyl(0.008, 0.008, 0.06, GOLD, [0, 0.03, 0], 6));
+      g.add(sphere(0.045, mat('#f6f1e6', { emissive: new THREE.Color('#2a2620') }), [0, -0.02, 0]));
+      return g;
+    },
+    leaf_drops: function (R, side) {
+      var g = earAt(side);
+      g.add(cyl(0.008, 0.008, 0.05, GOLD, [0, 0.03, 0], 6));
+      var leaf = sphere(0.06, '#5fbf5a', [0, -0.05, 0], [0.25, 1.3, 0.7]);
+      g.add(leaf);
+      return g;
+    },
+    cherries: function (R, side) {
+      var g = earAt(side);
+      [[-0.03, -0.07], [0.03, -0.09]].forEach(function (c) {
+        var stem = cyl(0.007, 0.007, 0.09, '#4f8a3a', [0, 0, c[0] / 2], 5);
+        stem.rotation.x = c[0] * 6;
+        g.add(stem);
+        g.add(sphere(0.035, '#d8323c', [0, c[1], c[0]]));
+      });
+      return g;
+    },
+    star_drops: function (R, side) {
+      var g = earAt(side);
+      g.add(cyl(0.008, 0.008, 0.05, GOLD, [0, 0.03, 0], 6));
+      var star = mesh(starGeo(0.07, 0.03, 0.02), mat('#ffd54a', { emissive: new THREE.Color('#6b4b00') }), [0, -0.06, 0]);
+      star.rotation.y = side * PI / 2;
+      g.add(star);
       return g;
     }
   };
@@ -853,6 +1122,127 @@
       g.add(sphere(0.06, moss, [0, 0.58, 0.37], [1.3, 0.8, 0.5]));
       return g;
     },
+    hawaiian: function (R) {
+      var print = patternMat(R.outfit, 3, 2, function (g) {
+        function flower(x, y, c) {
+          g.fillStyle = c;
+          for (var i = 0; i < 5; i++) {
+            var a = i / 5 * PI * 2;
+            g.beginPath(); g.ellipse(x + Math.cos(a) * 5, y + Math.sin(a) * 5, 4, 2.6, a, 0, PI * 2); g.fill();
+          }
+          g.fillStyle = '#f2c230'; g.beginPath(); g.arc(x, y, 2.4, 0, PI * 2); g.fill();
+        }
+        g.fillStyle = 'rgba(40, 120, 60, 0.55)';
+        [[44, 14, 0.6], [14, 46, -0.8]].forEach(function (l) { g.beginPath(); g.ellipse(l[0], l[1], 9, 3.5, l[2], 0, PI * 2); g.fill(); });
+        flower(18, 16, '#ffffff'); flower(46, 42, '#ffd0e0'); flower(52, 6, '#fff3b0');
+      });
+      var g = baseBody(R, { top: print, sleeves: print, pants: '#c9b48a' });
+      [1, -1].forEach(function (side) {
+        var collar = box(0.13, 0.08, 0.03, shade(R.outfit, 0.2), [side * 0.08, 1.06, 0.29]);
+        collar.rotation.z = -side * 0.6;
+        g.add(collar);
+      });
+      return g;
+    },
+    tuxedo: function (R) {
+      var black = '#24272c';
+      var g = baseBody(R, { top: black, sleeves: black, pants: black, boots: '#111214' });
+      g.add(box(0.2, 0.42, 0.03, '#f7f5ef', [0, 0.88, torsoR(0.88) - 0.005]));           // shirt front
+      [1, -1].forEach(function (side) {
+        var lapel = box(0.07, 0.34, 0.035, '#33373e', [side * 0.11, 0.9, torsoR(0.9) + 0.005]);
+        lapel.rotation.z = side * 0.28;
+        g.add(lapel);
+        g.add(sphere(0.045, '#b3202e', [side * 0.05, 1.05, torsoR(1.05) + 0.03], [1.2, 0.8, 0.6]));   // bow tie
+      });
+      g.add(sphere(0.025, '#b3202e', [0, 1.05, torsoR(1.05) + 0.04]));
+      frontButtons(g, [0.9, 0.78, 0.66], '#24272c', 0.018);
+      return g;
+    },
+    pirate_coat: function (R) {
+      var red = '#7a1f2a';
+      var g = baseBody(R, { top: '#f4f1e8', sleeves: red, pants: '#3a2f28', boots: '#1f1a16' });
+      g.add(noOutline(mesh(new THREE.CylinderGeometry(0.318, 0.5, 0.86, 28, 1, true, PI * 0.16, PI * 1.68),
+        mat(red, { side: THREE.DoubleSide }), [0, 0.67, 0])));
+      [1, -1].forEach(function (side) {
+        var a = side * 0.52;
+        [0.95, 0.8, 0.65].forEach(function (y) {
+          var r = torsoR(y) + 0.06 + (1.1 - y) * 0.25;
+          g.add(sphere(0.03, mat(GOLD, { emissive: new THREE.Color('#3a2a00') }), [r * Math.sin(a), y, r * Math.cos(a)]));
+        });
+      });
+      var sash = mesh(new THREE.TorusGeometry(0.35, 0.04, 8, 32), '#c0392b', [0, 0.6, 0]);
+      sash.rotation.x = PI / 2;
+      g.add(sash);
+      g.add(sphere(0.06, '#c0392b', [0.2, 0.55, 0.3], [1, 1.4, 0.6]));
+      return g;
+    },
+    disco: function (R) {
+      var sequins = patternMat(shade(R.outfit, 0.05), 6, 4, function (g) {
+        for (var y = 0; y < 64; y += 8) {
+          for (var x = 0; x < 64; x += 8) {
+            var k = (x * 7 + y * 13) % 5;
+            g.fillStyle = k === 0 ? 'rgba(255,255,255,0.85)' : k < 3 ? shade(R.outfit, 0.25) : shade(R.outfit, -0.15);
+            g.beginPath(); g.arc(x + 4, y + 4, 3.2, 0, PI * 2); g.fill();
+          }
+        }
+      });
+      sequins.emissive = new THREE.Color(shade(R.outfit, -0.35));
+      var g = baseBody(R, { top: sequins, sleeves: sequins, pants: sequins, boots: '#f4f1e8' });
+      [1, -1].forEach(function (side) {
+        g.add(cyl(0.1, 0.17, 0.14, sequins, [side * 0.14, 0.17, 0], 16));                // bell bottoms
+        var collar = box(0.16, 0.1, 0.03, '#ffffff', [side * 0.09, 1.05, 0.29]);
+        collar.rotation.z = -side * 0.7;
+        g.add(collar);
+      });
+      fx(g, 'shimmer', { mat: sequins });
+      return g;
+    },
+    superhero: function (R) {
+      var g = baseBody(R, { top: R.outfit, sleeves: R.outfit, pants: R.outfit, boots: '#c0392b', hands: '#c0392b' });
+      var badge = mesh(new THREE.OctahedronGeometry(0.13), '#f2c230', [0, 0.92, torsoR(0.92) + 0.005]);
+      badge.scale.set(1.1, 0.85, 0.22);
+      g.add(badge);
+      g.add(mesh(starGeo(0.06, 0.025, 0.02), '#c0392b', [0, 0.92, torsoR(0.92) + 0.035]));
+      g.add(cyl(0.365, 0.37, 0.07, '#f2c230', [0, 0.6, 0], 28));
+      g.add(box(0.1, 0.08, 0.03, '#c0392b', [0, 0.6, 0.37]));
+      return g;
+    },
+    astronaut: function (R) {
+      var white = '#f2f2ee';
+      var g = baseBody(R, { top: white, sleeves: white, pants: white, boots: '#d9dcdf', hands: '#b8c1c7' });
+      var collar = mesh(new THREE.TorusGeometry(0.24, 0.06, 10, 28), '#b8c1c7', [0, 1.1, 0]);
+      collar.rotation.x = PI / 2;
+      g.add(collar);
+      g.add(box(0.22, 0.16, 0.05, '#7c8a93', [0, 0.86, torsoR(0.86) + 0.01]));         // control panel
+      ['#e04848', '#3fa34d', '#f2c230'].forEach(function (c, i) {
+        g.add(sphere(0.022, c, [-0.06 + i * 0.06, 0.88, torsoR(0.88) + 0.04]));
+      });
+      g.add(box(0.3, 0.04, 0.03, '#e8772e', [0, 0.7, torsoR(0.7) + 0.005]));
+      [1, -1].forEach(function (side) { g.add(cyl(0.12, 0.12, 0.05, '#e8772e', [side * 0.14, 0.42, 0], 14)); });
+      return g;
+    },
+    royal_robe: function (R) {
+      var red = '#8e1b2c', fur = '#f7f5ef';
+      var g = baseBody(R, { top: red, sleeves: red, pants: red, legs: false, bell: true });
+      g.add(cyl(0.37, 0.56, 0.56, red, [0, 0.28, 0], 28));
+      var hem = mesh(new THREE.TorusGeometry(0.55, 0.06, 8, 40), fur, [0, 0.03, 0]);
+      hem.rotation.x = PI / 2;
+      g.add(hem);
+      var cape = mesh(new THREE.TorusGeometry(0.3, 0.09, 10, 32), fur, [0, 1.08, 0]);
+      cape.rotation.x = PI / 2;
+      g.add(cape);
+      for (var i = 0; i < 12; i++) {                                                       // ermine spots
+        var a = i / 12 * PI * 2;
+        g.add(sphere(0.02, '#1f2125', [0.39 * Math.sin(a), 1.1, 0.39 * Math.cos(a)]));
+        g.add(sphere(0.02, '#1f2125', [0.61 * Math.sin(a + 0.25), 0.05, 0.61 * Math.cos(a + 0.25)]));
+      }
+      var chain = mesh(new THREE.TorusGeometry(0.2, 0.015, 6, 28, PI), mat(GOLD, { emissive: new THREE.Color('#3a2a00') }), [0, 1.02, 0.25]);
+      chain.rotation.z = PI;
+      chain.rotation.x = 0.35;
+      g.add(chain);
+      g.add(mesh(new THREE.OctahedronGeometry(0.05), '#d83a4a', [0, 0.82, torsoR(0.82) + 0.03]));
+      return g;
+    },
     robe: function (R) {
       var g = baseBody(R, { top: R.outfit, sleeves: R.outfit, pants: R.outfit, legs: false, bell: true });
       g.add(cyl(0.37, 0.53, 0.56, R.outfit, [0, 0.28, 0], 28));
@@ -971,6 +1361,81 @@
       g.add(cyl(0.1, 0.09, 0.04, '#3a3a3a', [0, -0.26, 0], 12));
       [[0.16, -0.05, 0.05], [-0.14, -0.2, 0.08], [0.1, -0.3, -0.06]].forEach(function (p) {
         g.add(noOutline(sphere(0.018, mat('#fff59a', { emissive: new THREE.Color('#e0c000') }), p)));
+      });
+      return g;
+    },
+    banana: function () {
+      var g = group([0, 0.05, 0.03]); g.rotation.z = 0.4;
+      var peel = mesh(new THREE.TorusGeometry(0.2, 0.045, 10, 20, 1.5), '#f5d547', [-0.2, 0, 0]);
+      peel.rotation.z = -0.75;
+      g.add(peel);
+      g.add(sphere(0.025, '#6b4a2e', [-0.2 + 0.2 * Math.cos(-0.75), 0.2 * Math.sin(-0.75), 0]));
+      g.add(cyl(0.018, 0.024, 0.06, '#8a7a3a', [-0.2 + 0.2 * Math.cos(0.75), 0.2 * Math.sin(0.75) + 0.02, 0], 6));
+      return g;
+    },
+    frying_pan: function () {
+      var g = group([0, 0, 0.06]); g.rotation.z = -0.35;
+      g.add(cyl(0.025, 0.03, 0.34, '#2b2622', [0, 0.05, 0], 8));
+      var pan = group([0, 0.36, 0]);
+      pan.rotation.x = PI / 2;
+      pan.add(cyl(0.2, 0.17, 0.06, '#33363b', [0, 0, 0], 24));
+      pan.add(cyl(0.17, 0.17, 0.01, '#4a4e55', [0, -0.03, 0], 24));
+      g.add(pan);
+      return g;
+    },
+    giant_carrot: function () {
+      var g = group([0, 0, 0.05]); g.rotation.z = -0.3;
+      var root = mesh(new THREE.ConeGeometry(0.12, 0.7, 16), '#e8772e', [0, 0.2, 0]);
+      root.rotation.x = PI;
+      g.add(root);
+      [-0.4, 0, 0.4].forEach(function (a) {
+        var leaf = mesh(new THREE.ConeGeometry(0.04, 0.26, 8), '#4f8a3a', [Math.sin(a) * 0.06, 0.66, 0]);
+        leaf.rotation.z = -a;
+        g.add(leaf);
+      });
+      return g;
+    },
+    bubble_wand: function () {
+      var g = group([0, 0, 0.05]); g.rotation.z = -0.25;
+      g.add(cyl(0.015, 0.015, 0.45, '#e84d8a', [0, 0.15, 0], 8));
+      g.add(mesh(new THREE.TorusGeometry(0.08, 0.014, 8, 20), '#e84d8a', [0, 0.45, 0]));
+      [[0.12, 0.6, 0.0, 0.06], [-0.05, 0.75, 0.1, 0.045], [0.18, 0.85, -0.05, 0.035]].forEach(function (b, i) {
+        g.add(fx(noOutline(sphere(b[3], mat('#cfefff', { transparent: true, opacity: 0.45 }), [b[0], b[1], b[2]])), 'rise', { phase: i / 3 }));
+      });
+      return g;
+    },
+    fishing_rod: function () {
+      var g = group([0, 0, 0.05]); g.rotation.x = -0.35; g.rotation.z = -0.15;
+      g.add(cyl(0.012, 0.025, 1.3, '#5b3a24', [0, 0.45, 0], 8));
+      var reel = cyl(0.05, 0.05, 0.05, '#9aa3ab', [0.05, -0.02, 0], 12);
+      reel.rotation.z = PI / 2;
+      g.add(reel);
+      g.add(cyl(0.004, 0.004, 0.8, '#e8eef2', [0, 0.7, 0.18], 4));                        // line
+      g.add(sphere(0.04, '#e04848', [0, 0.32, 0.22]));
+      g.add(sphere(0.025, '#ffffff', [0, 0.35, 0.22]));
+      return g;
+    },
+    rubber_chicken: function () {
+      var g = group([0, -0.05, 0.04]);
+      g.add(cyl(0.012, 0.012, 0.12, '#e8a23a', [0, -0.02, 0], 6));                      // feet in the hand
+      g.add(sphere(0.1, '#f5d547', [0, -0.2, 0], [0.8, 1.4, 0.8]));
+      g.add(cyl(0.035, 0.03, 0.14, '#f5d547', [0, -0.38, 0], 10));                      // floppy neck
+      g.add(sphere(0.07, '#f5d547', [0, -0.48, 0.02]));
+      var beak = mesh(new THREE.ConeGeometry(0.03, 0.08, 8), '#e8772e', [0, -0.5, 0.09]);
+      beak.rotation.x = PI / 2;
+      g.add(beak);
+      [0, 0.04, -0.04].forEach(function (z) { g.add(sphere(0.025, '#e04848', [0, -0.55, z + 0.01])); });
+      petEyes(g, 0, -0.46, 0.065, 0.03);
+      return g;
+    },
+    magic_wand: function () {
+      var g = group([0, 0, 0.05]); g.rotation.z = -0.3;
+      g.add(cyl(0.018, 0.022, 0.5, '#1f2125', [0, 0.2, 0], 8));
+      g.add(cyl(0.019, 0.019, 0.08, '#f7f5ef', [0, 0.42, 0], 8));
+      var star = fx(mesh(starGeo(0.1, 0.045, 0.03), mat('#ffd54a', { emissive: new THREE.Color('#8a6400') }), [0, 0.55, 0]), 'spin', { speed: 1.5 });
+      g.add(star);
+      [[0.12, 0.62], [-0.1, 0.7], [0.05, 0.75]].forEach(function (p, i) {
+        g.add(fx(noOutline(sphere(0.018, mat('#fff59a', { emissive: new THREE.Color('#e0c000') }), [p[0], p[1], 0.02])), 'twinkle', { phase: i * 0.7 }));
       });
       return g;
     },
@@ -1124,6 +1589,110 @@
       });
       return g;
     },
+    jetpack: function () {
+      var g = group(), steel = '#b8c1c7';
+      [1, -1].forEach(function (side) {
+        g.add(cyl(0.11, 0.11, 0.5, steel, [side * 0.13, 0.85, -0.47], 18));
+        g.add(sphere(0.11, steel, [side * 0.13, 1.1, -0.47], [1, 0.6, 1]));
+        g.add(mesh(new THREE.ConeGeometry(0.08, 0.12, 14), '#5b636b', [side * 0.13, 0.56, -0.47]));
+        var flame = fx(noOutline(mesh(new THREE.ConeGeometry(0.07, 0.3, 12),
+          mat('#ffb347', { emissive: new THREE.Color('#ff6a00'), transparent: true, opacity: 0.85 }), [side * 0.13, 0.36, -0.47])), 'flicker', { phase: side });
+        flame.rotation.x = PI;
+        g.add(flame);
+      });
+      g.add(box(0.12, 0.4, 0.14, '#e04848', [0, 0.85, -0.45]));
+      frontStraps(g, '#3a3a3a');
+      return g;
+    },
+    aqualung: function () {
+      var g = group(), yellow = '#f2c230';
+      g.add(cyl(0.15, 0.15, 0.62, yellow, [0, 0.82, -0.48], 22));
+      g.add(sphere(0.15, yellow, [0, 1.13, -0.48], [1, 0.6, 1]));
+      g.add(cyl(0.04, 0.04, 0.1, '#2b2b2b', [0, 1.24, -0.48], 10));
+      g.add(mesh(new THREE.TorusGeometry(0.05, 0.015, 6, 14), '#2b2b2b', [0, 1.3, -0.48]));
+      var hose = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, 1.28, -0.48), new THREE.Vector3(0.22, 1.32, -0.3),
+        new THREE.Vector3(0.34, 1.18, 0.0), new THREE.Vector3(0.3, 1.0, 0.24)]);
+      g.add(mesh(new THREE.TubeGeometry(hose, 24, 0.02, 6, false), '#2b2b2b'));
+      var gauge = cyl(0.05, 0.05, 0.03, '#d9dcdf', [0.3, 0.98, 0.27], 14);                  // pressure gauge
+      gauge.rotation.x = PI / 2;
+      g.add(gauge);
+      [0.95, 0.68].forEach(function (y) {
+        var band = mesh(new THREE.TorusGeometry(0.155, 0.015, 6, 20), '#2b2b2b', [0, y, -0.48]);
+        band.rotation.x = PI / 2;
+        g.add(band);
+      });
+      frontStraps(g, '#2b2b2b');
+      return g;
+    },
+    turtle_shell: function () {
+      var g = group();
+      var shellMat = patternMat('#5c8a3a', 3, 2, function (c) {
+        c.strokeStyle = '#3e6127'; c.lineWidth = 3;
+        for (var y = 0; y < 64; y += 21) for (var x = (y / 21) % 2 ? 10 : 0; x < 70; x += 21) {
+          c.beginPath();
+          for (var k = 0; k < 6; k++) { var a = k / 6 * PI * 2; c.lineTo(x + Math.cos(a) * 11, y + Math.sin(a) * 11); }
+          c.closePath(); c.stroke();
+        }
+      });
+      var dome = mesh(new THREE.SphereGeometry(0.46, 28, 16, 0, PI * 2, 0, PI * 0.5), shellMat, [0, 0.82, -0.36]);
+      dome.rotation.x = -PI / 2;
+      dome.scale.set(1, 0.6, 1.15);
+      g.add(dome);
+      var rim = mesh(new THREE.TorusGeometry(0.46, 0.04, 8, 32), '#c9b48a', [0, 0.82, -0.36]);
+      rim.scale.set(1, 1.15, 1);
+      g.add(rim);
+      return g;
+    },
+    balloons: function () {
+      var g = group();
+      [['#e04848', 0.42, 2.45, -0.2], ['#3d7fe0', 0.62, 2.25, -0.3], ['#f2c230', 0.3, 2.2, -0.42]].forEach(function (b, i) {
+        var bal = fx(group([b[1], b[2], b[3]]), 'bob', { amp: 0.05, speed: 1.3 + i * 0.3 });
+        bal.add(sphere(0.18, b[0], [0, 0, 0], [1, 1.18, 1]));
+        bal.add(mesh(new THREE.ConeGeometry(0.03, 0.05, 8), b[0], [0, -0.22, 0]));
+        g.add(bal);
+        var from = new THREE.Vector3(0.22, 1.02, -0.3), to = new THREE.Vector3(b[1], b[2] - 0.24, b[3]);
+        var str = cyl(0.004, 0.004, from.distanceTo(to), '#7a7f84', [(from.x + to.x) / 2, (from.y + to.y) / 2, (from.z + to.z) / 2], 4);
+        pointOut(str, from, to);
+        g.add(noOutline(str));
+      });
+      return g;
+    },
+    angel_wings: function () {
+      var g = group();
+      [1, -1].forEach(function (side) {
+        var wing = fx(group([side * 0.14, 1.02, -0.42]), 'flap', { side: side, amp: 0.18, speed: 1.4 });
+        for (var i = 0; i < 6; i++) {                // a fan of feathers sweeping up and out
+          var f = sphere(0.24 - i * 0.022, mat('#ffffff', { emissive: new THREE.Color('#2a2a30') }),
+            [side * (0.2 + i * 0.07), 0.05 + i * 0.07, -0.02 - i * 0.012], [1.55, 0.4, 0.12]);
+          f.rotation.z = side * (0.15 + i * 0.16);
+          wing.add(f);
+        }
+        g.add(wing);
+      });
+      return g;
+    },
+    dragon_wings: function () {
+      var g = group(), skin = '#4a7a3a';
+      [1, -1].forEach(function (side) {
+        var wing = fx(group([side * 0.15, 1.0, -0.42]), 'flap', { side: side, amp: 0.22, speed: 2.0 });
+        var sh = new THREE.Shape();
+        sh.moveTo(0, 0); sh.lineTo(0.75, 0.45); sh.lineTo(0.7, 0.05);
+        sh.quadraticCurveTo(0.6, -0.05, 0.52, -0.2); sh.quadraticCurveTo(0.42, -0.12, 0.33, -0.3);
+        sh.quadraticCurveTo(0.22, -0.18, 0.12, -0.3); sh.closePath();
+        var memb = noOutline(mesh(new THREE.ShapeGeometry(sh), mat('#6b9a4a', { side: THREE.DoubleSide })));
+        memb.scale.x = side;
+        wing.add(memb);
+        [[0.75, 0.45], [0.52, -0.2], [0.33, -0.3]].forEach(function (tip) {
+          var from = new THREE.Vector3(0, 0, 0), to = new THREE.Vector3(side * tip[0], tip[1], 0);
+          var bone = cyl(0.016, 0.01, from.distanceTo(to), skin, [to.x / 2, to.y / 2, 0], 6);
+          pointOut(bone, from, to);
+          wing.add(bone);
+        });
+        g.add(wing);
+      });
+      return g;
+    },
     leaf_wings: function () {
       var g = group();
       [1, -1].forEach(function (side) {
@@ -1138,39 +1707,53 @@
   };
 
   // ---------- companions ----------
+  // Every companion is built facing the viewer at its own origin (ground
+  // level, or its centre if it flies), and marks where a hat goes
+  // (userData.top). Colours come from a palette so the player's chosen
+  // companion colour replaces the main colour.
   function petEyes(g, x, y, z, spread) {
     g.add(sphere(0.022, '#1c1714', [x - spread, y, z]));
     g.add(sphere(0.022, '#1c1714', [x + spread, y, z]));
   }
+  function petPalette(R) {
+    var c = R.petColor;
+    return {
+      main: function (def) { return c || def; },
+      dark: function (def) { return c ? shade(c, -0.12) : def; },
+      light: function (def) { return c ? shade(c, 0.16) : def; }
+    };
+  }
+  var FLY_POS = [-0.85, 1.35, 0.35];
   var PETS = {
-    worm: function () {
-      var g = group([PET.x, PET.y, PET.z]);
+    worm: function (R, P) {
+      var g = group();
       for (var i = 0; i < 6; i++) {
         var r = 0.11 - i * 0.009;
-        g.add(sphere(r, i % 2 ? '#e8909c' : '#f0a1ac', [-i * 0.12, r + 0.02 + Math.sin(i * 1.3) * 0.04, -i * 0.03]));
+        g.add(sphere(r, i % 2 ? P.dark('#e8909c') : P.main('#f0a1ac'), [-i * 0.12, r + 0.02 + Math.sin(i * 1.3) * 0.04, -i * 0.03]));
       }
-      g.add(sphere(0.125, '#f0a1ac', [0.1, 0.2, 0.03]));
+      g.add(sphere(0.125, P.main('#f0a1ac'), [0.1, 0.2, 0.03]));
       petEyes(g, 0.12, 0.24, 0.14, 0.045);
+      g.userData.top = [0.1, 0.32, 0.03];
       return g;
     },
-    snail: function () {
-      var g = group([PET.x, PET.y, PET.z]);
+    snail: function (R, P) {
+      var g = group();
       g.add(sphere(0.12, '#c9d3a8', [0, 0.08, 0], [2.1, 0.65, 0.9]));
-      g.add(sphere(0.2, '#c47a3a', [-0.06, 0.3, 0]));
-      var swirl = mesh(new THREE.TorusGeometry(0.1, 0.03, 8, 20), '#8d4f22', [-0.06, 0.3, 0.17]);
-      g.add(swirl);
+      g.add(sphere(0.2, P.main('#c47a3a'), [-0.06, 0.3, 0]));
+      g.add(mesh(new THREE.TorusGeometry(0.1, 0.03, 8, 20), P.dark('#8d4f22'), [-0.06, 0.3, 0.17]));
       [0.06, -0.06].forEach(function (z) {
         var stalk = cyl(0.015, 0.015, 0.16, '#c9d3a8', [0.2, 0.2, z], 6);
         stalk.rotation.z = -0.3;
         g.add(stalk);
         g.add(sphere(0.035, '#1c1714', [0.23, 0.29, z]));
       });
+      g.userData.top = [-0.06, 0.49, 0];
       return g;
     },
-    bee: function () {
-      var g = group([-0.85, 1.35, 0.35]);
+    bee: function (R, P) {
+      var g = group();
       g.userData.flying = true;
-      g.add(sphere(0.14, '#f2c230', [0, 0, 0], [1.3, 1, 1]));
+      g.add(sphere(0.14, P.main('#f2c230'), [0, 0, 0], [1.3, 1, 1]));
       [-0.05, 0.07].forEach(function (x) {
         var ring = mesh(new THREE.TorusGeometry(0.128, 0.03, 8, 20), '#2b2622', [x, 0, 0]);
         ring.rotation.y = PI / 2;
@@ -1188,21 +1771,177 @@
       var sting = mesh(new THREE.ConeGeometry(0.03, 0.08, 8), '#2b2622', [-0.21, 0, 0]);
       sting.rotation.z = PI / 2;
       g.add(sting);
+      g.userData.top = [0.2, 0.1, 0];
       return g;
     },
-    sprout: function () {
-      var g = group([PET.x, PET.y, PET.z]);
-      g.add(sphere(0.2, '#9be07f', [0, 0.18, 0], [1, 0.85, 1], { emissive: new THREE.Color('#1f4d16') }));
+    sprout: function (R, P) {
+      var g = group();
+      g.add(sphere(0.2, P.main('#9be07f'), [0, 0.18, 0], [1, 0.85, 1], { emissive: new THREE.Color('#1f4d16') }));
       petEyes(g, 0, 0.21, 0.18, 0.06);
       g.add(cyl(0.015, 0.015, 0.12, '#4f8a3a', [0, 0.4, 0], 6));
       [1, -1].forEach(function (side) {
-        var leaf = sphere(0.08, '#6bbf59', [side * 0.07, 0.47, 0], [1.3, 0.35, 0.8]);
+        var leaf = sphere(0.08, P.dark('#6bbf59'), [side * 0.07, 0.47, 0], [1.3, 0.35, 0.8]);
         leaf.rotation.z = side * 0.5;
         g.add(leaf);
       });
+      g.userData.top = [0.1, 0.33, 0];
+      return g;
+    },
+    frog: function (R, P) {
+      var g = group();
+      g.add(sphere(0.17, P.main('#6bbf59'), [0, 0.13, 0], [1.15, 0.75, 1]));
+      g.add(sphere(0.12, P.light('#d8efb8'), [0, 0.1, 0.07], [1.1, 0.7, 0.8]));
+      [1, -1].forEach(function (side) {
+        g.add(sphere(0.065, P.main('#6bbf59'), [side * 0.08, 0.24, 0.05]));
+        g.add(sphere(0.045, '#ffffff', [side * 0.08, 0.26, 0.09]));
+        g.add(sphere(0.022, '#1c1714', [side * 0.08, 0.26, 0.13]));
+        g.add(sphere(0.07, P.dark('#58a84a'), [side * 0.17, 0.05, -0.04], [0.8, 0.5, 1.5]));   // back legs
+        g.add(sphere(0.035, P.dark('#58a84a'), [side * 0.1, 0.03, 0.15], [1.2, 0.6, 1]));      // front feet
+      });
+      var smile = mesh(new THREE.TorusGeometry(0.07, 0.008, 6, 16, PI * 0.8), '#2b3a22', [0, 0.17, 0.17]);
+      smile.rotation.z = PI * 1.1;
+      g.add(smile);
+      g.userData.top = [0, 0.29, 0];
+      return g;
+    },
+    chick: function (R, P) {
+      var g = group();
+      g.add(sphere(0.15, P.main('#f7d84a'), [0, 0.16, 0]));
+      g.add(sphere(0.1, P.main('#f7d84a'), [0, 0.32, 0.03]));
+      var beak = mesh(new THREE.ConeGeometry(0.03, 0.07, 8), '#e8892e', [0, 0.31, 0.14]);
+      beak.rotation.x = PI / 2;
+      g.add(beak);
+      petEyes(g, 0, 0.35, 0.11, 0.04);
+      [1, -1].forEach(function (side) {
+        var wing = sphere(0.07, P.dark('#e8c23a'), [side * 0.14, 0.17, 0], [0.4, 0.8, 1]);
+        wing.rotation.z = side * 0.3;
+        g.add(wing);
+        g.add(cyl(0.012, 0.012, 0.06, '#e8892e', [side * 0.05, 0.03, 0.02], 6));
+        g.add(sphere(0.03, '#e8892e', [side * 0.05, 0.005, 0.05], [1, 0.4, 1.3]));
+      });
+      [-0.3, 0, 0.3].forEach(function (a) {
+        var tuft = mesh(new THREE.ConeGeometry(0.015, 0.06, 6), P.main('#f7d84a'), [Math.sin(a) * 0.03, 0.43, 0.02]);
+        tuft.rotation.z = -a;
+        g.add(tuft);
+      });
+      g.userData.top = [0.03, 0.41, 0.02];
+      return g;
+    },
+    ladybug: function (R, P) {
+      var g = group();
+      g.userData.flying = true;
+      var shell = mesh(new THREE.SphereGeometry(0.14, 20, 12, 0, PI * 2, 0, PI * 0.5), P.main('#d83a3a'), [0, 0, 0]);
+      shell.rotation.x = -0.25;
+      g.add(shell);
+      g.add(sphere(0.135, '#1f1f22', [0, -0.01, 0], [1, 0.35, 1]));                         // underside
+      g.add(box(0.012, 0.01, 0.27, '#1f1f22', [0, 0.11, 0]));
+      [[0.06, 0.07, 0.05], [-0.06, 0.07, 0.05], [0.07, 0.06, -0.06], [-0.07, 0.06, -0.06], [0, 0.12, -0.02]].forEach(function (p) {
+        g.add(sphere(0.025, '#1f1f22', p, [1, 0.5, 1]));
+      });
+      g.add(sphere(0.07, '#1f1f22', [0, 0.02, 0.14]));
+      petEyes(g, 0, 0.04, 0.2, 0.03);
+      [1, -1].forEach(function (side) {
+        var ant = cyl(0.006, 0.006, 0.1, '#1f1f22', [side * 0.03, 0.1, 0.17], 4);
+        ant.rotation.z = -side * 0.4;
+        ant.rotation.x = 0.4;
+        g.add(ant);
+      });
+      g.userData.top = [0, 0.13, 0];
+      return g;
+    },
+    hedgehog: function (R, P) {
+      var g = group();
+      var spikes = P.main('#7a5a3a');
+      g.add(sphere(0.17, P.dark('#6b4a2e'), [0, 0.15, -0.02], [1, 0.82, 1.2]));
+      g.add(sphere(0.11, '#e8c9a0', [0, 0.13, 0.12], [1, 0.9, 1]));                          // face
+      var snout = mesh(new THREE.ConeGeometry(0.05, 0.1, 10), '#e8c9a0', [0, 0.11, 0.24]);
+      snout.rotation.x = PI / 2;
+      g.add(snout);
+      g.add(sphere(0.02, '#1c1714', [0, 0.11, 0.29]));
+      petEyes(g, 0, 0.17, 0.2, 0.045);
+      var centre = new THREE.Vector3(0, 0.15, -0.02);
+      for (var i = 0; i < 30; i++) {
+        var a = i * 2.39996, yy = 1 - (i + 0.5) / 30 * 1.6;                               // golden-angle spread
+        if (yy < -0.35) continue;
+        var rr = Math.sqrt(Math.max(0, 1 - yy * yy));
+        var dir = new THREE.Vector3(Math.cos(a) * rr, yy, Math.sin(a) * rr - 0.35).normalize();
+        if (dir.z > 0.45) continue;                                                         // keep the face clear
+        var tip = centre.clone().add(new THREE.Vector3(dir.x * 0.17, dir.y * 0.14, dir.z * 0.2));
+        var sp = mesh(new THREE.ConeGeometry(0.028, 0.12, 6), spikes, [tip.x, tip.y, tip.z]);
+        pointOut(sp, centre, tip);
+        g.add(sp);
+      }
+      [1, -1].forEach(function (side) { g.add(sphere(0.03, P.dark('#6b4a2e'), [side * 0.08, 0.02, 0.06], [1, 0.5, 1.3])); });
+      g.userData.top = [0, 0.29, 0.04];
       return g;
     }
   };
+
+  // small things a companion can wear, built upwards from the hat spot
+  var PET_ACCESSORIES = {
+    bow: function () {
+      var g = group();
+      [1, -1].forEach(function (side) { g.add(sphere(0.045, '#e84d8a', [side * 0.045, 0.03, 0], [1, 0.7, 0.4])); });
+      g.add(sphere(0.022, '#c23a72', [0, 0.03, 0]));
+      return g;
+    },
+    party_hat: function () {
+      var g = group();
+      g.add(mesh(new THREE.ConeGeometry(0.06, 0.15, 14), '#3fa3e0', [0, 0.075, 0]));
+      g.add(sphere(0.02, '#f2c230', [0, 0.16, 0]));
+      return g;
+    },
+    flower: function () {
+      var g = group([0.04, 0.02, 0.02]);
+      for (var i = 0; i < 6; i++) {
+        var a = i / 6 * PI * 2;
+        g.add(sphere(0.025, '#ffffff', [Math.cos(a) * 0.035, 0.03 + Math.sin(a) * 0.035, 0], [1, 1, 0.4]));
+      }
+      g.add(sphere(0.02, '#f2c230', [0, 0.03, 0.01]));
+      return g;
+    },
+    top_hat: function () {
+      var g = group();
+      g.add(cyl(0.09, 0.09, 0.01, '#1f2125', [0, 0.005, 0], 18));
+      g.add(cyl(0.055, 0.058, 0.12, '#1f2125', [0, 0.07, 0], 16));
+      g.add(cyl(0.059, 0.059, 0.02, '#9e2b2b', [0, 0.025, 0], 16));
+      return g;
+    },
+    crown: function () {
+      var g = group();
+      var gold = mat('#f2c230', { emissive: new THREE.Color('#5a4100') });
+      g.add(cyl(0.06, 0.055, 0.04, gold, [0, 0.02, 0], 16));
+      for (var i = 0; i < 4; i++) {
+        var a = i / 4 * PI * 2;
+        g.add(mesh(new THREE.ConeGeometry(0.015, 0.05, 6), gold, [Math.sin(a) * 0.055, 0.06, Math.cos(a) * 0.055]));
+      }
+      return g;
+    }
+  };
+  var PET_SIZES = { tiny: 0.6, small: 0.8, normal: 1, big: 1.35 };
+
+  // companion + its colour, accessory and size; the outer group carries
+  // the position (and the idle bounce / flight), the inner one the scale
+  function buildPet(R) {
+    var fn = PETS[R.a.pet];
+    if (!fn) return null;
+    var body = fn(R, petPalette(R));
+    var flying = !!body.userData.flying;
+    var g = group(flying ? FLY_POS : [PET.x, PET.y, PET.z]);
+    g.userData.flying = flying;
+    var acc = PET_ACCESSORIES[R.a.petAccessory];
+    if (acc && body.userData.top) {
+      var a = acc(R);
+      a.position.add(new THREE.Vector3().fromArray(body.userData.top));
+      body.add(a);
+    }
+    var k = PET_SIZES[R.a.petSize] || 1;
+    body.scale.setScalar(k);
+    g.add(body);
+    g.userData.top = body.userData.top ? body.userData.top[1] * k : 0.3;
+    g.userData.size = k;
+    return g;
+  }
 
   // ---------- outlines (cel-shaded RPG look) ----------
   var outlineMat = new THREE.MeshBasicMaterial({ color: OUTLINE_COLOR, side: THREE.BackSide });
@@ -1231,6 +1970,8 @@
     var hero = new THREE.Group();
     root.add(hero);
     var body = (BODY[R.a.body] || BODY.tunic)(R);
+    var shape = BODY_SHAPE[R.a.gender];             // a little broader or narrower in the shoulders
+    if (shape) body.scale.set(shape[0], 1, shape[1]);
     hero.add(body);
     // head, hair and hat turn together around the neck
     var headRig = group([0, NECK_Y, 0]), headParts = group([0, -NECK_Y, 0]);
@@ -1238,8 +1979,9 @@
     var headGroup = buildHead(R);
     headParts.add(headGroup);
     var hat = HEAD[R.a.head];
-    headParts.add(buildHair(R, !!hat));
+    headParts.add(buildHair(R, !!hat && !NO_COVER[R.a.head]));
     if (hat) headParts.add(hat(R));
+    if (EARRINGS[R.a.earrings]) [1, -1].forEach(function (side) { headParts.add(EARRINGS[R.a.earrings](R, side)); });
     hero.add(headRig);
     if (BACK[R.a.back]) hero.add(BACK[R.a.back](R));
     var arms = body.userData.arms || {};
@@ -1248,12 +1990,39 @@
       hero.add(tool);
       if (arms[1]) { root.updateMatrixWorld(true); arms[1].attach(tool); }   // the tool moves with its hand
     }
-    var pet = PETS[R.a.pet] ? PETS[R.a.pet](R) : null;
+    var pet = buildPet(R);
     if (pet) root.add(pet);
     addOutlines(root);
+    var effects = [];
+    root.traverse(function (o) {
+      if (!o.userData.fx) return;
+      o.userData.base = { y: o.position.y, ry: o.rotation.y, sy: o.scale.y };
+      effects.push(o);
+    });
     root.userData = { hero: hero, pet: pet, petBase: pet ? pet.position.clone() : null,
-                      headRig: headRig, arms: arms, face: headGroup.userData.face, hasTool: !!tool };
+                      headRig: headRig, arms: arms, face: headGroup.userData.face, hasTool: !!tool, effects: effects };
     return root;
+  }
+  var BODY_SHAPE = { female: [0.94, 0.97], male: [1.07, 1.03] };
+
+  // looping item effects: propellers spin, jet flames flicker, balloons bob...
+  function runEffects(list, t) {
+    list.forEach(function (o, i) {
+      var b = o.userData.base, f = o.userData.fxo || {}, ph = f.phase || i;
+      switch (o.userData.fx) {
+        case 'spin': o.rotation.y = b.ry + t * (f.speed || 3); break;
+        case 'bob': o.position.y = b.y + Math.sin(t * (f.speed || 1.5) + ph) * (f.amp || 0.05); break;
+        case 'flicker': o.scale.y = b.sy * (0.8 + 0.25 * Math.sin(t * 31 + ph) * Math.sin(t * 17 + ph * 2) + 0.15 * Math.sin(t * 9)); break;
+        case 'flap': o.rotation.y = b.ry + (f.side || 1) * Math.sin(t * (f.speed || 2) + ph) * (f.amp || 0.2); break;
+        case 'rise':
+          var k = (t * 0.35 + ph) % 1;
+          o.position.y = b.y + k * 0.5;
+          o.scale.setScalar(k < 0.1 ? k * 10 : k > 0.85 ? (1 - k) / 0.15 : 1);
+          break;
+        case 'twinkle': o.scale.setScalar(0.4 + 0.6 * Math.abs(Math.sin(t * 3 + ph))); break;
+        case 'shimmer': if (f.mat) f.mat.emissiveIntensity = 0.8 + 0.5 * Math.sin(t * 4); break;
+      }
+    });
   }
 
   function dispose(obj) {
@@ -1400,6 +2169,8 @@
       u.nextBlink = t + (Math.random() < 0.2 ? 0.22 : 2.5 + Math.random() * 3.5);
     }
 
+    if (!calm && u.effects && u.effects.length) runEffects(u.effects, t);
+
     if (u.pet) {
       if (u.pet.userData.flying) {
         u.pet.position.set(u.petBase.x + Math.cos(t * 0.9) * 0.12, u.petBase.y + Math.sin(t * 3) * 0.06, u.petBase.z + Math.sin(t * 0.9) * 0.12);
@@ -1484,10 +2255,44 @@
       down = null;
     });
 
+    // little white name tag (pill) sized to the text, readable on any background
+    function nameTag(text) {
+      var c = document.createElement('canvas'), ctx = c.getContext('2d');
+      var font = 'bold 40px sans-serif';
+      ctx.font = font;
+      var h = 64, w = Math.ceil(ctx.measureText(text).width) + 44;
+      c.width = w; c.height = h;
+      ctx = c.getContext('2d');
+      ctx.beginPath();
+      ctx.moveTo(h / 2, 3); ctx.lineTo(w - h / 2, 3);
+      ctx.arc(w - h / 2, h / 2, h / 2 - 3, -Math.PI / 2, Math.PI / 2);
+      ctx.lineTo(h / 2, h - 3);
+      ctx.arc(h / 2, h / 2, h / 2 - 3, Math.PI / 2, Math.PI * 1.5);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fill();
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(30,42,32,0.18)'; ctx.stroke();
+      ctx.font = font; ctx.fillStyle = '#1e2a20';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(text, w / 2, h / 2 + 2);
+      var tex = new THREE.CanvasTexture(c);
+      var s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+      var H = 0.17;
+      s.scale.set(H * w / h, H, 1);
+      return s;
+    }
+
     function set(a, opts) {
       var had = !!current;
       if (current) { scene.remove(current); dispose(current); }
       current = build(a, catalog);
+      var pet = current.userData.pet;
+      if (pet && a.petName) {                     // the companion's name floats above it
+        var label = nameTag(a.petName);
+        label.position.set(0, pet.userData.top + 0.3, 0);
+        label.renderOrder = 10;
+        label.material.depthTest = false;
+        pet.add(label);
+      }
       scene.add(current);
       // trying on something new: a little hop to show it off
       if (had && !calm && !(opts && opts.quiet)) playEmote(current, 'hop');
@@ -1554,9 +2359,20 @@
       if (!BACK[optId]) return null;
       g.add(BACK[optId](R));
       dir = new THREE.Vector3(0.9, 0.35, -1);
-    } else if (catId === 'pet') {
-      if (!PETS[optId]) return null;
-      g.add(PETS[optId](R));
+    } else if (catId === 'earrings') {
+      if (!EARRINGS[optId]) return null;
+      g.add(EARRINGS[optId](R, 1));
+      dir = new THREE.Vector3(1, 0.2, 0.3);
+    } else if (catId === 'pet' || catId === 'petAccessory') {
+      R.a.petSize = 'normal';
+      if (catId === 'pet') R.a.pet = optId; else R.a.petAccessory = optId;
+      if (catId === 'pet') R.a.petAccessory = 'none';
+      else if (!PETS[R.a.pet]) R.a.pet = 'worm';            // preview accessories on someone
+      var pet = buildPet(R);
+      if (!pet || (catId === 'petAccessory' && optId === 'none')) return null;
+      pet.position.set(0, 0, 0);
+      g.add(pet);
+      dir = new THREE.Vector3(0.35, 0.4, 1);
     } else {
       return null;
     }
@@ -1574,7 +2390,8 @@
     g.beginPath(); g.arc(size, size, size * 0.95, 0, PI * 2); g.fill();
     g.save(); g.clip();                           // keep beards etc. inside the face circle
     drawFace(g, size, size * 0.86, size / 58, { eyes: appearance.eyes, eyeColor: R.eyeColor, mouth: appearance.mouth,
-                                                facialHair: appearance.facialHair, hairColor: R.hairColor, skin: R.skin });
+                                                facialHair: appearance.facialHair, hairColor: R.hairColor, skin: R.skin,
+                                                gender: appearance.gender });
     g.restore();
     return c.toDataURL('image/png');
   }

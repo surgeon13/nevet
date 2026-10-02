@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Recycle bin{% endblock %}
+{% block content %}
+<div class="roster-head">
+  <h2>Recycle bin</h2>
+  <p class="roster-sub">Deleted heroes wait here. Restore brings a hero back with all its actions and plants;
+    delete for good removes the hero but keeps the garden history.</p>
+  <a class="roster-bin" href="{{ url_for('growers_page') }}">← Heroes</a>
+</div>
+{% if notice %}<div class="hero-welcome" role="status">{{ notice }}</div>{% endif %}
+
+{% if not heroes %}
+  <p class="empty-note">The recycle bin is empty.</p>
+{% else %}
+<div class="bin-list">
+  {% for h in heroes %}
+  <article class="bin-item" data-appearance='{{ h.appearance | tojson }}'>
+    <span class="bin-portrait"><span class="hero-initial">{{ h.name[:1] | upper }}</span></span>
+    <div class="bin-info">
+      <strong class="bin-name">{{ h.name }}</strong>
+      <span class="bin-meta">{{ h['class'].name }} · Lv {{ h.progress.level }} · {{ h.counts.log_count }} actions · {{ h.counts.asset_count }} plants</span>
+      <span class="bin-meta">Deleted {{ h.deleted_at[:16] | replace('T', ' ') }}{% if h.deleted_by %} by {{ h.deleted_by }}{% endif %}</span>
+    </div>
+    <div class="bin-actions">
+      <form method="post" action="{{ url_for('recycle_restore', grower_id=h.id) }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-primary">Restore</button>
+      </form>
+      <form method="post" action="{{ url_for('recycle_purge', grower_id=h.id) }}"
+            onsubmit="return confirm('Delete {{ h.name | e }} for good? This can\'t be undone.');">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-danger">Delete for good</button>
+      </form>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+<form class="bin-empty" method="post" action="{{ url_for('recycle_empty') }}"
+      onsubmit="return confirm('Delete all {{ heroes | length }} heroes in the bin for good? This can\'t be undone.');">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <button type="submit" class="btn btn-ghost">Empty recycle bin</button>
+</form>
+
+<script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/nevet3d.js') }}"></script>
+<script src="{{ url_for('static', filename='js/hero3d.js') }}"></script>
+<script>
+(function () {
+  if (!window.NevetHero || !NevetHero.supported()) return;
+  var CATALOG = {{ catalog | tojson }};
+  document.querySelectorAll('.bin-item').forEach(function (item) {
+    try {
+      var img = new Image();
+      img.alt = '';
+      img.src = NevetHero.snapshot(JSON.parse(item.dataset.appearance), CATALOG, 140, 165);
+      var p = item.querySelector('.bin-portrait');
+      p.innerHTML = ''; p.appendChild(img);
+    } catch (e) { /* letter badge stays */ }
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "rarities": {
     "common":    {"label": "Common", "color": "#8f9a94"},
     "uncommon":  {"label": "Uncommon", "color": "#3fa34d"},
@@ -15,6 +15,13 @@
     {"id": "druid", "name": "Druid", "color": "#8a6fd1", "blurb": "Speaks the language of seeds", "preset": {"outfitColor": "lavender", "head": "flower_crown", "body": "robe", "hand": "staff", "back": "leaf_wings", "pet": "sprout"}}
   ],
   "looks": [
+    { "id": "gender", "label": "Gender", "type": "choice", "options": [
+      {"id": "unset", "name": "Not specified"},
+      {"id": "female", "name": "Female"},
+      {"id": "male", "name": "Male"},
+      {"id": "nonbinary", "name": "Non-binary"},
+      {"id": "other", "name": "Other"}
+    ]},
     { "id": "skin", "label": "Skin", "type": "color", "options": [
       {"id": "porcelain", "name": "Porcelain", "color": "#f7dcc9"},
       {"id": "light", "name": "Light", "color": "#efc4a3"},
@@ -72,7 +79,11 @@
       {"id": "star", "name": "Starry"},
       {"id": "heart", "name": "Hearts"},
       {"id": "fierce", "name": "Fierce"},
-      {"id": "glasses", "name": "Glasses"}
+      {"id": "glasses", "name": "Glasses"},
+      {"id": "sunglasses", "name": "Shades"},
+      {"id": "dizzy", "name": "Dizzy"},
+      {"id": "puppy", "name": "Puppy"},
+      {"id": "monocle", "name": "Monocle"}
     ]},
     { "id": "eyeColor", "label": "Eye colour", "type": "color", "options": [
       {"id": "brown", "name": "Brown", "color": "#6b4226"},
@@ -95,7 +106,11 @@
       {"id": "smirk", "name": "Smirk"},
       {"id": "tongue", "name": "Cheeky"},
       {"id": "whistle", "name": "Whistle"},
-      {"id": "fang", "name": "Fang"}
+      {"id": "fang", "name": "Fang"},
+      {"id": "laugh", "name": "Laugh"},
+      {"id": "kiss", "name": "Kiss"},
+      {"id": "wavy", "name": "Nervous"},
+      {"id": "buck", "name": "Bucky"}
     ]},
     { "id": "facialHair", "label": "Facial hair", "type": "face", "options": [
       {"id": "none", "name": "None"},
@@ -103,7 +118,11 @@
       {"id": "mustache", "name": "Mustache"},
       {"id": "handlebar", "name": "Handlebar"},
       {"id": "goatee", "name": "Goatee"},
-      {"id": "beard", "name": "Full Beard"}
+      {"id": "beard", "name": "Full Beard"},
+      {"id": "chevron", "name": "Chevron"},
+      {"id": "soul_patch", "name": "Soul Patch"},
+      {"id": "sideburns", "name": "Sideburns"},
+      {"id": "wizard", "name": "Wizard Beard"}
     ]},
     { "id": "outfitColor", "label": "Outfit colour", "type": "color", "options": [
       {"id": "leaf", "name": "Leaf", "color": "#4c9a5b"},
@@ -140,7 +159,24 @@
       {"id": "cowboy_hat", "name": "Ranch Hat", "rarity": "uncommon"},
       {"id": "beekeeper_veil", "name": "Beekeeper Veil", "rarity": "rare"},
       {"id": "acorn_helmet", "name": "Acorn Helmet", "rarity": "epic"},
-      {"id": "golden_crown", "name": "Harvest Crown", "rarity": "legendary"}
+      {"id": "golden_crown", "name": "Harvest Crown", "rarity": "legendary"},
+      {"id": "chef_hat", "name": "Chef Hat", "rarity": "common"},
+      {"id": "party_hat", "name": "Party Hat", "rarity": "common"},
+      {"id": "top_hat", "name": "Top Hat", "rarity": "uncommon"},
+      {"id": "propeller_cap", "name": "Propeller Cap", "rarity": "uncommon"},
+      {"id": "pirate_hat", "name": "Pirate Hat", "rarity": "rare"},
+      {"id": "viking_helmet", "name": "Viking Helmet", "rarity": "rare"},
+      {"id": "flowerpot", "name": "Flowerpot", "rarity": "epic"},
+      {"id": "halo", "name": "Halo", "rarity": "legendary"}
+    ]},
+    { "id": "earrings", "label": "Earrings", "type": "item", "options": [
+      {"id": "none", "name": "None"},
+      {"id": "studs", "name": "Gold Studs", "rarity": "common"},
+      {"id": "hoops", "name": "Hoops", "rarity": "common"},
+      {"id": "pearls", "name": "Pearls", "rarity": "uncommon"},
+      {"id": "leaf_drops", "name": "Leaf Drops", "rarity": "uncommon"},
+      {"id": "cherries", "name": "Cherries", "rarity": "rare"},
+      {"id": "star_drops", "name": "Star Drops", "rarity": "epic"}
     ]},
     { "id": "body", "label": "Outfit", "type": "item", "options": [
       {"id": "tunic", "name": "Tunic", "rarity": "common"},
@@ -155,7 +191,14 @@
       {"id": "vest", "name": "Field Vest", "rarity": "uncommon"},
       {"id": "poncho", "name": "Poncho", "rarity": "uncommon"},
       {"id": "beekeeper_suit", "name": "Beekeeper Suit", "rarity": "rare"},
-      {"id": "bark_armor", "name": "Bark Armor", "rarity": "epic"}
+      {"id": "bark_armor", "name": "Bark Armor", "rarity": "epic"},
+      {"id": "hawaiian", "name": "Hawaiian Shirt", "rarity": "common"},
+      {"id": "tuxedo", "name": "Tuxedo", "rarity": "uncommon"},
+      {"id": "pirate_coat", "name": "Pirate Coat", "rarity": "rare"},
+      {"id": "disco", "name": "Disco Suit", "rarity": "rare"},
+      {"id": "superhero", "name": "Super Suit", "rarity": "epic"},
+      {"id": "astronaut", "name": "Astronaut Suit", "rarity": "epic"},
+      {"id": "royal_robe", "name": "Royal Robe", "rarity": "legendary"}
     ]},
     { "id": "hand", "label": "Tool", "type": "item", "options": [
       {"id": "none", "name": "Nothing"},
@@ -170,7 +213,14 @@
       {"id": "seed_bag", "name": "Seed Pouch", "rarity": "common"},
       {"id": "shears", "name": "Pruning Shears", "rarity": "uncommon"},
       {"id": "magnifier", "name": "Bug Magnifier", "rarity": "uncommon"},
-      {"id": "lantern", "name": "Firefly Lantern", "rarity": "rare"}
+      {"id": "lantern", "name": "Firefly Lantern", "rarity": "rare"},
+      {"id": "banana", "name": "Banana", "rarity": "common"},
+      {"id": "frying_pan", "name": "Frying Pan", "rarity": "common"},
+      {"id": "giant_carrot", "name": "Giant Carrot", "rarity": "uncommon"},
+      {"id": "bubble_wand", "name": "Bubble Wand", "rarity": "uncommon"},
+      {"id": "fishing_rod", "name": "Fishing Rod", "rarity": "uncommon"},
+      {"id": "rubber_chicken", "name": "Rubber Chicken", "rarity": "rare"},
+      {"id": "magic_wand", "name": "Magic Wand", "rarity": "epic"}
     ]},
     { "id": "back", "label": "Back", "type": "item", "options": [
       {"id": "none", "name": "Nothing"},
@@ -182,14 +232,52 @@
       {"id": "bedroll", "name": "Bedroll", "rarity": "common"},
       {"id": "sprayer", "name": "Sprayer Tank", "rarity": "uncommon"},
       {"id": "sunflower", "name": "Sunflower", "rarity": "rare"},
-      {"id": "butterfly_wings", "name": "Butterfly Wings", "rarity": "epic"}
-    ]},
+      {"id": "butterfly_wings", "name": "Butterfly Wings", "rarity": "epic"},
+      {"id": "balloons", "name": "Balloons", "rarity": "uncommon"},
+      {"id": "aqualung", "name": "Aqualung", "rarity": "rare"},
+      {"id": "turtle_shell", "name": "Turtle Shell", "rarity": "rare"},
+      {"id": "angel_wings", "name": "Angel Wings", "rarity": "epic"},
+      {"id": "dragon_wings", "name": "Dragon Wings", "rarity": "epic"},
+      {"id": "jetpack", "name": "Jet Pack", "rarity": "legendary"}
+    ]}
+  ],
+  "companion": [
     { "id": "pet", "label": "Companion", "type": "item", "options": [
       {"id": "none", "name": "Nobody"},
       {"id": "worm", "name": "Wiggles the Worm", "rarity": "common"},
       {"id": "snail", "name": "Shelly the Snail", "rarity": "uncommon"},
       {"id": "bee", "name": "Buzz the Bee", "rarity": "rare"},
-      {"id": "sprout", "name": "Sprout Spirit", "rarity": "epic"}
+      {"id": "sprout", "name": "Sprout Spirit", "rarity": "epic"},
+      {"id": "frog", "name": "Hoppy the Frog", "rarity": "common"},
+      {"id": "chick", "name": "Peep the Chick", "rarity": "common"},
+      {"id": "ladybug", "name": "Dot the Ladybug", "rarity": "uncommon"},
+      {"id": "hedgehog", "name": "Spike the Hedgehog", "rarity": "rare"}
+    ]},
+    { "id": "petColor", "label": "Companion colour", "type": "color", "default": "natural", "options": [
+      {"id": "natural", "name": "Natural", "color": "conic-gradient(#f2c230, #e27fae, #4a78c9, #6bbf59, #f2c230)"},
+      {"id": "gold", "name": "Gold", "color": "#e8b73a"},
+      {"id": "rose", "name": "Rose", "color": "#e88aa5"},
+      {"id": "sky", "name": "Sky", "color": "#5b9be6"},
+      {"id": "mint", "name": "Mint", "color": "#8fd6b0"},
+      {"id": "lavender", "name": "Lavender", "color": "#b391e0"},
+      {"id": "coral", "name": "Coral", "color": "#f0805a"},
+      {"id": "emerald", "name": "Emerald", "color": "#2e9e5b"},
+      {"id": "snow", "name": "Snow", "color": "#f4f1e8"},
+      {"id": "shadow", "name": "Shadow", "color": "#3b3f45"}
+    ]},
+    { "id": "petSize", "label": "Companion size", "type": "choice", "default": "normal", "options": [
+      {"id": "tiny", "name": "Tiny"},
+      {"id": "small", "name": "Small"},
+      {"id": "normal", "name": "Normal"},
+      {"id": "big", "name": "Big"}
+    ]},
+    { "id": "petAccessory", "label": "Companion accessory", "type": "item", "options": [
+      {"id": "none", "name": "None"},
+      {"id": "bow", "name": "Bow", "rarity": "common"},
+      {"id": "party_hat", "name": "Party Hat", "rarity": "common"},
+      {"id": "flower", "name": "Flower", "rarity": "common"},
+      {"id": "top_hat", "name": "Tiny Top Hat", "rarity": "uncommon"},
+      {"id": "crown", "name": "Tiny Crown", "rarity": "rare"}
     ]}
   ]
 }

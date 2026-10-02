@@ -147,14 +147,20 @@ A Flask app served by waitress on port 8000:
   profile / history data and small view helpers.
 - **Accounts** — every page except log-in, sign-up, `/healthz` and the
   API-key stats endpoint needs a player log-in. Players are growers
-  with a salted password hash; the first account is admin.
+  with a salted password hash; the first account is admin. Deleting a
+  hero is a soft delete (`growers.deleted_at`): binned heroes drop out
+  of lists, counts and log-in until restored; deleting for good unlinks
+  their plants and actions (`grower_id` set to NULL) before removing the
+  row, so garden history survives.
 - **Actions** — every log records who did it (`logs.grower_id`), so
   totals exist per player and for the whole garden: dashboard
   (Everyone / Just me), hero profiles, and the filterable `/activity`
   history.
-- **3D** — three.js (vendored in `static/js/`) draws the dashboard hub,
-  the plant garden and procedural heroes (`hero3d.js`); all of it runs
-  in the viewer's browser, not on the Pi.
+- **3D** — three.js (vendored in `static/js/`) draws the dashboard hub
+  (brain with vines out to bud nodes; the highlighted one blooms), the
+  plant garden and procedural heroes (`hero3d.js`, with idle motion,
+  emotes and moving item effects); all of it runs in the viewer's
+  browser, not on the Pi.
 - **System logs (`/logs`)** — tails watchdog, capture, web app and
   update logs every 5 seconds.
 - **Traffic** — `traffic.py` counts every response (requests, bytes in

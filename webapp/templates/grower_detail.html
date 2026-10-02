@@ -29,6 +29,10 @@
     </div>
 
     <ul class="hero-equipment">
+      {% set gender = (catalog.looks | selectattr('id', 'equalto', 'gender') | first).options | selectattr('id', 'equalto', hero.appearance.gender) | first %}
+      {% if gender and gender.id != 'unset' %}
+      <li><span class="slot">Gender</span><span class="item">{{ gender.name }}</span></li>
+      {% endif %}
       {% for cat in catalog.gear %}
       {% set o = cat.options | selectattr('id', 'equalto', hero.appearance[cat.id]) | first %}
       {% set r = catalog.rarities[o.rarity] if o and o.rarity else None %}
@@ -37,6 +41,15 @@
         <span class="item"{% if r %} style="--rarity: {{ r.color }}"{% endif %}>{{ o.name if o else '—' }}{% if r %} <em>{{ r.label }}</em>{% endif %}</span>
       </li>
       {% endfor %}
+      {% set pcat = catalog.companion | selectattr('id', 'equalto', 'pet') | first %}
+      {% set pet = pcat.options | selectattr('id', 'equalto', hero.appearance.pet) | first %}
+      {% set pr = catalog.rarities[pet.rarity] if pet and pet.rarity else None %}
+      <li>
+        <span class="slot">Companion</span>
+        <span class="item"{% if pr %} style="--rarity: {{ pr.color }}"{% endif %}>
+          {%- if pet and pet.id != 'none' and hero.appearance.petName %}{{ hero.appearance.petName }} <small class="muted">({{ pet.name }})</small>
+          {%- else %}{{ pet.name if pet else '—' }}{% endif %}{% if pr %} <em>{{ pr.label }}</em>{% endif %}</span>
+      </li>
     </ul>
 
     <div class="hero-actions">
@@ -62,6 +75,20 @@
           <input type="password" name="password" minlength="6" placeholder="New password" autocomplete="new-password" required>
           <input type="password" name="confirm" minlength="6" placeholder="Again" autocomplete="new-password" required>
           <button type="submit" class="btn btn-ghost">Set password</button>
+        </form>
+      </details>
+    {% endif %}
+    {% if is_me or (current_user and current_user.is_admin) %}
+      <details class="admin-box danger-box"{% if delete_error %} open{% endif %}>
+        <summary>{{ 'Delete my hero' if is_me else 'Admin: delete ' ~ hero.name }}</summary>
+        {% if delete_error %}<p class="hero-error" role="alert">{{ delete_error }}</p>{% endif %}
+        <p class="muted">{{ 'Your' if is_me else hero.name ~ '\'s' }} hero goes to the recycle bin, where an admin can
+          restore it with all its actions and plants.{% if is_me %} You'll be logged out.{% endif %}</p>
+        <form method="post" action="{{ url_for('grower_delete', grower_id=hero.id) }}"
+              onsubmit="return confirm('Move {{ hero.name | e }} to the recycle bin?');">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          {% if is_me %}<input type="password" name="password" placeholder="Your password to confirm" autocomplete="current-password" required>{% endif %}
+          <button type="submit" class="btn btn-danger">Move to recycle bin</button>
         </form>
       </details>
     {% endif %}

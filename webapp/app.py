@@ -93,10 +93,10 @@ def load_user_and_guard():
     uid = session.get("user_id")
     if uid:
         row = farm_db.get_grower(uid)
-        if row and row["password_hash"]:
+        if row and row["password_hash"] and not row["deleted_at"]:
             g.user = {"id": row["id"], "name": row["name"], "is_admin": bool(row["is_admin"])}
         else:
-            session.clear()                       # account removed or password cleared
+            session.clear()                       # account deleted or password cleared
     if g.user is None and request.endpoint not in PUBLIC_ENDPOINTS:
         if request.path.startswith("/api/"):
             return jsonify({"error": "login required"}), 401
@@ -221,7 +221,9 @@ def can_edit_hero(grower_id):
 @app.route("/growers")
 def growers_page():
     roster = [hero_view(r) for r in farm_db.list_growers()]
-    return render_template("growers.html", heroes=roster, catalog=heroes.catalog())
+    in_bin = len(farm_db.deleted_heroes()) if g.user["is_admin"] else 0
+    return render_template("growers.html", heroes=roster, catalog=heroes.catalog(),
+                           deleted=request.args.get("deleted"), in_bin=in_bin)
 
 
 def render_hero_form(hero_id, name, hero_class, appearance, error=None, welcome=False):
@@ -241,7 +243,7 @@ def grower_new():
 @app.route("/growers/<int:grower_id>/customize", methods=["GET", "POST"])
 def grower_customize(grower_id):
     row = farm_db.get_grower(grower_id)
-    if not row:
+    if not row or row["deleted_at"]:
         abort(404)
     if not can_edit_hero(grower_id):
         return render_template("message.html", title="Not your hero",
@@ -285,6 +287,10 @@ def grower_page(grower_id):
     grower = farm_db.get_grower(grower_id)
     if not grower:
         abort(404)
+    if grower["deleted_at"]:
+        if g.user["is_admin"]:
+            return redirect(url_for("recycle_bin"))
+        abort(404)
     hero = hero_view(grower, farm_db.grower_counts(grower_id))
     bundle = av.activity_bundle(grower_id)
     return render_template(
@@ -292,7 +298,87 @@ def grower_page(grower_id):
         catalog=heroes.catalog(), can_edit=can_edit_hero(grower_id),
         has_account=bool(grower["password_hash"]), created=request.args.get("created") == "1",
         pw_set=request.args.get("pw_set") == "1", pw_error=request.args.get("pw_error"),
+        delete_error=request.args.get("delete_error"),
     )
+
+
+# ---------------------------------------------------------------------
+# Deleting heroes: they go to a recycle bin first, where an admin can
+# restore them or delete them for good.
+# ---------------------------------------------------------------------
+
+def admin_only():
+    if not g.user["is_admin"]:
+        abort(403)
+
+
+@app.route("/growers/<int:grower_id>/delete", methods=["POST"])
+def grower_delete(grower_id):
+    row = farm_db.get_grower(grower_id)
+    if not row or row["deleted_at"]:
+        abort(404)
+    is_me = g.user["id"] == grower_id
+    if not (is_me or g.user["is_admin"]):
+        abort(403)
+    def back(error):
+        return redirect(url_for("grower_page", grower_id=grower_id, delete_error=error))
+    if is_me and not auth.check_password(row["password_hash"], request.form.get("password", "")):
+        return back("That password isn't right.")
+    if row["is_admin"] and row["password_hash"] and farm_db.admin_count() <= 1:
+        return back("This is the only admin. Make another player admin first, so someone can still manage Nevet.")
+    farm_db.delete_hero(grower_id, g.user["name"])
+    logger.info("%s moved hero %s to the recycle bin", g.user["name"], row["name"])
+    if is_me:
+        session.clear()
+        return render_template("message.html", title="Hero deleted",
+                               message=f"{row['name']} is in the recycle bin. An admin can restore it "
+                                       "with all its actions and plants."), 200
+    return redirect(url_for("growers_page", deleted=row["name"]))
+
+
+@app.route("/recycle-bin")
+def recycle_bin():
+    admin_only()
+    rows = farm_db.deleted_heroes()
+    binned = []
+    for r in rows:
+        h = hero_view(r)
+        h.update(deleted_at=r["deleted_at"], deleted_by=r["deleted_by"])
+        binned.append(h)
+    return render_template("recycle_bin.html", heroes=binned, catalog=heroes.catalog(),
+                           notice=request.args.get("notice"))
+
+
+@app.route("/recycle-bin/<int:grower_id>/restore", methods=["POST"])
+def recycle_restore(grower_id):
+    admin_only()
+    row = farm_db.get_grower(grower_id)
+    if not row or not row["deleted_at"]:
+        abort(404)
+    farm_db.restore_hero(grower_id)
+    logger.info("%s restored hero %s from the recycle bin", g.user["name"], row["name"])
+    return redirect(url_for("recycle_bin", notice=f"{row['name']} is back."))
+
+
+@app.route("/recycle-bin/<int:grower_id>/purge", methods=["POST"])
+def recycle_purge(grower_id):
+    admin_only()
+    row = farm_db.get_grower(grower_id)
+    if not row or not row["deleted_at"]:
+        abort(404)
+    farm_db.purge_hero(grower_id)
+    logger.info("%s permanently deleted hero %s", g.user["name"], row["name"])
+    return redirect(url_for("recycle_bin", notice=f"{row['name']} was deleted for good."))
+
+
+@app.route("/recycle-bin/empty", methods=["POST"])
+def recycle_empty():
+    admin_only()
+    rows = farm_db.deleted_heroes()
+    for r in rows:
+        farm_db.purge_hero(r["id"])
+    logger.info("%s emptied the recycle bin (%d heroes)", g.user["name"], len(rows))
+    return redirect(url_for("recycle_bin", notice=f"Recycle bin emptied ({len(rows)} deleted for good)."))
 
 
 @app.route("/growers/<int:grower_id>/assets/new")
@@ -432,7 +518,7 @@ def activity():
     has_more = len(rows) > per_page
     rows = rows[:per_page]
     conn = farm_db.get_conn()
-    all_growers = conn.execute("SELECT id, name FROM growers ORDER BY name COLLATE NOCASE").fetchall()
+    all_growers = conn.execute("SELECT id, name FROM growers WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE").fetchall()
     all_assets = conn.execute("SELECT id, name, asset_type FROM assets ORDER BY name COLLATE NOCASE").fetchall()
     used_types = [r[0] for r in conn.execute("SELECT DISTINCT log_type FROM logs")]
     conn.close()
@@ -504,8 +590,10 @@ def register():
         if not error:
             error = auth.validate_password(password, request.form.get("confirm", ""))
         if not error:
-            existing = farm_db.find_grower_by_name(name)
-            if existing and existing["password_hash"]:
+            existing = farm_db.find_grower_by_name(name, include_deleted=True)
+            if existing and existing["deleted_at"]:
+                error = f"“{existing['name']}” is in the recycle bin. An admin can restore it, or pick another name."
+            elif existing and existing["password_hash"]:
                 error = f"The name “{existing['name']}” is already taken. Pick another one or log in."
             elif existing:
                 farm_db.set_password(existing["id"], auth.hash_password(password))

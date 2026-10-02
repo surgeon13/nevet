@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-10-02 (gender, recycle bin, more hero items, plant hub)
+
+- Gender for heroes: female, male, non-binary, other or not specified
+  (the default). It sets the body shape and small face details, and
+  shows on the hero page.
+- Delete a hero: players delete their own (password needed), the admin
+  any hero except the last admin. Deleted heroes go to a **Recycle bin**
+  (admin): restore with everything, delete for good (garden history is
+  kept, credited to nobody), or empty the bin.
+- More customizing: 4 new eye styles (shades, dizzy, puppy, monocle),
+  4 mouths, 4 facial hair styles (chevron, soul patch, sideburns, wizard
+  beard), earrings (new slot), 8 hats, 7 extravagant outfits, 7 funny
+  tools and 6 backs including a flickering jet pack and an aqualung.
+  Some items move (propeller, jet flames, flapping wings, bubbles,
+  sparkles, disco shimmer).
+- New **Companion** tab: 4 new companions (frog, chick, ladybug,
+  hedgehog), plus name, colour, size and accessory for any companion.
+- Dashboard: the lines around the brain are now vines with leaves; each
+  section is a bud, and the highlighted one blooms while its vine grows
+  out again. Softer garden backdrop and icon chips for the plant counts.
+- Existing heroes look exactly the same (new settings start at their
+  defaults).
+
 ## 2026-10-01 (hero variety and movement)
 
 - Many more hero options (companions unchanged): 9 new hair styles

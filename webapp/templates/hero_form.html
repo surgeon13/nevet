@@ -44,23 +44,34 @@
     <div class="hero-tabs" role="tablist">
       <button type="button" role="tab" class="hero-tab active" data-tab="looks" aria-selected="true">Looks</button>
       <button type="button" role="tab" class="hero-tab" data-tab="gear" aria-selected="false">Gear</button>
+      <button type="button" role="tab" class="hero-tab" data-tab="companion" aria-selected="false">Companion</button>
     </div>
 
-    {% for group in ['looks', 'gear'] %}
-    <div class="hero-panel" data-panel="{{ group }}" role="tabpanel" {% if group == 'gear' %}hidden{% endif %}>
+    {% for group in ['looks', 'gear', 'companion'] %}
+    <div class="hero-panel" data-panel="{{ group }}" role="tabpanel" {% if group != 'looks' %}hidden{% endif %}>
+      {% if group == 'companion' %}
+      <label class="hero-field">
+        <span class="hero-field-label">Companion name</span>
+        <input type="text" name="pet_name" id="pet-name" value="{{ appearance.petName or '' }}" maxlength="16"
+               placeholder="e.g. Wiggles">
+        <span class="hero-field-hint">Leave empty to use the species name</span>
+      </label>
+      {% endif %}
       {% for cat in catalog[group] %}
       <fieldset class="hero-cat">
         <legend>{{ cat.label }} <span class="hero-cat-current" data-current="{{ cat.id }}"></span></legend>
-        <div class="opt-grid {{ 'opt-grid-swatch' if cat.type == 'color' else 'opt-grid-tile' }}">
+        <div class="opt-grid {{ 'opt-grid-swatch' if cat.type == 'color' else 'opt-grid-choice' if cat.type == 'choice' else 'opt-grid-tile' }}">
           {% for o in cat.options %}
           {% set rarity = o.rarity or 'common' %}
-          <label class="opt {{ 'opt-swatch' if cat.type == 'color' else 'opt-tile' }} rarity-{{ rarity }}"
+          <label class="opt {{ 'opt-swatch' if cat.type == 'color' else 'opt-choice' if cat.type == 'choice' else 'opt-tile' }} rarity-{{ rarity }}"
                  title="{{ o.name }}{% if o.rarity %} ({{ catalog.rarities[o.rarity].label }}){% endif %}"
                  style="--rarity: {{ catalog.rarities[rarity].color }};{% if o.color %} --swatch: {{ o.color }};{% endif %}">
             <input type="radio" name="a_{{ cat.id }}" value="{{ o.id }}" data-cat="{{ cat.id }}" data-name="{{ o.name }}"
                    {% if appearance[cat.id] == o.id %}checked{% endif %}>
             {% if cat.type == 'color' %}
               <span class="opt-dot"></span><span class="sr-only">{{ o.name }}</span>
+            {% elif cat.type == 'choice' %}
+              <span class="opt-name">{{ o.name }}</span>
             {% else %}
               <span class="opt-img" data-icon-cat="{{ cat.id }}" data-icon-id="{{ o.id }}">
                 {% if o.icon %}<img src="{{ url_for('static', filename=o.icon) }}" alt="">{% endif %}
@@ -91,15 +102,17 @@
 (function () {
   var CATALOG = {{ catalog | tojson }};
   var form = document.getElementById('hero-form');
-  var CATS = CATALOG.looks.concat(CATALOG.gear);
+  var CATS = CATALOG.looks.concat(CATALOG.gear, CATALOG.companion || []);
   var has3D = window.NevetHero && NevetHero.supported();
 
   function readAppearance() {
     var a = {};
     CATS.forEach(function (c) {
       var el = form.querySelector('input[name="a_' + c.id + '"]:checked');
-      a[c.id] = el ? el.value : c.options[0].id;
+      a[c.id] = el ? el.value : (c['default'] || c.options[0].id);
     });
+    var pn = document.getElementById('pet-name');
+    if (pn && pn.value.trim()) a.petName = pn.value.trim();
     return a;
   }
   var appearance = readAppearance();
@@ -117,7 +130,8 @@
   var ICON_DEPENDS = {                 // which icons need redrawing when a look changes
     skin: ['hair', 'eyes', 'mouth', 'facialHair'], hairColor: ['hair', 'facialHair'],
     eyeColor: ['eyes', 'mouth', 'facialHair'], eyes: ['mouth', 'facialHair'], mouth: ['eyes', 'facialHair'],
-    facialHair: ['eyes', 'mouth'], outfitColor: ['body']
+    facialHair: ['eyes', 'mouth'], outfitColor: ['body'], gender: ['body', 'eyes', 'mouth', 'facialHair'],
+    pet: ['petAccessory'], petColor: ['pet', 'petAccessory']
   };
   function drawIcons(catIds) {
     var slots = [];
@@ -173,8 +187,15 @@
     if (el) el.checked = true;
   }
 
+  var petNameTimer = null;
+  document.getElementById('pet-name').addEventListener('input', function () {
+    clearTimeout(petNameTimer);
+    petNameTimer = setTimeout(function () { refresh([]); }, 400);     // name label on the companion
+  });
+
   form.addEventListener('change', function (e) {
     var t = e.target;
+    if (t.id === 'pet-name') return;
     if (t.name === 'hero_class') {
       var preset = JSON.parse(t.dataset.preset || '{}');
       Object.keys(preset).forEach(function (k) { setChoice(k, preset[k]); });
@@ -189,7 +210,7 @@
                'Thyme', 'Hazel', 'Reed', 'Aspen', 'Poppy', 'Bramble', 'Sorrel', 'Tansy', 'Yarrow', 'Wren'];
   function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
   document.getElementById('hero-random').addEventListener('click', function () {
-    CATS.forEach(function (c) { setChoice(c.id, pick(c.options).id); });
+    CATS.forEach(function (c) { if (c.id !== 'gender') setChoice(c.id, pick(c.options).id); });   // gender is the player's call
     var nameEl = document.getElementById('hero-name');
     if (!nameEl.value.trim()) {
       var n = pick(NAMES) + ' ' + pick(['the Brave', 'Greenhand', 'Seedkeeper', 'Rootwise', 'Sunpicker', 'Mudboots']);

@@ -23,9 +23,9 @@
     <canvas id="hub-canvas"></canvas>
   </div>
   <div class="hub-stats-row">
-    <span class="hub-stat"><strong>{{ summary.growing }}</strong> growing</span>
-    <span class="hub-stat"><strong>{{ summary.germination }}</strong> germinating</span>
-    <span class="hub-stat"><strong>{{ summary.harvested }}</strong> harvested</span>
+    <span class="hub-stat">{{ ui.icon('leaf', 15) }}<strong>{{ summary.growing }}</strong> growing</span>
+    <span class="hub-stat">{{ ui.icon('sprout', 15) }}<strong>{{ summary.germination }}</strong> germinating</span>
+    <span class="hub-stat">{{ ui.icon('basket', 15) }}<strong>{{ summary.harvested }}</strong> harvested</span>
   </div>
 
   <a class="btn btn-primary log-cta" href="{{ url_for('log_action') }}">{{ ui.icon('plus', 18) }} Log an action</a>
@@ -343,41 +343,117 @@
     sprite.userData.aspect = c.width / c.height;
   }
 
-  // ---------- satellite nodes ----------
+  // ---------- satellite nodes: vines growing out of the brain ----------
+  // Each section hangs at the end of a curving vine with a few leaves.
+  // Nodes are buds; the highlighted one blooms and its vine grows again.
   var group = new THREE.Group();
   scene.add(group);
-  var satMeshes = [], satGlows = [], satLines = [], satLabels = [];
+  var satMeshes = [], satGlows = [], satLines = [], satLabels = [], satLeaves = [], satPetals = [];
+  var bgColor = new THREE.Color(cssColor('--bg', '#f4f7f2'));
+  function vineColor() { return accentColor.clone().lerp(bgColor, 0.55); }
+  function leafColor() { return accentColor.clone().lerp(bgColor, 0.38); }
+  function budColor() { return accentColor.clone().lerp(bgColor, 0.62); }
+
+  function leafGeometry(len, wid) {
+    var sh = new THREE.Shape();
+    sh.moveTo(0, 0);
+    sh.quadraticCurveTo(len * 0.45, wid, len, 0);
+    sh.quadraticCurveTo(len * 0.45, -wid, 0, 0);
+    var geo = new THREE.ShapeGeometry(sh, 8);
+    geo.rotateX(-Math.PI / 2);                      // lie flat, pointing along +x
+    return geo;
+  }
+  var LEAF_GEO = leafGeometry(0.62, 0.2), PETAL_GEO = leafGeometry(0.42, 0.17), BLOOM_GEO = leafGeometry(0.74, 0.3);
+  function petalColor() { return accentColor.clone().lerp(new THREE.Color('#ffffff'), 0.28); }
+
+  // faint garden path joining the buds
+  var ringPts = [];
+  for (var k = 0; k <= 96; k++) {
+    var ra = k / 96 * Math.PI * 2;
+    ringPts.push(new THREE.Vector3(Math.cos(ra) * RADIUS, -0.02, Math.sin(ra) * RADIUS));
+  }
+  var path = new THREE.Line(new THREE.BufferGeometry().setFromPoints(ringPts),
+    new THREE.LineDashedMaterial({ color: borderColor, dashSize: 0.18, gapSize: 0.22, transparent: true, opacity: 0.5 }));
+  path.computeLineDistances();
+  group.add(path);
 
   nodes.forEach(function (n, i) {
     // start with node 0 at the front, facing the viewer
     var angle = Math.PI / 2 + (i / nodes.length) * Math.PI * 2;
     var dx = Math.cos(angle), dz = Math.sin(angle);
     var x = dx * RADIUS, z = dz * RADIUS;
+    var dir = new THREE.Vector3(dx, 0, dz), side = new THREE.Vector3(-dz, 0, dx);
+    var bend = i % 2 ? 1 : -1;                      // neighbours curl opposite ways
 
+    // vine: a gentle S-curve from the brain's edge to the bud
+    var from = dir.clone().multiplyScalar(1.55), to = new THREE.Vector3(x, 0, z);
+    var curve = new THREE.CatmullRomCurve3([
+      from,
+      from.clone().lerp(to, 0.33).add(side.clone().multiplyScalar(0.55 * bend)).setY(0.12),
+      from.clone().lerp(to, 0.68).add(side.clone().multiplyScalar(-0.4 * bend)).setY(0.08),
+      to.clone().sub(dir.clone().multiplyScalar(0.32))
+    ]);
+    var vine = new THREE.Mesh(new THREE.TubeGeometry(curve, 48, 0.045, 6, false),
+      new THREE.MeshBasicMaterial({ color: vineColor() }));
+    vine.userData.full = vine.geometry.index.count;
+    group.add(vine);
+    satLines.push(vine);
+
+    // leaves along the vine, alternating sides, each on its own pivot so it can sway
+    var leaves = [];
+    [0.3, 0.52, 0.74].forEach(function (t, k) {
+      var p = curve.getPoint(t), tan = curve.getTangent(t);
+      var pivot = new THREE.Group();
+      pivot.position.copy(p);
+      var flip = (k + i) % 2 ? 1 : -1;
+      pivot.rotation.y = Math.atan2(-tan.z, tan.x) + flip * 0.85;
+      var leaf = new THREE.Mesh(LEAF_GEO, new THREE.MeshBasicMaterial({ color: leafColor(), side: THREE.DoubleSide }));
+      leaf.rotation.z = 0.25;                       // tipped up a little
+      leaf.scale.setScalar(0.85 + k * 0.12);
+      pivot.add(leaf);
+      pivot.userData = { baseY: pivot.rotation.y, phase: i * 1.7 + k * 0.9, t: t };
+      group.add(pivot);
+      leaves.push(pivot);
+    });
+    satLeaves.push(leaves);
+
+    // bud (the clickable node) with two little sepals
     var mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.4, 20, 20),
-      new THREE.MeshBasicMaterial({ color: borderColor })
+      new THREE.SphereGeometry(0.34, 20, 16),
+      new THREE.MeshBasicMaterial({ color: budColor() })
     );
-    mesh.position.set(x, 0, z);
+    mesh.position.set(x, 0.05, z);
     mesh.userData.index = i;
     group.add(mesh);
     satMeshes.push(mesh);
+    [-1, 1].forEach(function (s2) {
+      var sepal = new THREE.Mesh(PETAL_GEO, new THREE.MeshBasicMaterial({ color: leafColor(), side: THREE.DoubleSide }));
+      sepal.position.set(x - dx * 0.3, 0, z - dz * 0.3);
+      sepal.rotation.y = Math.atan2(dz, -dx) + Math.PI + s2 * 0.9;
+      group.add(sepal);
+      leaves.push(sepal);
+    });
+
+    // petals that open around the bud when it's highlighted
+    var bloom = new THREE.Group();
+    bloom.position.set(x, 0.04, z);
+    for (var pi = 0; pi < 6; pi++) {
+      var petal = new THREE.Mesh(BLOOM_GEO, new THREE.MeshBasicMaterial({ color: petalColor(), side: THREE.DoubleSide }));
+      petal.rotation.y = pi / 6 * Math.PI * 2;
+      petal.rotation.z = 0.3;                     // cupped a little towards the viewer
+      bloom.add(petal);
+    }
+    bloom.scale.setScalar(0.001);
+    group.add(bloom);
+    satPetals.push(bloom);
 
     var glow = new THREE.Mesh(
-      new THREE.SphereGeometry(0.6, 20, 20),
+      new THREE.SphereGeometry(0.62, 20, 20),
       new THREE.MeshBasicMaterial({ color: accentColor, transparent: true, opacity: 0, depthWrite: false })
     );
     glow.position.copy(mesh.position);
     group.add(glow);
     satGlows.push(glow);
-
-    // line starts at the brain's edge, not its centre
-    var lineGeom = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(dx * 1.55, 0, dz * 1.55), new THREE.Vector3(x, 0, z)
-    ]);
-    var line = new THREE.Line(lineGeom, new THREE.LineBasicMaterial({ color: borderColor, transparent: true, opacity: 0.45 }));
-    group.add(line);
-    satLines.push(line);
 
     var label = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthTest: false, depthWrite: false }));
     label.renderOrder = 10;               // labels always on top
@@ -480,6 +556,9 @@
   document.addEventListener('nevet-theme-changed', function () {
     accentColor.set(cssColor('--accent', '#4c9a5b'));
     borderColor.set(cssColor('--border', '#888888'));
+    bgColor.set(cssColor('--bg', '#f4f7f2'));
+    path.material.color.copy(borderColor);
+    satPetals.forEach(function (b) { b.children.forEach(function (p) { p.material.color.copy(petalColor()); }); });
     halo.material.map.dispose();
     halo.material.map = haloTexture('#' + accentColor.getHexString());
     halo.material.needsUpdate = true;
@@ -491,20 +570,23 @@
     updateThreeHighlight(current);
   });
 
-  var lastSel = -1;
+  var lastSel = -1, growStart = 0;
   window.updateThreeHighlight = function (idx) {
     satMeshes.forEach(function (m, i) {
       var sel = (i === idx);
-      m.material.color.copy(sel ? accentColor : borderColor);
-      m.scale.setScalar(sel ? 1.3 : 1);
+      m.material.color.copy(sel ? new THREE.Color('#f2c230') : budColor());     // a sunny flower centre
+      m.scale.setScalar(sel ? 0.7 : 1);
     });
-    satGlows.forEach(function (g, i) { g.material.opacity = (i === idx) ? 0.3 : 0; });
-    satLines.forEach(function (l, i) {
-      var sel = (i === idx);
-      l.material.color.copy(sel ? accentColor : borderColor);
-      l.material.opacity = sel ? 0.9 : 0.45;
+    satGlows.forEach(function (g, i) { g.material.opacity = (i === idx) ? 0.22 : 0; });
+    satLines.forEach(function (l, i) { l.material.color.copy(i === idx ? accentColor : vineColor()); });
+    satLeaves.forEach(function (list, i) {
+      list.forEach(function (lf) {
+        var m = lf.children.length ? lf.children[0] : lf;
+        m.material.color.copy(i === idx ? accentColor.clone().lerp(new THREE.Color('#ffffff'), 0.12) : leafColor());
+      });
     });
     satLabels.forEach(function (l, i) { setLabel(l, l.userData.text, i === idx); });
+    if (idx !== lastSel) growStart = clock ? clock.getElapsedTime() : 0;
     lastSel = idx;
   };
 
@@ -514,6 +596,26 @@
     requestAnimationFrame(animate);
     var t = clock.getElapsedTime();
     if (!still) group.rotation.y = t * 0.12;
+    // the highlighted vine grows out from the brain, then its leaves and flower open
+    var grow = still ? 1 : Math.min(1, (t - growStart) / 0.9);
+    satLines.forEach(function (l, i) {
+      l.geometry.setDrawRange(0, i === lastSel ? Math.max(6, Math.floor(l.userData.full * grow / 6) * 6) : l.userData.full);
+    });
+    satLeaves.forEach(function (list, i) {
+      list.forEach(function (lf) {
+        if (!lf.userData || lf.userData.baseY === undefined) return;
+        var sway = still ? 0 : Math.sin(t * 1.3 + lf.userData.phase) * 0.12;
+        lf.rotation.y = lf.userData.baseY + sway;
+        var show = i === lastSel ? Math.min(1, Math.max(0, (grow - lf.userData.t) * 4)) : 1;
+        lf.scale.setScalar(Math.max(0.001, show));
+      });
+    });
+    satPetals.forEach(function (b, i) {
+      var open = i === lastSel ? Math.min(1, Math.max(0, (grow - 0.85) / 0.15)) : 0;
+      var target = open * (1 + (still ? 0 : Math.sin(t * 2) * 0.04));
+      b.scale.setScalar(Math.max(0.001, b.scale.x + (target - b.scale.x) * 0.25));
+      if (!still) b.rotation.y = t * 0.3;
+    });
     var pulse = still ? 1 : 1 + Math.sin(t * 1.8) * 0.05;
     hubCore.scale.setScalar(pulse);
     halo.scale.set(3.8 * pulse, 3.8 * pulse, 1);
