@@ -163,7 +163,7 @@ A Flask app served by waitress on port 8000:
   tiles, which the viewer's browser fetches directly. `/api/map.geojson`
   is the read-only door for other programs and future Nevet nodes.
 - **3D** — three.js (vendored in `static/js/`) draws the dashboard hub
-  (brain with vines out to bud nodes; the highlighted one blooms), the
+  (brain with mycelium threads out to the section nodes; the highlighted one blooms), the
   plant garden and procedural heroes (`hero3d.js`, with idle motion,
   emotes and moving item effects); all of it runs in the viewer's
   browser, not on the Pi.

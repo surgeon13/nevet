@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-03 (simpler top bar, mycelium hub)
+
+- The row of section links under the top bar is gone: every section is
+  on the dashboard hub, and the Nevet logo leads back to it.
+- The About popup is much more compact: one line about Nevet, the
+  garden's numbers, what's new and the version.
+- New hub look: fine mycelium threads braid out from the brain to each
+  section, with tiny spores, flowing colour and sparks of light
+  travelling out like signals.
+
 ## 2026-10-02 (garden map, living hub, more hair)
 
 - New **Garden map** page: street map or satellite view, place search and

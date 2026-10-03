@@ -311,8 +311,8 @@ passwords from one device, log-in pauses for a few minutes.
 
 ## Heroes
 
-Growers are RPG-style heroes at `/growers` (the **Heroes** link in the
-nav). Every account is a hero: pick a class and customize looks and
+Growers are RPG-style heroes at `/growers` (the **Heroes** bud on the
+dashboard). Every account is a hero: pick a class and customize looks and
 gear with a live 3D preview. Players can edit their own hero; the admin
 can edit any.
 Levels and XP come from real farm activity. Heroes are drawn by code
@@ -345,11 +345,12 @@ plants and actions and its log-in; **Delete for good** removes the hero
 but keeps the garden history (its actions show without a name). A name
 in the bin can't be taken by a new sign-up until it's deleted for good.
 
-The dashboard's brain is the garden's hub: vines grow out to each
-section, carry soft waves of colour and sway a little (still with
-"reduce motion"). Tap the brain, or the ⓘ button, for **About Nevet**:
-the garden's numbers, the version running, what's new in the latest
-update, and links.
+The dashboard's brain is the garden's hub: fine mycelium threads braid
+out to each section, waves of colour and little sparks of light travel
+along them, and they sway a little (all still with "reduce motion").
+Every section is a node on the hub (there's no menu bar); the **Nevet** logo at the top always leads back to it. Tap the
+brain, or the ⓘ button, for **About Nevet**: the garden's numbers, the
+version running and what's new in the latest update.
 
 Heroes move on the profile and customize pages: they breathe and blink,
 and every few seconds play a short emote (wave, look around, hop, tool
@@ -360,7 +361,7 @@ breathe and blink.
 
 ## Garden map
 
-The **Map** page (nav bar, or the Map bud on the dashboard) puts the
+The **Map** page (the Map bud on the dashboard) puts the
 garden on an open map: OpenStreetMap streets or satellite photos, zoomed
 in far enough to draw single beds.
 

@@ -22,18 +22,12 @@
   {% if current_user %}
   <a href="{{ url_for('grower_page', grower_id=current_user.id) }}" class="nav-heroes" title="Your hero"><span class="nav-hero-dot" aria-hidden="true"></span><span class="nav-hero-name">{{ current_user.name }}</span></a>
   {% endif %}
+  {% if not current_user %}
   <div class="nav-links">
-    {% if current_user %}
-      <a href="{{ url_for('activity') }}">Activity</a>
-      <a href="{{ url_for('map_page') }}">Map</a>
-      <a href="{{ url_for('growers_page') }}">Heroes</a>
-      <a href="{{ url_for('gallery') }}">Gallery</a>
-      <a href="{{ url_for('logs_page') }}" title="System logs">System</a>
-    {% else %}
-      <a href="{{ url_for('login') }}">Log in</a>
-      <a href="{{ url_for('register') }}">Sign up</a>
-    {% endif %}
+    <a href="{{ url_for('login') }}">Log in</a>
+    <a href="{{ url_for('register') }}">Sign up</a>
   </div>
+  {% endif %}
   <button type="button" class="theme-toggle" onclick="toggleNevetTheme()" aria-label="Toggle light and dark mode">
     <svg id="nevet-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="4"></circle>
