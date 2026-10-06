@@ -737,6 +737,192 @@
 
   if (NevetHero.merge) NevetHero.merge(statics, function (o) { return movers.has(o); });
 
+  // ---------------------------------------------------------------- navigation
+  // Heroes walk on a grid (half-unit cells) that knows where the beds,
+  // buildings, cart, campfire, pond and fence are. A* finds a route around
+  // them and the route is straightened; heroes steer around each other.
+  var NAV = { x0: -21, z0: -21, cell: 0.5, w: 84, h: 90 };
+  var OBST = [], HERO_R = 0.42;
+  function obstacleCircle(x, z, r) { OBST.push({ t: 'c', x: x, z: z, r: r }); }
+  function obstacleRect(x, z, hw, hd, rotY) { OBST.push({ t: 'r', x: x, z: z, hw: hw, hd: hd, c: Math.cos(rotY || 0), s: Math.sin(rotY || 0) }); }
+  function obstaclePoly(pts) { OBST.push({ t: 'p', pts: pts }); }
+  function pointInPoly(x, z, pts) {
+    var inside = false;
+    for (var i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      var xi = pts[i][0], zi = pts[i][1], xj = pts[j][0], zj = pts[j][1];
+      if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+  function segDist(x, z, ax, az, bx, bz) {
+    var vx = bx - ax, vz = bz - az, L = vx * vx + vz * vz, t = L ? ((x - ax) * vx + (z - az) * vz) / L : 0;
+    t = Math.max(0, Math.min(1, t));
+    var px = ax + vx * t - x, pz = az + vz * t - z;
+    return Math.sqrt(px * px + pz * pz);
+  }
+  function polyDist(x, z, pts) {
+    var d = Infinity;
+    for (var i = 0, j = pts.length - 1; i < pts.length; j = i++) d = Math.min(d, segDist(x, z, pts[j][0], pts[j][1], pts[i][0], pts[i][1]));
+    return d;
+  }
+  function blockedAt(x, z, pad) {
+    pad = pad === undefined ? HERO_R : pad;
+    if (z > FARM.maxZ - 0.5) return Math.abs(x) > 1.35;        // only the gate opening leads out
+    if (x < FARM.minX + 0.6 || x > FARM.maxX - 0.6 || z < FARM.minZ + 0.6) return true;
+    for (var i = 0; i < OBST.length; i++) {
+      var o = OBST[i];
+      if (o.t === 'c') { var dx = x - o.x, dz = z - o.z, r = o.r + pad; if (dx * dx + dz * dz < r * r) return true; }
+      else if (o.t === 'r') {
+        var ex = x - o.x, ez = z - o.z, lx = ex * o.c - ez * o.s, lz = ex * o.s + ez * o.c;
+        if (Math.abs(lx) < o.hw + pad && Math.abs(lz) < o.hd + pad) return true;
+      } else if (pointInPoly(x, z, o.pts) || polyDist(x, z, o.pts) < pad) return true;
+    }
+    return false;
+  }
+  var NAVN = NAV.w * NAV.h, navBlocked = new Uint8Array(NAVN);
+  function buildNav() {
+    for (var j = 0; j < NAV.h; j++) for (var i = 0; i < NAV.w; i++)
+      navBlocked[j * NAV.w + i] = blockedAt(NAV.x0 + (i + 0.5) * NAV.cell, NAV.z0 + (j + 0.5) * NAV.cell) ? 1 : 0;
+  }
+  function cellIdx(x, z) {
+    var i = Math.floor((x - NAV.x0) / NAV.cell), j = Math.floor((z - NAV.z0) / NAV.cell);
+    return (i < 0 || j < 0 || i >= NAV.w || j >= NAV.h) ? -1 : j * NAV.w + i;
+  }
+  function cellCentre(k) { return V(NAV.x0 + (k % NAV.w + 0.5) * NAV.cell, 0, NAV.z0 + (Math.floor(k / NAV.w) + 0.5) * NAV.cell); }
+  function freeCell(k) { return k >= 0 && !navBlocked[k]; }
+  function freeAt(x, z) { return freeCell(cellIdx(x, z)); }
+  function nearestFree(k) {
+    if (freeCell(k)) return k;
+    if (k < 0) return -1;
+    var ci = k % NAV.w, cj = Math.floor(k / NAV.w);
+    for (var r = 1; r < 16; r++) {
+      for (var dj = -r; dj <= r; dj++) for (var di = -r; di <= r; di++) {
+        if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue;
+        var i = ci + di, j = cj + dj;
+        if (i >= 0 && j >= 0 && i < NAV.w && j < NAV.h && !navBlocked[j * NAV.w + i]) return j * NAV.w + i;
+      }
+    }
+    return -1;
+  }
+  var dyn = new Int32Array(NAVN), dynId = 0, useDyn = false;
+  function openCell(k) { return k >= 0 && !navBlocked[k] && !(useDyn && dyn[k] === dynId); }
+  function lineFree(a, b) {
+    var d = Math.hypot(b.x - a.x, b.z - a.z), n = Math.max(1, Math.ceil(d / 0.2));
+    for (var k = 1; k < n; k++) { var t = k / n; if (!openCell(cellIdx(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t))) return false; }
+    return true;
+  }
+  // mark cells around heroes who are standing still (working, dancing) so routes go around them
+  function markStanding(self) {
+    dynId++;
+    heroes.forEach(function (o) {
+      if (o === self || !o.root || o.path.length) return;
+      var ci = Math.floor((o.root.position.x - NAV.x0) / NAV.cell), cj = Math.floor((o.root.position.z - NAV.z0) / NAV.cell);
+      for (var dj = -2; dj <= 2; dj++) for (var di = -2; di <= 2; di++) {
+        if (di * di + dj * dj > 5) continue;
+        var i = ci + di, j = cj + dj;
+        if (i >= 0 && j >= 0 && i < NAV.w && j < NAV.h) dyn[j * NAV.w + i] = dynId;
+      }
+    });
+  }
+  var gS = new Float32Array(NAVN), came = new Int32Array(NAVN), seen = new Int32Array(NAVN), shut = new Int32Array(NAVN), searchId = 0;
+  var heapK = [], heapF = [];
+  function hpush(k, f) {
+    var i = heapK.length; heapK.push(k); heapF.push(f);
+    while (i > 0) { var p = (i - 1) >> 1; if (heapF[p] <= f) break; heapK[i] = heapK[p]; heapF[i] = heapF[p]; i = p; }
+    heapK[i] = k; heapF[i] = f;
+  }
+  function hpop() {
+    var top = heapK[0], lk = heapK.pop(), lf = heapF.pop(), n = heapK.length;
+    if (n) {
+      var i = 0;
+      while (true) {
+        var l = 2 * i + 1, r = l + 1, m = i, mf = lf;
+        if (l < n && heapF[l] < mf) { m = l; mf = heapF[l]; }
+        if (r < n && heapF[r] < mf) { m = r; mf = heapF[r]; }
+        if (m === i) break;
+        heapK[i] = heapK[m]; heapF[i] = heapF[m]; i = m;
+      }
+      heapK[i] = lk; heapF[i] = lf;
+    }
+    return top;
+  }
+  var NB = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]];
+  function spotOk(p) { return !blockedAt(p.x, p.z, 0.32); }    // exact check for standing spots (grid cells are coarser)
+  function walkable(x, z) { return !blockedAt(x, z, 0.3); }
+  function findPath(from, to, self) {
+    if (self) {                                        // first try a route that keeps clear of standing heroes
+      markStanding(self);
+      useDyn = true;
+      var sk = cellIdx(from.x, from.z), gk = cellIdx(to.x, to.z);
+      if (sk >= 0) dyn[sk] = 0;
+      if (gk >= 0) dyn[gk] = 0;
+      var r = astar(from, to);
+      useDyn = false;
+      if (r) return r;
+    }
+    return astar(from, to) || [to.clone().setY(0)];
+  }
+  function astar(from, to) {
+    var goalOk = spotOk(to);
+    if (goalOk && lineFree(from, to)) return [to.clone().setY(0)];
+    var s = nearestFree(cellIdx(from.x, from.z)), g = nearestFree(cellIdx(to.x, to.z));
+    if (s < 0 || g < 0) return null;
+    searchId++;
+    heapK.length = 0; heapF.length = 0;
+    var gi = g % NAV.w, gj = Math.floor(g / NAV.w);
+    function hcost(k) { var di = Math.abs(k % NAV.w - gi), dj = Math.abs(Math.floor(k / NAV.w) - gj); return Math.max(di, dj) + 0.414 * Math.min(di, dj); }
+    seen[s] = searchId; gS[s] = 0; came[s] = -1; hpush(s, hcost(s));
+    var found = false, guard = 0;
+    while (heapK.length && guard++ < 20000) {
+      var k = hpop();
+      if (shut[k] === searchId) continue;
+      shut[k] = searchId;
+      if (k === g) { found = true; break; }
+      var ki = k % NAV.w, kj = Math.floor(k / NAV.w);
+      for (var n = 0; n < 8; n++) {
+        var ni = ki + NB[n][0], nj = kj + NB[n][1];
+        if (ni < 0 || nj < 0 || ni >= NAV.w || nj >= NAV.h) continue;
+        var nk = nj * NAV.w + ni;
+        if (!openCell(nk) || shut[nk] === searchId) continue;
+        if (NB[n][2] > 1 && (!openCell(kj * NAV.w + ni) || !openCell(nj * NAV.w + ki))) continue;   // no corner cutting
+        var ng = gS[k] + NB[n][2];
+        if (seen[nk] !== searchId || ng < gS[nk]) { seen[nk] = searchId; gS[nk] = ng; came[nk] = k; hpush(nk, ng + hcost(nk)); }
+      }
+    }
+    if (!found) return null;
+    var cells = [];
+    for (var c = g; c !== -1; c = came[c]) cells.push(cellCentre(c));
+    cells.reverse();
+    if (goalOk) cells[cells.length - 1] = to.clone().setY(0);
+    // straighten: from each point jump to the furthest one in plain sight
+    var out = [], cur = from.clone().setY(0), idx = 0;
+    while (idx < cells.length) {
+      var far = idx;
+      for (var t = cells.length - 1; t > idx; t--) if (lineFree(cur, cells[t])) { far = t; break; }
+      out.push(cells[far]);
+      cur = cells[far];
+      idx = far + 1;
+    }
+    return out;
+  }
+
+  (function () {                                       // what heroes walk around
+    BED_X.forEach(function (bx) { obstacleRect(bx, BED_Z0 - (SLOTS - 1) * SLOT_STEP / 2 - 0.5, BED_W / 2 + 0.05, (SLOTS * SLOT_STEP + 0.4) / 2); });
+    obstacleRect(CART.x, CART.z + 0.35, 0.75, 1.65);
+    obstacleCircle(PUMP.x, PUMP.z + 0.3, 0.55);
+    obstacleCircle(FIRE.x, FIRE.z, 1.0);
+    obstacleRect(-15.5, -9.5, 3.2, 3.7);                     // barn
+    obstacleRect(-15, 5.5, 1.75, 2.45);                      // greenhouse
+    obstacleCircle(13.5, -17.5, 1.9);                        // windmill
+    obstacleCircle(12, 8, 3.55);                             // pond
+    obstacleCircle(0, -13.6, 0.35);                          // scarecrow
+    [[-11, -4.2], [-11.4, -2.8], [-11.2, -3.5]].forEach(function (b) { obstacleCircle(b[0], b[1], 0.75); });
+    for (var i = 0; i < Math.min(4, Math.max(1, (D.plants || []).filter(function (q) { return q.type === 'worm_bin'; }).length)); i++)
+      obstacleRect(-11.2 + (i % 2) * 1.6, 1.2 + Math.floor(i / 2) * 1.6, 0.65, 0.55);
+    [[17, -2], [-18, -16]].forEach(function (t) { obstacleCircle(t[0], t[1], 0.9); });
+    buildNav();
+  })();
+
   // ---------------------------------------------------------------- particles (water drops, dirt puffs, sparkles)
   var drops = [];
   var DROP_GEO = new THREE.SphereGeometry(0.045, 6, 4), DROP_MAT = new THREE.MeshBasicMaterial({ color: 0x6fc3ff });
@@ -777,6 +963,8 @@
     if (tool !== undefined && tool !== null) a.hand = tool;
     var root = NevetHero.build(a, D.catalog, { outlines: outlines, merge: true });
     root.userData.heroIndex = h.i;
+    var u = root.userData;
+    if (u.pet && u.petBase) { u.petBase.x *= 0.6; u.petBase.z *= 0.5; u.pet.position.copy(u.petBase); }
     return root;
   }
   function setTool(h, tool) {
@@ -810,9 +998,9 @@
     scene.add(h.label);
     h.shadow = blobShadow(0.55);
     scene.add(h.shadow);
-    walkTo(h, [V(rr(-0.6, 0.6), 0, FARM.maxZ - 1.5), V(rr(-2, 2), 0, 7.5)], function () { assign(h, clockNow()); });
-    if (current === 'campfire') heroes.forEach(function (o) {
-      if (o !== h && o.act === 'dance') walkTo(o, ringSlot(o), function () { face(o, FIRE); doAct(o, 'dance', 9999, null, clockNow()); });
+    walkTo(h, [V(0, 0, FARM.maxZ - 1.2)], function () { assign(h, clockNow()); });
+    if (ACTS[current].ring) heroes.forEach(function (o) {
+      if (o !== h && o.act === 'dance') goTo(o, ringSlot(o), function () { face(o, ACTS[current].ringCentre); doAct(o, 'dance', 9999, null, clockNow()); });
     });
   }
 
@@ -823,26 +1011,39 @@
     h.onArrive = then || null;
     h.act = null;
   }
-  // a route that stays in the aisles: leave the beds along the lane, then go in
-  function inBeds(p) { return p.z < -4.9 && p.x > -8.6 && p.x < 16.2; }
-  function route(from, to) {
-    var pts = [];
-    if (inBeds(from)) pts.push(V(from.x, 0, -4.2));
-    if (inBeds(to)) pts.push(V(to.x, 0, -4.2));
-    pts.push(to.clone().setY(0));
-    return pts;
+  function goTo(h, to, then) {
+    h.goal = to.clone().setY(0);
+    walkTo(h, findPath(h.root.position, h.goal, h), then);
+    h.stuckT = 0; h.stuckAt = h.root.position.clone();
   }
-  function goTo(h, to, then) { walkTo(h, route(h.root.position, to), then); }
+  // a spot is taken if another hero is heading there or standing near it
+  var SPACING = 1.25;
+  function spotTaken(p, h, minD) {
+    var m2 = (minD || SPACING) * (minD || SPACING);
+    for (var i = 0; i < heroes.length; i++) {
+      var o = heroes[i];
+      if (o === h || !o.root) continue;
+      if (o.goal && (o.goal.x - p.x) * (o.goal.x - p.x) + (o.goal.z - p.z) * (o.goal.z - p.z) < m2) return true;
+      var op = o.root.position;
+      if (!o.path.length && (op.x - p.x) * (op.x - p.x) + (op.z - p.z) * (op.z - p.z) < m2) return true;
+    }
+    return false;
+  }
+  function freeSpot(p, h) { return spotOk(p) && !spotTaken(p, h); }
+  // first free spot from a list of candidates (nearest first)
+  function pickSpot(h, cands) {
+    var hp = h.root.position;
+    cands = cands.slice().sort(function (a, b) { return a.distanceToSquared(hp) - b.distanceToSquared(hp); });
+    for (var i = 0; i < cands.length; i++) if (freeSpot(cands[i], h)) return cands[i];
+    return null;
+  }
   function doAct(h, kind, dur, then, now) {
     h.path = [];
     h.act = kind; h.actStart = now; h.actEnd = now + dur; h.onActDone = then;
   }
   function face(h, p) { h.wantFacing = Math.atan2(p.x - h.root.position.x, p.z - h.root.position.z); }
-  function aisleSpot(p, h) {
-    // stand in the nearer aisle beside a bed slot, facing it
-    var side = (p.x + 0.001 > h.root.position.x) ? -1 : 1;
-    if (p.where === 'bed') return V(p.pos.x + side * 1.25, 0, p.pos.z);
-    return V(p.pos.x + side * 0.85, 0, p.pos.z);
+  function workSpot(p, h) {                           // where to stand to tend a plant (a free one, or null)
+    return pickSpot(h, p.stands || [V(p.pos.x - 1.35, 0, p.pos.z), V(p.pos.x + 1.35, 0, p.pos.z)]);
   }
   function nearest(h, list, ok) {
     var best = null, bd = Infinity, hp = h.root.position;
@@ -854,10 +1055,13 @@
     return best;
   }
   function wanderNear(h, centre, radius, now, then) {
-    var a = R() * TAU, d = rr(0.5, radius);
-    goTo(h, V(centre.x + Math.cos(a) * d, 0, centre.z + Math.sin(a) * d), function () {
-      doAct(h, 'idle', rr(1.5, 3), then, clockNow());
-    });
+    var spot = null;
+    for (var t = 0; t < 12 && !spot; t++) {
+      var a = R() * TAU, d = rr(0.8, radius), c = V(centre.x + Math.cos(a) * d, 0, centre.z + Math.sin(a) * d);
+      if (freeSpot(c, h)) spot = c;
+    }
+    if (!spot) return doAct(h, 'idle', rr(1, 2), then, clockNow());
+    goTo(h, spot, function () { doAct(h, 'idle', rr(1.5, 3), then, clockNow()); });
   }
   function carryItem(h, color) {
     dropCarry(h);
@@ -874,16 +1078,19 @@
       name: 'Harvest festival', tool: 'none', night: 0, centre: V(0, 0.6, -5.5),
       stat: function () { return stats.harvest + ' picked'; },
       next: function harvestNext(h, now) {
-        var p = nearest(h, plants, function (q) { return q.ripe && !q.claimed && q.where === 'bed'; });
-        if (!p) return wanderNear(h, V(0, 0, 1), 4, now, function () { harvestNext(h, clockNow()); });
+        var stand = null;
+        var p = nearest(h, plants, function (q) { return q.ripe && !q.claimed && q.where !== 'field' && (stand = workSpot(q, h)) && (q.stand = stand); });
+        if (!p) return wanderNear(h, V(2, 0, 3), 4, now, function () { harvestNext(h, clockNow()); });
         p.claimed = h;
-        goTo(h, aisleSpot(p, h), function () {
+        goTo(h, p.stand, function () {
           face(h, p.pos);
           doAct(h, 'pick', 1.7, function () {
             p.ripe = false; p.claimed = null; p.regrowAt = clockNow() + rr(16, 28);
             carryItem(h, p.color);
             var col = p.color;
-            goTo(h, V(CART.x + (h.root.position.x < CART.x ? -1.25 : 1.25), 0, CART.z + rr(-0.6, 0.6)), function () {
+            var drop = pickSpot(h, CART_SPOTS);
+            if (!drop) return wanderNear(h, CART, 3.5, clockNow(), function () { dropCarry(h); addToCart(col); stats.harvest++; harvestNext(h, clockNow()); });
+            goTo(h, drop, function () {
               face(h, CART);
               doAct(h, 'drop', 0.7, function () {
                 dropCarry(h);
@@ -901,15 +1108,17 @@
       stat: function () { return stats.water + ' watered'; },
       next: function waterNext(h, now) {
         if (h.watered >= 3) {                          // can's empty: refill at the pump
-          return goTo(h, V(PUMP.x + 0.9, 0, PUMP.z + rr(-0.5, 0.8)), function () {
+          var at = pickSpot(h, PUMP_SPOTS);
+          if (!at) return wanderNear(h, PUMP, 3, now, function () { waterNext(h, clockNow()); });
+          return goTo(h, at, function () {
             face(h, PUMP);
             doAct(h, 'refill', 1.6, function () { h.watered = 0; waterNext(h, clockNow()); }, clockNow());
           });
         }
-        var p = nearest(h, plants, function (q) { return !q.claimed && clockNow() - q.wateredAt > 25 && q.where === 'bed'; });
-        if (!p) return wanderNear(h, V(-2, 0, 0), 4, now, function () { waterNext(h, clockNow()); });
+        var p = nearest(h, plants, function (q) { return !q.claimed && clockNow() - q.wateredAt > 25 && q.where !== 'field' && (q.stand = workSpot(q, h)); });
+        if (!p) return wanderNear(h, V(-2, 0, 2), 4, now, function () { waterNext(h, clockNow()); });
         p.claimed = h;
-        goTo(h, aisleSpot(p, h), function () {
+        goTo(h, p.stand, function () {
           face(h, p.pos);
           h.waterTarget = p;
           doAct(h, 'water', 2.4, function () {
@@ -924,10 +1133,10 @@
       name: 'Planting day', tool: 'seed_bag', night: 0, centre: V(12.4, 0.5, -8),
       stat: function () { return stats.plant + ' planted'; },
       next: function plantNext(h, now) {
-        var s = nearest(h, spots, function (q) { return q.state === 'empty' && !q.claimed; });
+        var s = nearest(h, spots, function (q) { return q.state === 'empty' && !q.claimed && (q.stand = pickSpot(h, [V(q.pos.x - 0.95, 0, q.pos.z), V(q.pos.x + 0.95, 0, q.pos.z)])); });
         if (!s) return wanderNear(h, V(11, 0, -2.6), 3, now, function () { plantNext(h, clockNow()); });
         s.claimed = h;
-        goTo(h, V(s.pos.x + (h.root.position.x < s.pos.x ? -0.85 : 0.85), 0, s.pos.z), function () {
+        goTo(h, s.stand, function () {
           face(h, s.pos);
           doAct(h, 'plant', 1.6, function () {
             s.claimed = null;
@@ -939,7 +1148,7 @@
       }
     },
     campfire: {
-      name: 'Campfire dance', tool: null, night: 1, centre: V(FIRE.x, 0.8, FIRE.z),
+      name: 'Campfire dance', tool: null, night: 1, centre: V(FIRE.x, 0.8, FIRE.z), ring: true, ringCentre: FIRE,
       stat: function () { return heroes.length + ' dancing'; },
       next: function (h, now) {
         var slot = ringSlot(h);
@@ -950,12 +1159,15 @@
   var ORDER = ['harvest', 'water', 'plant', 'campfire'];
   var current = D.start && ACTS[D.start] ? D.start : 'harvest';
   var ringTurn = 0;
-  function ringRadius() { return Math.min(6.2, Math.max(2.6, heroes.length * 0.42)); }
+  function ringRadius() { return Math.max(2.9, heroes.length * 1.5 / TAU); }   // about 1.5 units between neighbours
   function ringSlot(h) {
     var n = Math.max(1, heroes.length), k = heroes.indexOf(h);
     var a = (k / n) * TAU + ringTurn;
     return V(FIRE.x + Math.cos(a) * ringRadius(), 0, FIRE.z + Math.sin(a) * ringRadius());
   }
+  var CART_SPOTS = [V(CART.x - 1.3, 0, CART.z - 0.4), V(CART.x + 1.3, 0, CART.z - 0.4), V(CART.x - 1.3, 0, CART.z + 1.0),
+                    V(CART.x + 1.3, 0, CART.z + 1.0), V(CART.x, 0, CART.z - 1.75)];
+  var PUMP_SPOTS = [V(PUMP.x + 1.05, 0, PUMP.z + 0.1), V(PUMP.x - 1.05, 0, PUMP.z + 0.1), V(PUMP.x, 0, PUMP.z - 1.05)];
   function assign(h, now) {
     plants.forEach(function (p) { if (p.claimed === h) p.claimed = null; });
     spots.forEach(function (s) { if (s.claimed === h) s.claimed = null; });
@@ -1036,13 +1248,28 @@
       var target = h.path[0];
       tmp.subVectors(target, root.position); tmp.y = 0;
       var d = tmp.length(), step = HERO_SPEED * h.speedK * dt;
-      if (d <= step || d < 0.05) {
+      if (d <= Math.max(step, 0.06)) {
         root.position.x = target.x; root.position.z = target.z;
         h.path.shift();
         if (!h.path.length && h.onArrive) { var cb = h.onArrive; h.onArrive = null; cb(); }
       } else {
-        tmp.multiplyScalar(step / d);
-        root.position.add(tmp);
+        tmp.divideScalar(d);
+        steer(h, tmp);                                    // step around other heroes
+        var nx = root.position.x + tmp.x * step * h.slow, nz = root.position.z + tmp.z * step * h.slow;
+        if (!walkable(nx, nz) && walkable(root.position.x, root.position.z)) {   // never steer into a bed or wall
+          tmp.subVectors(target, root.position); tmp.y = 0; tmp.normalize();
+          nx = root.position.x + tmp.x * step; nz = root.position.z + tmp.z * step;
+        }
+        root.position.x = nx; root.position.z = nz;
+        (h.moveDir || (h.moveDir = V(0, 0, 0))).copy(tmp);
+        h.stuckT = (h.stuckT || 0) + dt;                   // hardly moving for a while? plan a new way round
+        if (h.stuckT > 1.2) {
+          if (h.stuckAt && h.stuckAt.distanceTo(root.position) < 0.35 && h.goal) {
+            var then2 = h.onArrive;
+            h.path = findPath(root.position, h.goal, h); h.onArrive = then2;
+          }
+          h.stuckT = 0; h.stuckAt = root.position.clone();
+        }
         h.wantFacing = Math.atan2(tmp.x, tmp.z);
         moving = true;
       }
@@ -1114,16 +1341,42 @@
       h.label.visible = showNames;
     }
   }
+  // look ahead: if someone is in the way, veer to one side (and slow down if very close)
+  var _av = V(0, 0, 0);
+  function steer(h, dir) {
+    _av.set(0, 0, 0);
+    h.slow = 1;
+    var p = h.root.position;
+    for (var i = 0; i < heroes.length; i++) {
+      var o = heroes[i];
+      if (o === h || !o.root) continue;
+      var dx = o.root.position.x - p.x, dz = o.root.position.z - p.z, d = Math.sqrt(dx * dx + dz * dz);
+      if (d > 2.6 || d < 1e-4) continue;
+      if (o.path.length && o.moveDir && o.moveDir.x * dir.x + o.moveDir.z * dir.z > 0.6 && d > 1.1) continue;   // walking the same way
+      var ahead = (dx * dir.x + dz * dir.z) / d;
+      if (ahead < 0.15) continue;
+      var lat = dir.z * dx - dir.x * dz;                  // which side the other hero is on
+      if (Math.abs(lat) > 1.3) continue;
+      var side = lat > 0.04 ? -1 : lat < -0.04 ? 1 : (h.i < o.i ? 1 : -1);
+      var w = (1 - d / 2.6) * (o.path.length ? 1.0 : 1.8) * ahead;
+      _av.x += dir.z * side * w; _av.z += -dir.x * side * w;
+      if (d < 1.1 && ahead > 0.7) h.slow = Math.min(h.slow, o.path.length && h.i > o.i ? 0.25 : 0.6);
+    }
+    if (_av.x || _av.z) { dir.add(_av); dir.normalize(); }
+  }
   function separate() {                       // heroes politely step around each other
     for (var i = 0; i < heroes.length; i++) {
       for (var j = i + 1; j < heroes.length; j++) {
         var A = heroes[i], B = heroes[j], a = A.root.position, b = B.root.position;
         var dx = b.x - a.x, dz = b.z - a.z, d2 = dx * dx + dz * dz;
-        if (d2 >= 0.72 || d2 < 1e-6) continue;
-        var d = Math.sqrt(d2), push = (0.85 - d) / d;
-        var wa = A.path.length ? 1 : 0.25, wb = B.path.length ? 1 : 0.25, sum = wa + wb;
-        a.x -= dx * push * wa / sum; a.z -= dz * push * wa / sum;
-        b.x += dx * push * wb / sum; b.z += dz * push * wb / sum;
+        var MIN = 1.05;
+        if (d2 >= MIN * MIN || d2 < 1e-6) continue;
+        var d = Math.sqrt(d2), push = (MIN - d) / d * 0.35;
+        var wa = A.path.length ? 1 : 0.12, wb = B.path.length ? 1 : 0.12, sum = wa + wb;
+        var ax = a.x - dx * push * wa / sum, az = a.z - dz * push * wa / sum;
+        var bx = b.x + dx * push * wb / sum, bz = b.z + dz * push * wb / sum;
+        if (walkable(ax, az) || !walkable(a.x, a.z)) { a.x = ax; a.z = az; }
+        if (walkable(bx, bz) || !walkable(b.x, b.z)) { b.x = bx; b.z = bz; }
       }
     }
   }
@@ -1351,6 +1604,15 @@
   window.NevetFarm = {
     scene: scene, heroes: heroes, camera: camera, controls: controls, renderer: renderer, stats: stats,
     setActivity: function (n) { setActivity(n, clockNow(), true); },
-    simulate: function (sec) { for (var t = 0; t < sec; t += 0.05) step(0.05); }
+    simulate: function (sec) { for (var t = 0; t < sec; t += 0.05) step(0.05); },
+    closest: function () {
+      var best = Infinity;
+      for (var i = 0; i < heroes.length; i++) for (var j = i + 1; j < heroes.length; j++)
+        best = Math.min(best, Math.hypot(heroes[i].root.position.x - heroes[j].root.position.x, heroes[i].root.position.z - heroes[j].root.position.z));
+      return best;
+    },
+    free: function (x, z) { return freeAt(x, z); }, path: function (a, b) { return findPath(V(a[0], 0, a[1]), V(b[0], 0, b[1])).map(function (v) { return [+v.x.toFixed(1), +v.z.toFixed(1)]; }); },
+    plants: plants,
+    blockedHeroes: function () { return heroes.filter(function (h) { return blockedAt(h.root.position.x, h.root.position.z, 0.2); }).length; }
   };
 })();
