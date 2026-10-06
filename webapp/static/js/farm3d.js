@@ -1067,10 +1067,10 @@
     var a = {};
     for (var k in h.appearance) a[k] = h.appearance[k];
     if (tool !== undefined && tool !== null) a.hand = tool;
+    a.pet = 'none';                                    // only the heroes come to the farm; companions stay home
+    a.petAccessory = 'none';
     var root = NevetHero.build(a, D.catalog, { outlines: outlines, merge: true });
     root.userData.heroIndex = h.i;
-    var u = root.userData;
-    if (u.pet && u.petBase) { u.petBase.x *= 0.6; u.petBase.z *= 0.5; u.pet.position.copy(u.petBase); }
     return root;
   }
   function setTool(h, tool) {

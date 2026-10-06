@@ -10,6 +10,7 @@
 - Heroes no longer bump into things or each other: routes are planned on a
   navigation grid around beds, buildings, the cart, campfire and pond; work
   spots are reserved; heroes steer around each other and re-plan if stuck.
+- Only the heroes come to the farm: companion pets stay home.
 
 ## 2026-10-06 (the farm)
 
