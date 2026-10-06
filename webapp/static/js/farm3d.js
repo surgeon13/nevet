@@ -689,6 +689,109 @@
     scene.add(embers);
   })();
 
+  // Party: a pop-up dance floor with a DJ booth, string lights, a disco ball
+  // with coloured beams, balloons and confetti (only shown in party mode)
+  var PARTY = { c: V(4.6, 0, 5.4), half: 2.6, tiles: null, bulbs: null, beams: [], ball: null, confetti: null, notes: [],
+                balloons: [], speakers: [], decks: [], group: null };
+  var DJ_SPOT = V(8.7, 0, 5.4);
+  (function () {
+    var g = group(), c = PARTY.c, half = PARTY.half, n = 7, tile = half * 2 / n;
+    PARTY.group = g;
+    g.visible = false;
+    scene.add(g);
+    // dance floor: one instanced mesh, colours change on the beat
+    var tGeo = new THREE.BoxGeometry(tile * 0.94, 0.08, tile * 0.94);
+    var tiles = new THREE.InstancedMesh(tGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }), n * n);
+    var m = new THREE.Matrix4(), col = new THREE.Color();
+    for (var i = 0; i < n; i++) for (var j = 0; j < n; j++) {
+      m.makeTranslation(c.x - half + tile * (i + 0.5), 0.05, c.z - half + tile * (j + 0.5));
+      tiles.setMatrixAt(i * n + j, m);
+      tiles.setColorAt(i * n + j, col.set('#333'));
+    }
+    PARTY.tiles = tiles; PARTY.tileN = n;
+    g.add(tiles);
+    g.add(box(half * 2 + 0.3, 0.06, half * 2 + 0.3, '#2a2a33', [c.x, 0.03, c.z]));
+    // DJ booth with two decks and speakers
+    var booth = group([DJ_SPOT.x - 0.95, 0, DJ_SPOT.z]);
+    booth.add(box(0.9, 1.0, 2.2, '#2d2d3a', [0, 0.5, 0]));
+    booth.add(box(1.0, 0.08, 2.3, '#4a4a5c', [0, 1.04, 0]));
+    var stripe = mesh(new THREE.BoxGeometry(0.02, 0.18, 2.0), new THREE.MeshBasicMaterial({ color: 0xff5ea8 }), [-0.46, 0.7, 0]);
+    booth.add(stripe); PARTY.stripe = stripe;
+    [-0.55, 0.55].forEach(function (z) {
+      var deck = cyl(0.28, 0.28, 0.04, '#111', [0, 1.1, z], 20);
+      deck.add(cyl(0.08, 0.08, 0.05, '#e3c16f', [0, 0.01, 0], 10));
+      booth.add(deck); PARTY.decks.push(deck);
+    });
+    g.add(booth);
+    [-1.8, 1.8].forEach(function (z) {
+      var sp = group([DJ_SPOT.x - 0.9, 0, DJ_SPOT.z + z]);
+      sp.add(box(0.8, 1.6, 0.8, '#22222b', [0, 0.8, 0]));
+      var woof = cyl(0.27, 0.27, 0.05, '#555', [-0.41, 0.6, 0], 18); woof.rotation.z = PI / 2; sp.add(woof);
+      var tw = cyl(0.12, 0.12, 0.05, '#777', [-0.41, 1.25, 0], 14); tw.rotation.z = PI / 2; sp.add(tw);
+      PARTY.speakers.push(woof);
+      g.add(sp);
+    });
+    // four poles with strings of coloured bulbs between them, and a disco ball in the middle
+    var corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(function (k) { return V(c.x + k[0] * (half + 0.4), 0, c.z + k[1] * (half + 0.4)); });
+    corners.forEach(function (p) { g.add(cyl(0.06, 0.07, 3.6, '#8a5f3a', [p.x, 1.8, p.z], 6)); });
+    var bulbPos = [];
+    function string(a, b, sag, count) {
+      for (var k = 0; k <= count; k++) {
+        var t = k / count;
+        bulbPos.push(V(a.x + (b.x - a.x) * t, 3.5 - Math.sin(t * PI) * sag, a.z + (b.z - a.z) * t));
+      }
+    }
+    for (var e = 0; e < 4; e++) string(corners[e], corners[(e + 1) % 4], 0.5, 9);
+    string(corners[0], corners[2], 0.9, 12); string(corners[1], corners[3], 0.9, 12);
+    var bulbs = new THREE.InstancedMesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }), bulbPos.length);
+    bulbPos.forEach(function (p, k) { m.makeTranslation(p.x, p.y, p.z); bulbs.setMatrixAt(k, m); bulbs.setColorAt(k, col.setHSL(k * 0.13 % 1, 0.9, 0.6)); });
+    PARTY.bulbs = bulbs;
+    g.add(bulbs);
+    var ball = mesh(new THREE.IcosahedronGeometry(0.42, 1), mat('#d9dde3', { flatShading: true, emissive: new THREE.Color('#556'), emissiveIntensity: 0.6 }), [c.x, 2.9, c.z]);
+    g.add(ball); PARTY.ball = ball;
+    g.add(cyl(0.01, 0.01, 0.55, '#888', [c.x, 3.25, c.z], 4));
+    ['#ff4fa3', '#3fd9ff', '#ffe14d', '#7dff6a', '#b06bff'].forEach(function (hex, k) {
+      var beam = mesh(new THREE.ConeGeometry(0.7, 2.9, 16, 1, true), new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+      beam.geometry.translate(0, -1.45, 0);
+      beam.position.set(c.x, 2.9, c.z);
+      beam.userData.k = k;
+      g.add(beam); PARTY.beams.push(beam);
+    });
+    // balloons tied to the poles
+    corners.forEach(function (p, k) {
+      ['#ff5ea8', '#ffd84d', '#5ec8ff'].forEach(function (hex, j) {
+        var b = group([p.x + (j - 1) * 0.35, 3.8 + j * 0.25, p.z]);
+        b.add(sphere(0.32, hex, [0, 0, 0], [1, 1.2, 1], 12));
+        b.add(cyl(0.006, 0.006, 0.9, '#eee', [0, -0.75, 0], 3));
+        b.userData = { ph: k * 2 + j, y: b.position.y };
+        g.add(b); PARTY.balloons.push(b);
+      });
+    });
+    // confetti
+    var cg = new THREE.BufferGeometry(), cp = new Float32Array(160 * 3), cc = new Float32Array(160 * 3);
+    PARTY.confettiSeeds = [];
+    for (var q = 0; q < 160; q++) {
+      PARTY.confettiSeeds.push([rr(-half, half), rr(0, 1), rr(-half, half), rr(0.4, 0.9)]);
+      col.setHSL(R(), 0.85, 0.6); cc[q * 3] = col.r; cc[q * 3 + 1] = col.g; cc[q * 3 + 2] = col.b;
+    }
+    cg.setAttribute('position', new THREE.BufferAttribute(cp, 3));
+    cg.setAttribute('color', new THREE.BufferAttribute(cc, 3));
+    PARTY.confetti = new THREE.Points(cg, new THREE.PointsMaterial({ size: 0.11, vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false }));
+    g.add(PARTY.confetti);
+    // music notes rising from the speakers
+    var noteTex = new THREE.CanvasTexture((function () {
+      var cv = document.createElement('canvas'); cv.width = cv.height = 64;
+      var x = cv.getContext('2d'); x.fillStyle = '#ffffff'; x.font = 'bold 54px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('♪', 32, 34);
+      return cv;
+    })());
+    for (var nn = 0; nn < 8; nn++) {
+      var sp2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTex, color: new THREE.Color().setHSL(nn / 8, 0.9, 0.65), transparent: true, depthWrite: false }));
+      sp2.scale.setScalar(0.45);
+      sp2.userData = { ph: nn / 8, side: nn % 2 ? 1 : -1 };
+      g.add(sp2); PARTY.notes.push(sp2);
+    }
+  })();
+
   // Chickens pecking around the barn
   var chickens = [];
   (function () {
@@ -920,6 +1023,9 @@
     for (var i = 0; i < Math.min(4, Math.max(1, (D.plants || []).filter(function (q) { return q.type === 'worm_bin'; }).length)); i++)
       obstacleRect(-11.2 + (i % 2) * 1.6, 1.2 + Math.floor(i / 2) * 1.6, 0.65, 0.55);
     [[17, -2], [-18, -16]].forEach(function (t) { obstacleCircle(t[0], t[1], 0.9); });
+    obstacleRect(DJ_SPOT.x - 0.95, DJ_SPOT.z, 0.5, 1.15);                               // DJ booth
+    [-1.8, 1.8].forEach(function (z) { obstacleRect(DJ_SPOT.x - 0.9, DJ_SPOT.z + z, 0.45, 0.45); });
+    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (k) { obstacleCircle(PARTY.c.x + k[0] * (PARTY.half + 0.4), PARTY.c.z + k[1] * (PARTY.half + 0.4), 0.12); });
     buildNav();
   })();
 
@@ -1154,9 +1260,27 @@
         var slot = ringSlot(h);
         goTo(h, slot, function () { face(h, FIRE); doAct(h, 'dance', 9999, null, clockNow()); });
       }
+    },
+    party: {
+      name: 'Party!', tool: null, night: 1, centre: V(PARTY.c.x + 1, 0.9, PARTY.c.z),
+      stat: function () {
+        var who = heroes.filter(function (h) { return h.act === 'party' || h.act === 'conga'; }).length;
+        return (conga.on ? 'Conga line! · ' : '') + who + ' dancing' + (heroes[0] && heroes[0].act === 'dj' ? ' · DJ ' + heroes[0].name : '');
+      },
+      next: function (h, now) {
+        if (h === heroes[0]) {                         // whoever opened the farm spins the records
+          return goTo(h, DJ_SPOT, function () { h.wantFacing = -PI / 2; doAct(h, 'dj', 9999, null, clockNow()); });
+        }
+        goTo(h, floorSlot(h), function () { face(h, V(DJ_SPOT.x, 0, DJ_SPOT.z)); h.style = h.i % 4; doAct(h, 'party', 9999, null, clockNow()); });
+      }
     }
   };
-  var ORDER = ['harvest', 'water', 'plant', 'campfire'];
+  function floorSlot(h) {                             // a 4 x 4 grid of spots on the dance floor
+    var dancers = heroes.filter(function (o) { return o !== heroes[0]; }), k = Math.max(0, dancers.indexOf(h));
+    var cols = 4, sp = 1.3, i = k % cols, j = Math.floor(k / cols) % 4;
+    return V(PARTY.c.x - 1.5 * sp + i * sp + (Math.floor(k / 16) * 0.5), 0, PARTY.c.z - 1.5 * sp + j * sp);
+  }
+  var ORDER = ['harvest', 'water', 'plant', 'campfire', 'party'];
   var current = D.start && ACTS[D.start] ? D.start : 'harvest';
   var ringTurn = 0;
   function ringRadius() { return Math.max(2.9, heroes.length * 1.5 / TAU); }   // about 1.5 units between neighbours
@@ -1219,7 +1343,7 @@
   }
 
   // ---------------------------------------------------------------- switching
-  var auto = !D.start, actStarted = 0, AUTO_DUR = { harvest: 50, water: 45, plant: 45, campfire: 40 };
+  var auto = !D.start, actStarted = 0, AUTO_DUR = { harvest: 50, water: 45, plant: 45, campfire: 40, party: 45 };
   var nightTarget = 0, night = 0;
   function setActivity(name, now, byUser) {
     if (!ACTS[name]) return;
@@ -1229,6 +1353,9 @@
     if (byUser) auto = false;
     focusTarget = ACTS[name].centre.clone();
     focusUntil = now + 2.2;
+    PARTY.group.visible = name === 'party';
+    conga.on = false;
+    if (name !== 'party') music.stop();
     heroes.forEach(function (h, idx) { h.switchAt = now + idx * 0.06; });     // swap tools one hero at a time
     updateUI();
   }
@@ -1297,6 +1424,12 @@
       u.hero.rotation.z = Math.sin(cyc) * (legs[1] ? 0.03 : 0.08);      // robes waddle a bit more
     }
     if (h.carry) [1, -1].forEach(function (s) { if (arms[s]) { arms[s].rotation.x = -1.15; arms[s].rotation.z = arms[s].userData.rest - s * 0.25; } });
+    if (h.act === 'conga') {
+      var bc = beatPhase(now);
+      [1, -1].forEach(function (s) { if (arms[s]) { arms[s].rotation.x = -1.35; arms[s].rotation.z = arms[s].userData.rest - s * 0.2; } if (legs[s]) legs[s].rotation.x = Math.sin(bc * PI * 2) * 0.5 * s; });
+      u.hero.position.y += Math.abs(Math.sin(bc * PI * 2)) * 0.08;
+      u.hero.rotation.z = Math.sin(bc * PI * 2) * 0.1;
+    }
     var p = h.act ? (now - h.actStart) : 0;
     switch (h.act) {
       case 'pick':
@@ -1329,6 +1462,22 @@
         break;
       case 'dance':
         if (now >= h.emoteAt && h.emoteAt) { NevetHero.emote(root, h.nextMove); h.emoteAt = 0; }
+        break;
+      case 'party':
+        if (now >= h.emoteAt && h.emoteAt) { NevetHero.emote(root, h.nextMove); h.emoteAt = 0; }
+        if (!u.emote) groove(h, u, arms, legs, now);
+        break;
+      case 'congaReady':
+        if (!conga.on && h.backAt && now >= h.backAt) {
+          h.backAt = 0;
+          goTo(h, floorSlot(h), function () { face(h, V(DJ_SPOT.x, 0, DJ_SPOT.z)); doAct(h, 'party', 9999, null, clockNow()); });
+        } else groove(h, u, arms, legs, now);
+        break;
+      case 'dj':
+        if (arms[1]) arms[1].rotation.x = -1.0 + Math.sin(now * 14) * 0.18;        // scratching
+        if (arms[-1]) { arms[-1].rotation.x = -0.9; arms[-1].rotation.z = arms[-1].userData.rest + 0.15; }
+        u.headRig.rotation.x = Math.abs(Math.sin(beatPhase(now) * PI)) * 0.22;      // nodding on the beat
+        u.hero.position.y += Math.abs(Math.sin(beatPhase(now) * PI)) * 0.04;
         break;
       case 'idle':
         break;
@@ -1372,7 +1521,7 @@
         var MIN = 1.05;
         if (d2 >= MIN * MIN || d2 < 1e-6) continue;
         var d = Math.sqrt(d2), push = (MIN - d) / d * 0.35;
-        var wa = A.path.length ? 1 : 0.12, wb = B.path.length ? 1 : 0.12, sum = wa + wb;
+        var wa = A.path.length || A.act === 'conga' ? 1 : 0.12, wb = B.path.length || B.act === 'conga' ? 1 : 0.12, sum = wa + wb;
         var ax = a.x - dx * push * wa / sum, az = a.z - dz * push * wa / sum;
         var bx = b.x + dx * push * wb / sum, bz = b.z + dz * push * wb / sum;
         if (walkable(ax, az) || !walkable(a.x, a.z)) { a.x = ax; a.z = az; }
@@ -1380,6 +1529,182 @@
       }
     }
   }
+
+  // ---------------------------------------------------------------- party choreography
+  var BPM = 120;
+  function beatPhase(now) { return (now * BPM / 60) % 1; }
+  function groove(h, u, arms, legs, now) {             // dancing between the big moves, each hero in their own style
+    var b = now * BPM / 60, ph = (b % 1), up = Math.abs(Math.sin(ph * PI));
+    u.hero.position.y += up * 0.09;
+    switch (h.style) {
+      case 0:                                          // bounce and pump
+        if (arms[1]) arms[1].rotation.x = -0.5 - 0.7 * up;
+        if (arms[-1]) arms[-1].rotation.x = -0.5 - 0.7 * (1 - up);
+        break;
+      case 1:                                          // hands in the air, swaying
+        [1, -1].forEach(function (s) { if (arms[s]) arms[s].rotation.z = arms[s].userData.rest + s * (2.0 + Math.sin(b * PI) * 0.3); });
+        u.hero.rotation.z = Math.sin(b * PI) * 0.12;
+        break;
+      case 2:                                          // side step
+        u.hero.position.x = Math.sin(b * PI) * 0.18;
+        [1, -1].forEach(function (s) { if (legs[s]) legs[s].rotation.z = s * up * 0.25; if (arms[s]) arms[s].rotation.z = arms[s].userData.rest + s * up * 0.8; });
+        break;
+      default:                                         // the twist
+        u.hero.rotation.y = Math.sin(b * PI) * 0.5;
+        [1, -1].forEach(function (s) { if (arms[s]) arms[s].rotation.x = -0.8 + Math.sin(b * PI + s) * 0.3; });
+        u.hero.position.y -= up * 0.05;
+    }
+  }
+  var conga = { on: false, t0: 0, theta: 0 }, partyBeat = -1;
+  function congaPoint(s) {                            // an oval loop around the dance floor
+    var a = s / 2.75;
+    return V(PARTY.c.x - 0.6 + Math.cos(a) * 2.75, 0, PARTY.c.z + Math.sin(a) * 2.65);
+  }
+  function stepParty(now, dt) {
+    if (!PARTY.group.visible) return;
+    var b = now * BPM / 60, beat = Math.floor(b), ph = b % 1, kick = Math.pow(1 - ph, 3);
+    // floor tiles, bulbs, beams, ball, speakers, balloons
+    var n = PARTY.tileN, col = new THREE.Color();
+    if (beat !== partyBeat) {
+      partyBeat = beat;
+      var pattern = Math.floor(beat / 8) % 3;
+      for (var i = 0; i < n; i++) for (var j = 0; j < n; j++) {
+        var on = pattern === 0 ? (i + j + beat) % 2 === 0 : pattern === 1 ? Math.abs(i - 3) + Math.abs(j - 3) === beat % 4 : R() < 0.45;
+        col.setHSL(((i * 7 + j * 3 + beat * 5) % 20) / 20, 0.85, on ? 0.6 : 0.16);
+        PARTY.tiles.setColorAt(i * n + j, col);
+      }
+      PARTY.tiles.instanceColor.needsUpdate = true;
+      // group moves on the beat (most of the time), sometimes a conga line
+      var dancers = heroes.filter(function (h) { return h.act === 'party'; });
+      var settled = heroes.every(function (h) { return h === heroes[0] || h.act === 'party'; });   // everyone in place
+      if (beat % 40 === 32 && dancers.length > 2 && !conga.on && settled) startConga(now);
+      else if (beat % 8 === 0 && !conga.on && R() < 0.75) {
+        var move = ['cheer', 'hop', 'twirl', 'pump', 'wave', 'cheer'][Math.floor(beat / 8) % 6];
+        dancers.forEach(function (h, k) { h.nextMove = move; h.emoteAt = now + k * 0.05; });
+      }
+      if (conga.on && conga.moving && now - conga.t1 > 9) endConga(now);
+    }
+    var bulbCount = PARTY.bulbs.count;
+    for (var k = 0; k < bulbCount; k++) { col.setHSL((k * 0.13 + now * 0.25) % 1, 0.9, 0.45 + 0.25 * Math.max(0, Math.sin(now * 6 + k))); PARTY.bulbs.setColorAt(k, col); }
+    PARTY.bulbs.instanceColor.needsUpdate = true;
+    PARTY.ball.rotation.y = now * 1.2;
+    PARTY.beams.forEach(function (bm) {
+      var a = now * 0.9 + bm.userData.k * TAU / PARTY.beams.length;
+      bm.rotation.set(Math.sin(a * 1.3) * 0.55, 0, Math.cos(a) * 0.55);
+      bm.material.opacity = 0.1 + kick * 0.14;
+    });
+    PARTY.speakers.forEach(function (w) { w.scale.set(1, 1 + kick * 0.6, 1 + kick * 0.6); });
+    PARTY.decks.forEach(function (d) { d.rotation.y = now * 3.5; });
+    PARTY.stripe.material.color.setHSL((now * 0.2) % 1, 0.9, 0.6);
+    PARTY.balloons.forEach(function (bl) { bl.position.y = bl.userData.y + Math.sin(now * 1.4 + bl.userData.ph) * 0.12; bl.rotation.z = Math.sin(now + bl.userData.ph) * 0.1; });
+    var cp = PARTY.confetti.geometry.attributes.position;
+    PARTY.confettiSeeds.forEach(function (sd, q) {
+      var y = 4.2 - ((now * sd[3] + sd[1]) % 1) * 4.2;
+      cp.setXYZ(q, PARTY.c.x + sd[0] + Math.sin(now * 2 + q) * 0.15, y, PARTY.c.z + sd[2] + Math.cos(now * 1.7 + q) * 0.15);
+    });
+    cp.needsUpdate = true;
+    PARTY.notes.forEach(function (nt) {
+      var u = (now * 0.35 + nt.userData.ph) % 1;
+      nt.position.set(DJ_SPOT.x - 0.9 - u * 0.6, 1.7 + u * 2.4, DJ_SPOT.z + nt.userData.side * 1.8 + Math.sin(u * 9) * 0.25);
+      nt.material.opacity = Math.sin(u * PI);
+    });
+    // conga line: everyone follows the leader around the floor
+    if (conga.on && !conga.moving) {
+      var ready = (conga.order || []).every(function (h) { return h.act === 'congaReady' || heroes.indexOf(h) < 0; });
+      if (ready || now - conga.t0 > 7) {
+        conga.moving = true; conga.t1 = now;
+        conga.order.forEach(function (h) { h.path = []; h.act = 'conga'; h.goal = null; });
+      }
+    }
+    if (conga.on && conga.moving) {
+      conga.theta += dt * 1.25;
+      var line = (conga.order || []).filter(function (h) { return h.act === 'conga'; });
+      var gap = congaGap(conga.order.length);
+      line.forEach(function (h, k) {
+        var target = congaPoint(conga.theta - k * gap), r = h.root.position;
+        var dx = target.x - r.x, dz = target.z - r.z, d = Math.hypot(dx, dz);
+        var spd = Math.min(d, (1.25 + d) * dt * 1.6);
+        if (d > 1e-3) { r.x += dx / d * spd; r.z += dz / d * spd; h.wantFacing = Math.atan2(dx, dz); }
+      });
+    }
+  }
+  function congaGap(n) { return Math.min(1.25, 16.9 / Math.max(1, n)); }   // the oval is about 17 units round
+  function startConga(now) {
+    // first everyone walks to their place in the line (in the order they stand around the floor),
+    // then the whole line moves together, so nobody bumps into anybody
+    var c = PARTY.c, line = heroes.filter(function (h) { return h.act === 'party'; });
+    line.forEach(function (h) { h.ang = Math.atan2(h.root.position.z - c.z, h.root.position.x - (c.x - 0.6)); });
+    line.sort(function (a, b) { return b.ang - a.ang; });
+    conga.on = true; conga.moving = false; conga.t0 = now;
+    conga.theta = line.length ? line[0].ang * 2.75 : 0;
+    conga.order = line;
+    var gap = congaGap(line.length);
+    line.forEach(function (h, k) {
+      goTo(h, congaPoint(conga.theta - k * gap), function () { h.wantFacing = undefined; doAct(h, 'congaReady', 9999, null, clockNow()); });
+    });
+  }
+  function endConga(now) {
+    conga.on = false;
+    (conga.order || []).forEach(function (h, k) {      // back to the floor, the leader first
+      if (h.act !== 'conga' && h.act !== 'congaReady') return;
+      h.act = 'congaReady';
+      h.backAt = now + k * 0.25;
+    });
+  }
+
+  // ---------------------------------------------------------------- music (party mode, off until you switch it on)
+  var music = (function () {
+    var ctx = null, master = null, timer = null, step = 0, nextT = 0, on = false;
+    var BASS = [45, 45, 57, 45, 48, 45, 55, 43, 45, 45, 57, 45, 52, 50, 48, 43];   // a little A-minor groove
+    function hz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+    function env(node, t, a, d, peak) { node.gain.setValueAtTime(0.0001, t); node.gain.exponentialRampToValueAtTime(peak, t + a); node.gain.exponentialRampToValueAtTime(0.0001, t + a + d); }
+    function kick(t) { var o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.12); env(g, t, 0.002, 0.28, 0.9); o.connect(g).connect(master); o.start(t); o.stop(t + 0.32); }
+    var noiseBuf = null;
+    function hat(t, open) {
+      if (!noiseBuf) { noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.3, ctx.sampleRate); var d = noiseBuf.getChannelData(0); for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+      var s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = 7000; env(g, t, 0.001, open ? 0.18 : 0.05, 0.22);
+      s.connect(f).connect(g).connect(master); s.start(t); s.stop(t + 0.25);
+    }
+    function clap(t) {
+      var s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = noiseBuf; f.type = 'bandpass'; f.frequency.value = 1500; env(g, t, 0.003, 0.14, 0.35);
+      s.connect(f).connect(g).connect(master); s.start(t); s.stop(t + 0.2);
+    }
+    function bass(t, note, accent) {
+      var o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.value = hz(note);
+      f.type = 'lowpass'; f.Q.value = 9; f.frequency.setValueAtTime(accent ? 1800 : 900, t); f.frequency.exponentialRampToValueAtTime(220, t + 0.16);
+      env(g, t, 0.004, 0.17, accent ? 0.33 : 0.22);
+      o.connect(f).connect(g).connect(master); o.start(t); o.stop(t + 0.22);
+    }
+    function tick() {
+      var s16 = 60 / BPM / 4;
+      while (nextT < ctx.currentTime + 0.12) {
+        var k = step % 16;
+        if (k % 4 === 0) kick(nextT);
+        if (k % 4 === 2) hat(nextT, k === 14);
+        if (k === 4 || k === 12) { hat(nextT); clap(nextT); }
+        if (k % 2 === 0 || k === 7 || k === 15) bass(nextT, BASS[k], k % 4 === 2);
+        nextT += s16; step++;
+      }
+    }
+    return {
+      toggle: function () {
+        if (on) return this.stop(), false;
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return false;
+        if (!ctx) { ctx = new AC(); master = ctx.createGain(); master.gain.value = 0.28; master.connect(ctx.destination); }
+        ctx.resume();
+        on = true; step = 0; nextT = ctx.currentTime + 0.05;
+        hat(nextT);                                    // creates the noise buffer
+        timer = setInterval(tick, 25);
+        return true;
+      },
+      stop: function () { on = false; if (timer) clearInterval(timer); timer = null; if (ui && ui.sound) { ui.sound.classList.remove('active'); ui.sound.setAttribute('aria-pressed', 'false'); } },
+      playing: function () { return on; }
+    };
+  })();
 
   // campfire: everyone does the same move, rippling around the ring
   var DANCE = ['cheer', 'hop', 'twirl', 'wave', 'pump', 'cheer', 'stretch', 'hop'];
@@ -1423,7 +1748,7 @@
     stars.material.opacity = n * 0.9;
     cloudMat.opacity = 0.95 * (1 - n * 0.75);
     cloudMat.color.setRGB(1 - n * 0.55, 1 - n * 0.5, 1 - n * 0.35);
-    var fireOn = current === 'campfire' ? 1 : 0;
+    var fireOn = current === 'campfire' || current === 'party' ? 1 : 0;
     flames.forEach(function (f) {
       f.visible = n > 0.15 && fireOn;
       var k = f.userData.k;
@@ -1522,12 +1847,18 @@
     name: document.getElementById('farm-act-name'), stat: document.getElementById('farm-act-stat'),
     chips: document.querySelectorAll('[data-act]'), auto: document.getElementById('farm-auto'),
     names: document.getElementById('farm-names'), photo: document.getElementById('farm-photo'),
-    follow: document.getElementById('farm-follow'), loading: document.getElementById('farm-loading')
+    follow: document.getElementById('farm-follow'), loading: document.getElementById('farm-loading'),
+    sound: document.getElementById('farm-sound')
   };
+  if (ui.sound) ui.sound.addEventListener('click', function () {
+    var on = music.toggle();
+    ui.sound.classList.toggle('active', on); ui.sound.setAttribute('aria-pressed', on);
+  });
   function updateUI() {
     if (ui.name) ui.name.textContent = ACTS[current].name;
     ui.chips.forEach(function (c) { c.classList.toggle('active', c.dataset.act === current); c.setAttribute('aria-pressed', c.dataset.act === current); });
     if (ui.auto) { ui.auto.classList.toggle('active', auto); ui.auto.setAttribute('aria-pressed', auto); }
+    if (ui.sound) ui.sound.hidden = current !== 'party';
   }
   ui.chips.forEach(function (c) { c.addEventListener('click', function () { setActivity(c.dataset.act, clockNow(), true); }); });
   if (ui.auto) ui.auto.addEventListener('click', function () { auto = !auto; if (auto) actStarted = clockNow(); updateUI(); });
@@ -1553,7 +1884,7 @@
   // keyboard / USB button boxes: 1-4 pick an activity, A toggles auto, Esc goes back
   document.addEventListener('keydown', function (e) {
     var k = e.key;
-    if (k >= '1' && k <= '4') setActivity(ORDER[+k - 1], clockNow(), true);
+    if (k >= '1' && k <= '5') setActivity(ORDER[+k - 1], clockNow(), true);
     else if (k === 'a' || k === 'A') { auto = !auto; if (auto) actStarted = clockNow(); updateUI(); }
     else if (k === 'Escape') { var back = document.querySelector('.farm-close'); if (back) location.href = back.href; }
   });
@@ -1577,11 +1908,13 @@
     heroes.forEach(function (h) { stepHero(h, now, dt); });
     separate();
     stepDance(now);
+    stepParty(now, dt);
     stepWorld(now, dt);
     stepParticles(dt);
   }
   updateUI();
   nightTarget = ACTS[current].night; night = nightTarget;
+  PARTY.group.visible = current === 'party';
   (function () {                                       // first view: the gate and the activity behind it
     var c = ACTS[current].centre, dir = V(0.55, 0.6, 0.85).normalize();
     controls.target.copy(c).lerp(V(0, 0.8, 8), 0.45);

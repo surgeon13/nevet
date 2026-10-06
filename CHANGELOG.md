@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-06 (party mode, no more bumping)
+
+- **Party!** on the farm, next to the campfire: dance floor with flashing
+  tiles, string lights, disco ball and beams, balloons, confetti and music
+  notes; the player who opened the farm is the DJ, everyone else grooves in
+  their own style, does group moves and forms conga lines. Optional synth
+  beat with the speaker button.
+- Heroes no longer bump into things or each other: routes are planned on a
+  navigation grid around beds, buildings, the cart, campfire and pond; work
+  spots are reserved; heroes steer around each other and re-plan if stuck.
+
 ## 2026-10-06 (the farm)
 
 - Tap the brain on the dashboard to visit **the farm**: a full-screen 3D

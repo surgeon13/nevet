@@ -368,14 +368,20 @@ the gate and joins a group activity:
   plants; a full field is harvested and sown again.
 - **Campfire dance**: night falls, the fire is lit and everyone dances
   the same moves around it, the ring turning now and then.
+- **Party!**: a pop-up dance floor with flashing tiles, string lights, a
+  disco ball with coloured beams, balloons and confetti. Whoever opened
+  the farm is the DJ; everyone else dances in their own style, joins in
+  on group moves and now and then forms a conga line. The speaker button
+  plays a little synth beat (off until you tap it).
 
 **Auto** changes activity about every minute. Drag to look around,
 pinch to zoom, tap a hero to follow them (they wave), tap the ground to
 let go. The beds show the garden's real plants with name signs and the
 worm bins stand by the barn; there's also a barn, windmill, greenhouse,
 pond with ducks, chickens, butterflies and fireflies. The camera button
-saves a picture. Keys 1-4 pick an activity, A toggles auto, Esc goes
-back. The farm is just for fun: nothing there changes the garden's
+saves a picture. Keys 1-5 pick an activity, A toggles auto, Esc goes
+back. Heroes plan their routes around beds, buildings
+and each other, and keep their own spot while working. The farm is just for fun: nothing there changes the garden's
 records.
 
 Heroes move on the profile and customize pages: they breathe and blink,

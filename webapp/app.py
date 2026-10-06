@@ -828,7 +828,7 @@ def farm_page():
         "plants": plants,
         "catalog": heroes.catalog(),
         "gardenName": "Nevet Farm",
-        "start": request.args.get("act") if request.args.get("act") in ("harvest", "water", "plant", "campfire") else None,
+        "start": request.args.get("act") if request.args.get("act") in ("harvest", "water", "plant", "campfire", "party") else None,
     }
     return render_template("farm.html", data=data)
 
