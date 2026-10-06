@@ -16,6 +16,7 @@ import auth
 import farm_db
 import garden_map
 import heroes
+import plants
 import traffic
 
 BASE_DIR = Path(os.environ.get("CAMERA_BASE_DIR", str(Path.home() / "camera_captures")))
@@ -393,15 +394,22 @@ def asset_new(grower_id):
     return redirect(url_for("plant_new"))
 
 
+def plant_view(a):
+    """What the 3D plant models need to know about an asset."""
+    return {"id": a["id"], "name": a["name"], "type": a["asset_type"], "stage": a["life_stage"] or "",
+            "species": plants.species_for(a), "model_stage": plants.model_stage(a["life_stage"], a["asset_type"]),
+            "url": url_for("asset_page", asset_id=a["id"])}
+
+
 @app.route("/assets")
 def assets_page():
     assets = [dict(a) for a in farm_db.list_assets()]
-    garden = [
-        {"id": a["id"], "name": a["name"], "type": a["asset_type"],
-         "stage": a["life_stage"] or "", "url": url_for("asset_page", asset_id=a["id"])}
-        for a in assets
-    ]
-    return render_template("assets.html", assets=assets, garden=garden)
+    garden = [plant_view(a) for a in assets]
+    for a, v in zip(assets, garden):
+        a["species"] = v["species"]
+        a["model_stage"] = v["model_stage"]
+    return render_template("assets.html", assets=assets, garden=garden,
+                           plant_catalog=plants.subset({v["species"] for v in garden}))
 
 
 @app.route("/assets/<int:asset_id>")
@@ -409,8 +417,27 @@ def asset_page(asset_id):
     asset = farm_db.get_asset(asset_id)
     if not asset:
         abort(404)
+    view = plant_view(asset)
     return render_template("asset_detail.html", asset=asset, pinned=garden_map.asset_pinned(asset_id),
-                           history=farm_db.recent_activity(asset_id=asset_id, limit=100))
+                           history=farm_db.recent_activity(asset_id=asset_id, limit=100),
+                           plant=view, species=plants.species(view["species"]), picked=plants.valid(asset["species"]),
+                           detected=plants.detect(asset["name"], asset["variety"], asset["asset_type"]),
+                           species_groups=plants.groups(), plant_catalog=plants.catalog(), stages=plants.STAGES,
+                           notice=request.args.get("notice"))
+
+
+@app.route("/assets/<int:asset_id>/species", methods=["POST"])
+def asset_species(asset_id):
+    """Pick which 3D model a plant is drawn with ('auto' = from its name)."""
+    asset = farm_db.get_asset(asset_id)
+    if not asset:
+        abort(404)
+    choice = request.form.get("species", "auto")
+    if choice != "auto" and not plants.valid(choice):
+        abort(400)
+    farm_db.set_species(asset_id, None if choice == "auto" else choice)
+    logger.info("%s set %s's 3D model to %s", g.user["name"], asset["name"], choice)
+    return redirect(url_for("asset_page", asset_id=asset_id, notice="Model updated."))
 
 
 @app.route("/assets/<int:asset_id>/logs/new")
@@ -491,6 +518,8 @@ def plant_new():
         name = " ".join(request.form.get("name", "").split())[:40]
         variety = " ".join(request.form.get("variety", "").split())[:40] or None
         kind = request.form.get("asset_type") if request.form.get("asset_type") in farm_db.ASSET_TYPES else "plant"
+        species = request.form.get("species")
+        species = species if kind == "plant" and plants.valid(species) else None    # None: from the name
         how = request.form.get("how") if request.form.get("how") in ("seeding", "planting", "growing") else "planting"
         if not name:
             error = "Give it a name, like “Cherry tomato” or “Worm bin 2”."
@@ -502,13 +531,14 @@ def plant_new():
                 action = "setup"
             else:
                 stage = {"seeding": "seed", "planting": "seedling", "growing": "growing"}[how]
-                aid = farm_db.add_asset("plant", name, g.user["id"], variety=variety, life_stage=stage)
+                aid = farm_db.add_asset("plant", name, g.user["id"], variety=variety, life_stage=stage, species=species)
                 action = "seeding" if how == "seeding" else "planting"
                 farm_db.add_log(action, aid, notes=request.form.get("notes") or None,
                                 grower_id=g.user["id"], new_stage=stage)
             logger.info("%s added %s %s", g.user["name"], kind, name)
             return _after_logging(before, action, 1, plant=name)
-    return render_template("plant_new.html", error=error, form=form)
+    return render_template("plant_new.html", error=error, form=form, species_groups=plants.groups(),
+                           plant_catalog=plants.catalog())
 
 
 @app.route("/activity")
@@ -810,6 +840,9 @@ def api_map_geojson():
 
 # ---------- the farm: every hero together (tap the brain on the dashboard) ----------
 FARM_MAX_HEROES = 16
+# what grows in the farm's empty bed spots and the planting field
+FARM_FILL_SPECIES = ("tomato", "cherry_tomato", "bell_pepper", "lettuce", "basil", "mint", "carrot", "strawberry",
+                     "sunflower", "corn", "zucchini", "pumpkin", "green_beans", "parsley", "chard", "radish", "spinach")
 
 
 @app.route("/farm")
@@ -819,13 +852,14 @@ def farm_page():
     rows = sorted(rows, key=lambda r: r["last_login"] or "", reverse=True)            # most recent first...
     rows = sorted(rows, key=lambda r: (r["id"] != g.user["id"], not r["password_hash"]))  # ...within each group (stable)
     party = [hero_view(r) for r in rows[:FARM_MAX_HEROES]]
-    plants = [{"name": a["name"], "type": a["asset_type"], "stage": a["life_stage"] or "growing"}
-              for a in farm_db.plants(current=True)][:40]
+    growing = [plant_view(a) for a in farm_db.plants(current=True)][:40]
     data = {
         "heroes": [{"id": h["id"], "name": h["name"], "level": h["progress"]["level"], "appearance": h["appearance"]}
                    for h in party],
         "more": max(0, len(rows) - FARM_MAX_HEROES),
-        "plants": plants,
+        "plants": [{"id": p["id"], "name": p["name"], "type": p["type"], "species": p["species"],
+                    "stage": p["model_stage"]} for p in growing],
+        "plantCatalog": plants.subset({p["species"] for p in growing} | set(FARM_FILL_SPECIES)),
         "catalog": heroes.catalog(),
         "gardenName": "Nevet Farm",
         "start": request.args.get("act") if request.args.get("act") in ("harvest", "water", "plant", "campfire", "party") else None,

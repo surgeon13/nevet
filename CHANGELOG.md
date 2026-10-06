@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-06 (plants in 3D)
+
+- **3D plant models** for about 90 species (tomatoes, cherry tomatoes,
+  peppers, mint, basil and the other herbs, greens, roots, squash and
+  melons, beans, corn, flowers, berries, fruit trees, palms, succulents,
+  mushrooms, microgreens, compost worms, bees), each at every growth
+  stage from seed to harvested and dried.
+- Nevet works out which plant it is from the name and variety (English
+  or Hebrew); pick a different one on Add a plant (with a live preview)
+  or on the plant's page.
+- Plant page: turn the model, tap a stage to see the plant from seed to
+  harvest. Plants page: the 3D garden uses the real models (it also
+  works again: it stopped drawing on its first frame), and every row has
+  a small picture.
+- The farm's beds, greenhouse and new field grow the real models too.
+
 ## 2026-10-06 (party mode, no more bumping)
 
 - **Party!** on the farm, next to the campfire: dance floor with flashing

@@ -541,3 +541,35 @@ dialog.about[open] { animation: about-in 0.2s ease-out; }
 @keyframes hint-bob { 50% { transform: translateX(-50%) translateY(-3px); } }
 .hub-3d-wrap.diving canvas { transition: transform 0.38s ease-in, opacity 0.38s ease-in, filter 0.38s; transform: scale(1.6); opacity: 0; filter: blur(3px); }
 @media (prefers-reduced-motion: reduce) { .hub-farm-hint { animation: none; } .hub-3d-wrap.diving canvas { transform: none; } }
+
+/* 3D plant models (static/js/plants3d.js): plant page, add-a-plant preview, Plants list */
+.plant-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 4px 0 16px; padding: 12px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-card); }
+@media (min-width: 720px) { .plant-card { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; } }
+.plant-viewer { position: relative; height: 260px; border-radius: 12px; overflow: hidden; background: radial-gradient(ellipse at 50% 85%, rgba(76, 154, 91, 0.16), transparent 70%), linear-gradient(var(--bg), var(--bg-card)); }
+@media (min-width: 720px) { .plant-viewer { height: 320px; } }
+.plant-viewer canvas, .plant-preview-view canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+.plant-card.no-3d .plant-viewer, .plant-card.no-3d .plant-stages { display: none; }
+.plant-viewer-tag { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); padding: 6px 12px; border: 0; border-radius: 999px; background: rgba(30, 42, 32, 0.82); color: #fff; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.plant-species-line { margin: 0 0 8px; }
+.plant-species-line b { font-size: 1.05rem; }
+.plant-stages { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin-bottom: 10px; }
+.plant-stage { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 4px 2px 5px; border: 1px solid transparent; border-radius: 10px; background: none; color: var(--text-dim); font: inherit; font-size: 10.5px; cursor: pointer; }
+.plant-stage img { width: 100%; max-width: 64px; height: auto; aspect-ratio: 1; border-radius: 8px; background: var(--bg); }
+.plant-stage span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plant-stage.current { border-color: var(--accent); color: var(--accent-2); font-weight: 700; background: rgba(76, 154, 91, 0.08); }
+.plant-stage.shown { border-color: var(--border); background: var(--bg); color: var(--text); }
+.plant-model-pick summary { cursor: pointer; font-size: 13.5px; color: var(--text-dim); list-style: none; }
+.plant-model-pick summary::-webkit-details-marker { display: none; }
+.plant-model-pick summary .link { color: var(--accent-2); font-weight: 700; text-decoration: underline; }
+.plant-model-form { display: flex; gap: 8px; margin-top: 8px; }
+.plant-model-form select { flex: 1; min-width: 0; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); font: inherit; font-size: 16px; }
+.plant-preview { display: flex; gap: 12px; align-items: center; margin: 2px 0 14px; padding: 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg); }
+.plant-preview[hidden] { display: none; }
+.plant-preview-view { flex: none; width: 128px; height: 128px; border-radius: 10px; overflow: hidden; background: radial-gradient(ellipse at 50% 85%, rgba(76, 154, 91, 0.18), transparent 70%); }
+.plant-preview-side { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; font-size: 13px; }
+.plant-preview-side b { font-size: 15px; }
+.plant-preview-he { color: var(--text-dim); text-align: left; }
+.plant-species-pick select { width: 100%; margin-top: 6px; }
+.plant-name-cell { display: inline-flex; align-items: center; gap: 8px; }
+.plant-thumb { width: 40px; height: 40px; border-radius: 8px; background: var(--bg); flex: none; }
+@media (max-width: 420px) { .plant-stage { font-size: 9.5px; padding: 3px 1px 4px; } .plant-stages { gap: 2px; } }

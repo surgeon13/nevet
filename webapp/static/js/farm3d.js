@@ -303,104 +303,24 @@
 
   // ---------------------------------------------------------------- plants
   var LEAF = '#5fae48', LEAF2 = '#4c9a3c', LEAF3 = '#7cc35a';
-  var KINDS = ['lettuce', 'herb', 'tomato', 'root', 'strawberry', 'flower', 'pepper', 'corn', 'beans', 'pumpkin'];
-  var PRODUCE = { tomato: '#e0402f', pepper: '#e8492f', herb: '#6cc24a', lettuce: '#a6d96a', root: '#f08a2c', strawberry: '#e5334b',
-                  flower: '#f5c52b', pumpkin: '#ef8a24', beans: '#7bbf4a', corn: '#f2d04b', bush: '#7cc35a' };
-  function plantModel(kind, r) {
-    var g = group(), pg = group(), minScale = 0;
-    g.add(pg);
-    function add(o, isProduce) { (isProduce ? pg : g).add(o); return o; }
-    switch (kind) {
-      case 'tomato':
-        add(cyl(0.025, 0.025, 1.15, '#c9a26b', [0.14, 0.57, 0], 6));
-        for (var i = 0; i < 4; i++) add(sphere(0.2 + r() * 0.06, i % 2 ? LEAF : LEAF2, [(r() - 0.5) * 0.3, 0.28 + i * 0.2, (r() - 0.5) * 0.3]));
-        for (var j = 0; j < 5; j++) add(sphere(0.08, '#e0402f', [Math.cos(j * 1.3) * 0.2, 0.32 + j * 0.13, Math.sin(j * 1.3) * 0.2], null, 8), true);
-        break;
-      case 'pepper':
-        for (var a = 0; a < 3; a++) add(sphere(0.19, a % 2 ? LEAF : LEAF2, [(r() - 0.5) * 0.25, 0.25 + a * 0.13, (r() - 0.5) * 0.25]));
-        for (var b = 0; b < 3; b++) add(sphere(0.06, b === 1 ? '#f2c230' : '#e8492f', [Math.cos(b * 2.1) * 0.2, 0.3, Math.sin(b * 2.1) * 0.2], [0.8, 1.6, 0.8], 8), true);
-        break;
-      case 'herb':
-        for (var h = 0; h < 8; h++) add(sphere(0.11, h % 3 ? LEAF3 : LEAF, [Math.cos(h * 0.8) * 0.16 * (h % 2 + 0.5), 0.12 + (h % 4) * 0.07, Math.sin(h * 0.8) * 0.16]), true);
-        minScale = 0.55;
-        break;
-      case 'lettuce':
-        for (var l = 0; l < 7; l++) {
-          var ang = l / 7 * TAU, rad = l ? 0.17 : 0;
-          add(sphere(l ? 0.16 : 0.15, l ? '#a6d96a' : '#c7ea8c', [Math.cos(ang) * rad, 0.13 + (l ? 0 : 0.06), Math.sin(ang) * rad], [1, 0.62, 1]), true);
-        }
-        minScale = 0.45;
-        break;
-      case 'root':
-        for (var c = 0; c < 5; c++) { var top = cone(0.05, 0.42, LEAF3, [Math.cos(c * 1.26) * 0.06, 0.32, Math.sin(c * 1.26) * 0.06], 5); top.rotation.set(Math.sin(c) * 0.35, 0, Math.cos(c) * 0.35); add(top, true); }
-        add(cyl(0.08, 0.04, 0.14, '#f08a2c', [0, 0.06, 0], 8), true);
-        minScale = 0.35;
-        break;
-      case 'strawberry':
-        for (var s = 0; s < 5; s++) add(sphere(0.13, s % 2 ? LEAF2 : LEAF, [Math.cos(s * 1.25) * 0.15, 0.1, Math.sin(s * 1.25) * 0.15], [1, 0.5, 1]));
-        for (var bb = 0; bb < 4; bb++) { var berry = cone(0.055, 0.12, '#e5334b', [Math.cos(bb * 1.6 + 0.4) * 0.23, 0.07, Math.sin(bb * 1.6 + 0.4) * 0.23], 8); berry.rotation.x = PI; add(berry, true); }
-        break;
-      case 'flower':
-        add(cyl(0.035, 0.045, 1.3, '#5b9a3c', [0, 0.65, 0], 6));
-        add(sphere(0.14, LEAF, [0.12, 0.55, 0], [1.4, 0.3, 0.8])); add(sphere(0.14, LEAF, [-0.12, 0.8, 0], [1.4, 0.3, 0.8]));
-        var head = group([0, 1.33, 0.05]); head.rotation.x = 0.5;
-        for (var p = 0; p < 12; p++) head.add(sphere(0.09, '#f5c52b', [Math.cos(p / 12 * TAU) * 0.2, Math.sin(p / 12 * TAU) * 0.2, 0], [1, 1, 0.3], 8));
-        head.add(rot(cyl(0.14, 0.14, 0.06, '#6b4423', [0, 0, 0.02], 14), PI / 2));
-        add(head, true);
-        minScale = 0.4;
-        break;
-      case 'pumpkin':
-        for (var v = 0; v < 4; v++) add(sphere(0.16, v % 2 ? LEAF : LEAF2, [Math.cos(v * 1.6) * 0.32, 0.1, Math.sin(v * 1.6) * 0.32], [1.3, 0.35, 1]));
-        var pk = add(group([0.05, 0.17, 0.05]), true);
-        for (var rb = 0; rb < 6; rb++) pk.add(sphere(0.12, '#ef8a24', [Math.cos(rb / 6 * TAU) * 0.1, 0, Math.sin(rb / 6 * TAU) * 0.1], [0.75, 1, 0.75], 10));
-        pk.add(cyl(0.025, 0.03, 0.1, '#5d7a2e', [0, 0.15, 0], 6));
-        break;
-      case 'beans':
-        add(cyl(0.025, 0.025, 1.5, '#c9a26b', [0, 0.75, 0], 6));
-        var helix = [];
-        for (var hx = 0; hx <= 30; hx++) { var u = hx / 30; helix.push(V(Math.cos(u * TAU * 2.5) * 0.09, 0.05 + u * 1.35, Math.sin(u * TAU * 2.5) * 0.09)); }
-        add(mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(helix), 40, 0.02, 5, false), LEAF2));
-        for (var lv = 0; lv < 6; lv++) add(sphere(0.09, LEAF, [Math.cos(lv * 2.4) * 0.14, 0.25 + lv * 0.2, Math.sin(lv * 2.4) * 0.14], [1, 0.5, 1]));
-        for (var pd = 0; pd < 4; pd++) add(sphere(0.035, '#7bbf4a', [Math.cos(pd * 1.9 + 1) * 0.16, 0.45 + pd * 0.22, Math.sin(pd * 1.9 + 1) * 0.16], [1, 3.2, 1], 6), true);
-        break;
-      case 'corn':
-        add(cyl(0.04, 0.05, 1.6, '#7aa63c', [0, 0.8, 0], 6));
-        for (var cl = 0; cl < 4; cl++) { var lf = cone(0.06, 0.8, LEAF, [Math.cos(cl * 1.6) * 0.14, 0.5 + cl * 0.22, Math.sin(cl * 1.6) * 0.14], 4); lf.rotation.set(Math.sin(cl * 1.6) * 1.0, 0, -Math.cos(cl * 1.6) * 1.0); add(lf); }
-        var cob = group([0.07, 1.0, 0.05]); cob.rotation.z = -0.3;
-        cob.add(cyl(0.06, 0.05, 0.3, '#f2d04b', [0, 0, 0], 8)); cob.add(rot(cone(0.065, 0.2, '#9cc95a', [0, -0.12, 0], 6), PI));
-        add(cob, true);
-        break;
-      default:                                         // a leafy bush
-        for (var k = 0; k < 4; k++) add(sphere(0.2, k % 2 ? LEAF : LEAF3, [(r() - 0.5) * 0.3, 0.2 + k * 0.1, (r() - 0.5) * 0.3]), true);
-        minScale = 0.6;
+  // Plant models come from plants3d.js (static/assets/plants/catalog.json).
+  var NP = window.NevetPlants;
+  if (NP && D.plantCatalog) NP.use(D.plantCatalog);
+  var FILL = ['lettuce', 'basil', 'tomato', 'carrot', 'strawberry', 'sunflower', 'bell_pepper', 'corn', 'green_beans', 'pumpkin',
+              'cherry_tomato', 'mint', 'chard', 'parsley', 'zucchini', 'radish'];
+  // A plant model fitted to a bed spot (big plants like trees are scaled down to fit).
+  function plantModel(species, stage, seed, fit) {
+    var g;
+    if (NP) g = NP.build(species, stage, { seed: seed });
+    else {
+      g = group(); var pg = group(); g.add(pg);
+      pg.add(sphere(0.25, LEAF, [0, 0.25, 0]));
+      g.userData = { produce: [pg], minScale: 0.5, color: LEAF3, height: 0.5, radius: 0.25 };
     }
-    if (NevetHero.merge) NevetHero.merge(g, function (o) { return o === pg; });
-    g.userData = { kind: kind, produce: [pg], minScale: minScale, color: PRODUCE[kind] || PRODUCE.bush };
+    var u = g.userData, f = fit || { r: 0.5, h: 1.7 };
+    var k = Math.min(1, f.r / Math.max(0.05, u.radius), f.h / Math.max(0.05, u.height));
+    if (k < 1) { var w = group(); w.add(g); g.scale.multiplyScalar(k); w.userData = u; return w; }
     return g;
-  }
-  function sproutModel() {
-    var g = group();
-    g.add(cyl(0.015, 0.02, 0.16, '#6fb34e', [0, 0.08, 0], 5));
-    g.add(sphere(0.06, LEAF3, [0.05, 0.17, 0], [1.4, 0.35, 0.8], 8));
-    g.add(sphere(0.06, LEAF3, [-0.05, 0.17, 0], [1.4, 0.35, 0.8], 8));
-    if (NevetHero.merge) NevetHero.merge(g, function () { return false; });
-    return g;
-  }
-  function kindFor(name, type) {
-    if (type === 'worm_bin') return 'worm_bin';
-    var n = (name || '').toLowerCase();
-    var map = [
-      [/tomat|עגבני/, 'tomato'], [/pepper|chil|פלפל/, 'pepper'],
-      [/basil|mint|parsley|coriander|cilantro|oregano|thyme|sage|rosemary|herb|dill|lavender|chive|bazil|נענע|בזיל|פטרוזיל|כוסבר/, 'herb'],
-      [/lettuce|salad|spinach|kale|chard|cabbage|arugula|rocket|חסה|תרד|כרוב/, 'lettuce'],
-      [/carrot|radish|beet|onion|garlic|leek|potato|turnip|גזר|צנון|בצל|שום|תפוח אדמה/, 'root'],
-      [/strawberr|berry|תות/, 'strawberry'], [/sunflower|flower|rose|marigold|zinnia|daisy|חמני|פרח/, 'flower'],
-      [/pumpkin|squash|zucchini|courgette|melon|cucumber|דלע|קישוא|מלפפון|אבטיח|מלון/, 'pumpkin'],
-      [/bean|pea|שעועית|אפונה/, 'beans'], [/corn|maize|wheat|תירס|חיטה/, 'corn']
-    ];
-    for (var i = 0; i < map.length; i++) if (map[i][0].test(n)) return map[i][1];
-    var h = 0; for (var c = 0; c < n.length; c++) h = (h * 31 + n.charCodeAt(c)) >>> 0;
-    return ['lettuce', 'herb', 'bush', 'flower'][h % 4];
   }
 
   // ---------------------------------------------------------------- beds
@@ -429,16 +349,16 @@
       statics.add(outline(bed));
       for (var k = 0; k < SLOTS; k++) {
         var z = BED_Z0 - k * SLOT_STEP - 0.3, idx = bi * SLOTS + k;
-        var info = real[idx], kind = info ? info.kind || kindFor(info.name, info.type) : (KINDS[Math.floor(fill() * KINDS.length)]);
-        var stage = info ? info.stage : (fill() < 0.25 ? 'mature' : 'growing');
-        addPlant(kind, V(bx, 0.4, z), stage, info ? info.name : null, 'bed');
+        var info = real[idx], species = info ? info.species || 'generic' : FILL[Math.floor(fill() * FILL.length)];
+        var stage = info ? info.stage : (fill() < 0.35 ? 'growing' : 'mature');
+        addPlant(species, V(bx, 0.4, z), stage, info ? info.name : null, 'bed');
       }
     });
   })();
-  function addPlant(kind, pos, stage, name, where) {
+  function addPlant(species, pos, stage, name, where) {
     var young = stage === 'seed' || stage === 'germination';
-    var model = young ? sproutModel() : plantModel(kind, rng(Math.round(pos.x * 100 + pos.z * 7)));
-    var base = young ? 1 : stage === 'seedling' ? 0.6 : stage === 'growing' ? 0.85 : 1;
+    var model = plantModel(species, stage, Math.round(pos.x * 100 + pos.z * 7 + 1000));
+    var base = 1;
     var holder = group([pos.x, pos.y, pos.z]);
     holder.add(model);
     model.scale.setScalar(base);
@@ -447,9 +367,9 @@
     var soil = mesh(new THREE.CircleGeometry(0.38, 14), new THREE.MeshBasicMaterial({ color: 0x3b2716, transparent: true, opacity: 0 }));
     soil.rotation.x = -PI / 2; soil.position.set(pos.x, pos.y + 0.011, pos.z);
     scene.add(soil);
-    var p = { kind: kind, pos: pos, holder: holder, model: model, base: base, name: name, where: where,
-              ripe: !young && stage !== 'seedling', ripeK: 1, regrowAt: 0, claimed: null, wateredAt: -999, perk: 0, soil: soil,
-              color: model.userData.color || PRODUCE.bush };
+    var p = { species: species, pos: pos, holder: holder, model: model, base: base, name: name, where: where,
+              ripe: !young && stage !== 'seedling' && stage !== 'harvested' && stage !== 'archived', ripeK: 1, regrowAt: 0, claimed: null,
+              wateredAt: -999, perk: 0, soil: soil, color: model.userData.color || LEAF3 };
     if (name) {
       var sign = signMesh(name);
       sign.position.set(pos.x + 0.62, pos.y, pos.z + 0.28);
@@ -547,8 +467,8 @@
     g.add(box(0.08, 0.08, Dp, frame, [0, H + 1.1, 0]));
     g.add(box(W - 0.4, 0.5, 1.1, '#a8743f', [0, 0.25, -0.6]));
     for (var i = 0; i < 5; i++) {
-      var pm = plantModel(['tomato', 'herb', 'pepper', 'herb', 'tomato'][i], rng(i + 5));
-      pm.position.set(-1.7 + i * 0.85, 0.5, -0.6); pm.scale.setScalar(0.75);
+      var pm = plantModel(['tomato', 'basil', 'bell_pepper', 'mint', 'cherry_tomato'][i], 'mature', i + 5, { r: 0.4, h: 1.0 });
+      pm.position.set(-1.7 + i * 0.85, 0.5, -0.6);
       g.add(pm);
     }
     statics.add(g);
@@ -1309,9 +1229,9 @@
   function sow(s, now) {
     s.state = 'growing';
     s.t0 = now;
-    var kind = ['lettuce', 'root', 'herb', 'strawberry', 'lettuce'][Math.floor(R() * 5)];
+    var species = ['lettuce', 'carrot', 'basil', 'strawberry', 'radish', 'spinach', 'parsley'][Math.floor(R() * 7)];
     var holder = group([s.pos.x, s.pos.y, s.pos.z]);
-    var sprout = sproutModel(), grown = plantModel(kind, rng(Math.round(now * 100)));
+    var sprout = plantModel(species, 'germination', Math.round(now * 100)), grown = plantModel(species, 'mature', Math.round(now * 100) + 1, { r: 0.55, h: 1 });
     grown.scale.setScalar(0.001);
     holder.add(sprout); holder.add(grown);
     holder.rotation.y = rr(0, TAU);

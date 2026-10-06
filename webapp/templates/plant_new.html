@@ -26,6 +26,25 @@
     <input type="text" name="variety" maxlength="40" value="{{ form.get('variety', '') }}" placeholder="e.g. Sungold">
   </label>
 
+  <div class="plant-preview" data-plant-preview hidden>
+    <div class="plant-preview-view" id="plant-preview-wrap"><canvas id="plant-preview-canvas" aria-hidden="true"></canvas></div>
+    <div class="plant-preview-side">
+      <span class="muted">Grows into</span>
+      <b id="plant-preview-name">Plant</b>
+      <span class="plant-preview-he" id="plant-preview-he" lang="he" dir="rtl"></span>
+      <label class="plant-species-pick" data-plant-only>
+        <span class="sr-only">Which plant is it?</span>
+        <select name="species" id="plant-species">
+          <option value="auto">Auto (from the name)</option>
+          {% for group, items in species_groups %}{% if items[0].model not in ('worms',) %}
+          <optgroup label="{{ group }}">
+            {% for s in items %}{% if s.model != 'worms' %}<option value="{{ s.id }}" {% if form.get('species') == s.id %}selected{% endif %}>{{ s.name }}</option>{% endif %}{% endfor %}
+          </optgroup>{% endif %}{% endfor %}
+        </select>
+      </label>
+    </div>
+  </div>
+
   <fieldset class="log-step" data-plant-only>
     <legend class="hero-field-label">How did you start it?</legend>
     <div class="choice-list">
@@ -44,15 +63,45 @@
   <button type="submit" class="btn btn-primary auth-submit">Add it</button>
   <p class="auth-alt"><a href="{{ url_for('log_action') }}">Back to logging</a></p>
 </form>
+<script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/OrbitControls.js') }}"></script>
+<script src="{{ url_for('static', filename='js/nevet3d.js') }}"></script>
+<script>window.NEVET_PLANT_CATALOG = {{ plant_catalog | tojson }};</script>
+<script src="{{ url_for('static', filename='js/plants3d.js') }}"></script>
 <script>
 (function () {
   var form = document.getElementById('plant-form');
+  var nameIn = form.querySelector('input[name=name]'), varIn = form.querySelector('input[name=variety]');
+  var pick = document.getElementById('plant-species'), preview = form.querySelector('[data-plant-preview]');
+  var viewer = null, shown = null, timer = null;
+  function isBin() { return form.querySelector('input[name=asset_type]:checked').value === 'worm_bin'; }
+  function current() {
+    if (isBin()) return 'compost_worms';
+    if (pick.value !== 'auto') return pick.value;
+    return NevetPlants.detect(nameIn.value, varIn.value) || 'generic';
+  }
+  function refresh() {
+    if (!window.NevetPlants || !window.Nevet3D || !Nevet3D.supportsWebGL()) return;
+    var id = current(), sp = NevetPlants.species(id) || {};
+    var auto = pick.options[0];
+    var found = NevetPlants.detect(nameIn.value, varIn.value);
+    auto.textContent = found ? 'Auto: ' + (NevetPlants.species(found) || {}).name : 'Auto (from the name)';
+    document.getElementById('plant-preview-name').textContent = id === 'generic' && !isBin() ? 'A plant (pick one below)' : sp.name || 'Plant';
+    document.getElementById('plant-preview-he').textContent = id === 'generic' ? '' : sp.he || '';
+    preview.hidden = false;
+    if (id === shown) return;
+    shown = id;
+    if (!viewer) viewer = NevetPlants.viewer(document.getElementById('plant-preview-canvas'), document.getElementById('plant-preview-wrap'), id, 'mature', { fit: 1.3 });
+    else viewer.set(id, 'mature');
+  }
   function update() {
-    var bin = form.querySelector('input[name=asset_type]:checked').value === 'worm_bin';
+    var bin = isBin();
     form.querySelectorAll('[data-plant-only]').forEach(function (el) { el.hidden = bin; });
-    form.querySelector('input[name=name]').placeholder = bin ? 'e.g. Worm bin 2' : 'e.g. Cherry tomato';
+    nameIn.placeholder = bin ? 'e.g. Worm bin 2' : 'e.g. Cherry tomato';
+    refresh();
   }
   form.addEventListener('change', update);
+  [nameIn, varIn].forEach(function (el) { el.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(refresh, 250); }); });
   update();
 })();
 </script>

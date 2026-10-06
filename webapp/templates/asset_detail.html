@@ -9,6 +9,45 @@
   {% if asset.grower_name %} · grown by <a href="{{ url_for('grower_page', grower_id=asset.grower_id) }}">{{ asset.grower_name }}</a>{% endif %}
 </p>
 
+{% if notice %}<div class="hero-welcome" role="status">{{ notice }}</div>{% endif %}
+
+<section class="plant-card" id="plant-card" data-species="{{ plant.species }}" data-stage="{{ plant.model_stage }}" data-detected="{{ detected or '' }}">
+  <div class="plant-viewer" id="plant-viewer">
+    <canvas id="plant-canvas" aria-label="3D model of {{ asset.name }}: drag to turn it"></canvas>
+    <button type="button" class="plant-viewer-tag" id="plant-viewer-tag" hidden></button>
+  </div>
+  <div class="plant-card-side">
+    <p class="plant-species-line">
+      <b>{{ species.name if species else 'Plant' }}</b>{% if species and species.he %} <span lang="he" dir="rtl" class="muted">{{ species.he }}</span>{% endif %}
+      {% if species %}<span class="muted">· {{ species.group }}</span>{% endif %}
+    </p>
+    {% if asset.asset_type == 'plant' %}
+    <div class="plant-stages" role="group" aria-label="Growth stages: tap one to see it">
+      {% for st in stages %}
+      <button type="button" class="plant-stage{% if st == plant.model_stage %} current{% endif %}" data-stage="{{ st }}" aria-pressed="{{ 'true' if st == plant.model_stage else 'false' }}" title="{{ stage_label(st) }}">
+        <img alt="" width="64" height="64"><span>{{ stage_label(st) }}</span>
+      </button>
+      {% endfor %}
+    </div>
+    <details class="plant-model-pick">
+      <summary>{% if picked %}Drawn as <b>{{ species.name }}</b>{% elif detected %}Drawn as <b>{{ species.name }}</b> (from the name){% else %}We couldn't tell which plant this is{% endif %} · <span class="link">change</span></summary>
+      <form method="post" action="{{ url_for('asset_species', asset_id=asset.id) }}" class="plant-model-form">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <label class="sr-only" for="plant-species">Which plant is it?</label>
+        <select name="species" id="plant-species">
+          <option value="auto" {% if not picked %}selected{% endif %}>{% if detected %}From the name ({{ plant_catalog.species | selectattr('id', 'equalto', detected) | map(attribute='name') | first }}){% else %}From the name{% endif %}</option>
+          {% for group, items in species_groups %}{% if items[0].model != 'worms' %}
+          <optgroup label="{{ group }}">
+            {% for s in items %}{% if s.model != 'worms' %}<option value="{{ s.id }}" {% if picked and asset.species == s.id %}selected{% endif %}>{{ s.name }}</option>{% endif %}{% endfor %}
+          </optgroup>{% endif %}{% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary btn-small">Save</button>
+      </form>
+    </details>
+    {% endif %}
+  </div>
+</section>
+
 <p class="asset-actions">
   <a class="btn btn-primary" href="{{ url_for('log_action', asset=asset.id) }}">Log an action for {{ asset.name }}</a>
   <a class="btn btn-ghost" href="{{ url_for('activity', plant=asset.id) }}">Full history</a>
@@ -17,4 +56,46 @@
 
 <h3>History</h3>
 {{ ui.feed(history, empty='Nothing logged for this plant yet.') }}
+
+<script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/OrbitControls.js') }}"></script>
+<script src="{{ url_for('static', filename='js/nevet3d.js') }}"></script>
+<script>window.NEVET_PLANT_CATALOG = {{ plant_catalog | tojson }};</script>
+<script src="{{ url_for('static', filename='js/plants3d.js') }}"></script>
+<script>
+(function () {
+  var card = document.getElementById('plant-card');
+  if (!window.NevetPlants || !window.Nevet3D || !Nevet3D.supportsWebGL()) { card.classList.add('no-3d'); return; }
+  var species = card.dataset.species, now = card.dataset.stage, shown = now;
+  var tag = document.getElementById('plant-viewer-tag');
+  var viewer = NevetPlants.viewer(document.getElementById('plant-canvas'), document.getElementById('plant-viewer'), species, now);
+  var buttons = [].slice.call(card.querySelectorAll('.plant-stage'));
+  var labels = {}; buttons.forEach(function (b) { labels[b.dataset.stage] = b.querySelector('span').textContent; });
+  function thumbs() {                                  // one stage at a time, so the page stays responsive
+    var i = 0;
+    (function next() {
+      if (i >= buttons.length) return;
+      var b = buttons[i++], url = NevetPlants.snapshot(species, b.dataset.stage, 128);
+      if (url) b.querySelector('img').src = url;
+      setTimeout(next, 30);
+    })();
+  }
+  function show(stage) {
+    shown = stage;
+    viewer.set(species, stage);
+    buttons.forEach(function (b) { b.classList.toggle('shown', b.dataset.stage === stage && stage !== now); });
+    tag.hidden = stage === now;
+    tag.textContent = 'Showing: ' + (labels[stage] || stage) + ' · back to now';
+  }
+  buttons.forEach(function (b) { b.addEventListener('click', function () { show(b.dataset.stage); }); });
+  tag.addEventListener('click', function () { show(now); });
+  var pick = document.getElementById('plant-species');
+  if (pick) pick.addEventListener('change', function () {   // preview the choice before saving
+    species = pick.value === 'auto' ? (card.dataset.detected || 'generic') : pick.value;
+    show(shown);
+    thumbs();
+  });
+  if (buttons.length) setTimeout(thumbs, 300);
+})();
+</script>
 {% endblock %}

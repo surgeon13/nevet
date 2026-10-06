@@ -33,6 +33,9 @@ webapp/                      Flask app: dashboard, heroes, garden map, gallery, 
   webapp/app.py
   webapp/garden_map.py         garden map data (GeoJSON beds, paths, points, plant pins)
   webapp/about.py              numbers, version and "what's new" for the About popup
+  webapp/plants.py             plant species catalog + "which plant is this?" from its name
+  webapp/static/js/plants3d.js 3D models of every plant, at every growth stage
+  webapp/static/assets/plants/catalog.json  the species list (add new plants here)
   webapp/static/js/farm3d.js   the farm: all heroes doing group activities in 3D
   webapp/static/vendor/        Leaflet + Leaflet-Geoman (map drawing), MIT licensed
   webapp/game_stats.py         importable helper for logging game stats
@@ -376,8 +379,9 @@ the gate and joins a group activity:
 
 **Auto** changes activity about every minute. Drag to look around,
 pinch to zoom, tap a hero to follow them (they wave), tap the ground to
-let go. The beds show the garden's real plants with name signs and the
-worm bins stand by the barn; there's also a barn, windmill, greenhouse,
+let go. The beds show the garden's real plants (as their 3D models, at
+their stage) with name signs and the worm bins stand by the barn; only
+the heroes come, companion pets stay home; there's also a barn, windmill, greenhouse,
 pond with ducks, chickens, butterflies and fireflies. The camera button
 saves a picture. Keys 1-5 pick an activity, A toggles auto, Esc goes
 back. Heroes plan their routes around beds, buildings
@@ -390,6 +394,37 @@ swing, fist pump, nod, twirl, stretch, cheer), never the same one twice
 in a row. Tap a hero to make it emote; trying on a new item makes it hop.
 With "reduce motion" switched on in the device settings, heroes only
 breathe and blink.
+
+## Plants in 3D
+
+Every plant is drawn as a little 3D model of what it really is, at the
+stage it's at: seed (a mound with seeds and a marker), sprouting,
+seedling, growing (flowers, green fruit), mature (ripe fruit),
+harvested (picked, cut back, or pulled out of the ground) and archived
+(dried up). There are about 90 species: tomatoes and cherry tomatoes,
+bell and chili peppers, eggplant, mint, basil, parsley, coriander, dill,
+rosemary, thyme, za'atar, sage, chives, lavender, lettuces, kale, chard,
+cabbage, carrots, radishes, beets, onions, garlic, potatoes, cucumbers,
+zucchini, pumpkins, melons, beans, peas, corn, wheat, sunflowers and
+other flowers, strawberries and other berries, citrus, olive, fig,
+pomegranate and other fruit trees, date palm, banana, succulents,
+mushrooms, microgreens, compost worms and a beehive.
+
+Nevet works out the species from the plant's name and variety, in
+English or Hebrew ("Cherry tomato", "עגבניית שרי", or "Tomato" with
+variety "Cherry"). If it guesses wrong, or can't tell, pick the right
+one: on **Add a plant** (the preview shows what it grows into) or on the
+plant's page under the model (**change**). The models show on:
+
+- the plant's page: turn it with a finger, and tap a stage under it to
+  see how it looks from seed to harvest;
+- the Plants page: the 3D garden and a small picture next to each name;
+- the farm's beds.
+
+To add a plant Nevet doesn't know yet, copy a similar entry in
+`webapp/static/assets/plants/catalog.json`, give it a new `id`, its names
+and keywords, and adjust the shape settings (height, leaf, fruit shape
+and colour...). No code changes needed.
 
 ## Garden map
 

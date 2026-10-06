@@ -17,7 +17,7 @@ Every page needs a logged-in player except `/login`, `/register`,
 | POST | `/logout` | Log out |
 | GET, POST | `/account` | Change your password |
 | GET, POST | `/log` | Log an action (watering, pruning, harvest...) on one or more plants or the whole garden; `?asset=ID` preselects a plant |
-| GET, POST | `/plants/new` | Add a plant or worm bin (logs the planting as your action) |
+| GET, POST | `/plants/new` | Add a plant or worm bin (logs the planting as your action); optional `species` (catalog id, otherwise from the name) |
 | GET | `/activity` | Full history; filters `who`, `type`, `plant`, `period` (7/30/90), `page` |
 | GET | `/growers` | Heroes roster |
 | GET | `/growers/<id>` | Hero profile: level/XP, gear, growing now, grown before, actions |
@@ -31,8 +31,9 @@ Every page needs a logged-in player except `/login`, `/register`,
 | GET | `/farm` | The farm: all heroes doing a group activity in 3D (`?act=harvest`/`water`/`plant`/`campfire`/`party` starts on one; otherwise auto) |
 | GET | `/map` | Garden map: draw beds/areas, paths and points, pin plants; `?asset=ID` shows (or starts pinning) that plant |
 | GET | `/map/export.geojson` | Download the whole garden map as a GeoJSON file |
-| GET | `/assets` | Plants: 3D garden + table |
-| GET | `/assets/<id>` | One plant with its full history |
+| GET | `/assets` | Plants: 3D garden + table with a picture of each plant |
+| GET | `/assets/<id>` | One plant: 3D model (tap a stage to see it), full history |
+| POST | `/assets/<id>/species` | Pick which plant model it's drawn with: `species` = a catalog id, or `auto` (from the name) |
 | GET | `/gallery` | Photos/videos grouped by date |
 | GET | `/media/<path>` | One media file (guarded to stay inside `CAMERA_BASE_DIR`) |
 | GET | `/stats` | Game stats (latest snapshot + history) |
@@ -137,7 +138,7 @@ migrated automatically by `webapp/farm_db.py`:
 | Table | What it holds |
 |---|---|
 | `growers` | Heroes/players: `name`, `hero_class`, `appearance` (JSON), `password_hash`, `is_admin`, `last_login`, `deleted_at` / `deleted_by` (set while in the recycle bin) |
-| `assets` | Plants and worm bins: `name`, `asset_type`, `variety`, `life_stage`, `grower_id` (owner) |
+| `assets` | Plants and worm bins: `name`, `asset_type`, `variety`, `life_stage`, `grower_id` (owner), `species` (3D model picked by a player; NULL = worked out from the name, see `webapp/plants.py`) |
 | `logs` | Actions: `log_type`, `asset_id` (NULL = whole garden), `grower_id` (who did it), `timestamp`, `notes`, `recipient` |
 | `quantities` | Amounts attached to a log (harvest weight, pieces given away) |
 | `captures` | Every photo/video the camera took |

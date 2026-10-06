@@ -161,6 +161,16 @@ A Flask app served by waitress on port 8000:
   places each hero with `hero3d.js` and runs the group activities on a
   simulation clock. Static props and each hero's rig parts are merged into
   a few meshes (`NevetHero.merge`) to keep draw calls low on phones.
+- **Plant models** — `static/assets/plants/catalog.json` lists ~90
+  species as a model archetype (fruiting, herb, leafy, root, vine, stalk,
+  flower, berry, tree, succulent, mushroom, microgreens, worms, hive) plus
+  parameters, with English/Hebrew keywords. `plants.py` loads it (cached by
+  mtime) and detects a plant's species from its name and variety;
+  `assets.species` overrides it. `static/js/plants3d.js` builds a species
+  at any growth stage from simple shapes and bakes it into one
+  vertex-coloured mesh plus one for the produce (two draw calls), which
+  the plant page, the Plants garden and thumbnails, the add-plant preview
+  and the farm all use.
 - **Garden map** — `garden_map.py` stores beds, paths, points and plant
   pins as GeoJSON in `map_features` (soft delete for undo) and validates
   every shape; `/map` draws them with Leaflet and Leaflet-Geoman
@@ -169,7 +179,7 @@ A Flask app served by waitress on port 8000:
   is the read-only door for other programs and future Nevet nodes.
 - **3D** — three.js (vendored in `static/js/`) draws the dashboard hub
   (brain with mycelium threads out to the section nodes; the highlighted one blooms), the
-  plant garden and procedural heroes (`hero3d.js`, with idle motion,
+  plant garden, plant models (`plants3d.js`) and procedural heroes (`hero3d.js`, with idle motion,
   emotes and moving item effects); all of it runs in the viewer's
   browser, not on the Pi.
 - **System logs (`/logs`)** — tails watchdog, capture, web app and

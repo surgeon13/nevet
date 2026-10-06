@@ -164,20 +164,33 @@ def get_conn():
                       ("deleted_at", "TEXT"), ("deleted_by", "TEXT")):
         if col not in cols:
             conn.execute(f"ALTER TABLE growers ADD COLUMN {col} {decl}")
+    # 3D plant models (added later): the species a grower picked for a
+    # plant (plants.py); empty means "detect it from the name".
+    asset_cols = {r[1] for r in conn.execute("PRAGMA table_info(assets)")}
+    if "species" not in asset_cols:
+        conn.execute("ALTER TABLE assets ADD COLUMN species TEXT")
     return conn
 
 
-def add_asset(asset_type, name, grower_id, variety=None, life_stage=None):
+def add_asset(asset_type, name, grower_id, variety=None, life_stage=None, species=None):
     conn = get_conn()
     cur = conn.execute(
-        "INSERT INTO assets (asset_type, name, variety, life_stage, status, grower_id, created_at) "
-        "VALUES (?, ?, ?, ?, 'active', ?, ?)",
-        (asset_type, name, variety, life_stage, grower_id, datetime.now().isoformat(timespec="seconds")),
+        "INSERT INTO assets (asset_type, name, variety, life_stage, status, grower_id, created_at, species) "
+        "VALUES (?, ?, ?, ?, 'active', ?, ?, ?)",
+        (asset_type, name, variety, life_stage, grower_id, datetime.now().isoformat(timespec="seconds"), species),
     )
     conn.commit()
     asset_id = cur.lastrowid
     conn.close()
     return asset_id
+
+
+def set_species(asset_id, species):
+    """Pick the 3D model species for a plant (None: detect it from the name again)."""
+    conn = get_conn()
+    conn.execute("UPDATE assets SET species = ? WHERE id = ?", (species or None, asset_id))
+    conn.commit()
+    conn.close()
 
 
 def add_log(log_type, asset_id=None, notes=None, recipient=None, location=None, quantities=None,
