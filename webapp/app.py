@@ -842,7 +842,8 @@ def api_map_geojson():
 FARM_MAX_HEROES = 16
 # what grows in the farm's empty bed spots and the planting field
 FARM_FILL_SPECIES = ("tomato", "cherry_tomato", "bell_pepper", "lettuce", "basil", "mint", "carrot", "strawberry",
-                     "sunflower", "corn", "zucchini", "pumpkin", "green_beans", "parsley", "chard", "radish", "spinach")
+                     "sunflower", "corn", "zucchini", "pumpkin", "green_beans", "parsley", "chard", "radish", "spinach",
+                     "apple", "lemon", "olive", "fig", "bees", "compost_worms")
 
 
 @app.route("/farm")
@@ -853,12 +854,17 @@ def farm_page():
     rows = sorted(rows, key=lambda r: (r["id"] != g.user["id"], not r["password_hash"]))  # ...within each group (stable)
     party = [hero_view(r) for r in rows[:FARM_MAX_HEROES]]
     growing = [plant_view(a) for a in farm_db.plants(current=True)][:40]
+    numbers = farm_db.farm_numbers()
     data = {
         "heroes": [{"id": h["id"], "name": h["name"], "level": h["progress"]["level"], "appearance": h["appearance"]}
                    for h in party],
         "more": max(0, len(rows) - FARM_MAX_HEROES),
-        "plants": [{"id": p["id"], "name": p["name"], "type": p["type"], "species": p["species"],
-                    "stage": p["model_stage"]} for p in growing],
+        "plants": [{"id": p["id"], "name": p["name"], "type": p["type"], "species": p["species"], "stage": p["model_stage"],
+                    "dry": numbers["assets"].get(p["id"], {}).get("dry", 0),
+                    "fed": numbers["assets"].get(p["id"], {}).get("fed", 0)} for p in growing],
+        "map": garden_map.farm_layout(),          # the garden map in metres (None: nothing drawn yet)
+        "week": numbers["week"],                  # for the chalkboard
+        "monthFeedings": numbers["month_feedings"],
         "plantCatalog": plants.subset({p["species"] for p in growing} | set(FARM_FILL_SPECIES)),
         "catalog": heroes.catalog(),
         "gardenName": "Nevet Farm",

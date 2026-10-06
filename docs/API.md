@@ -28,7 +28,7 @@ Every page needs a logged-in player except `/login`, `/register`,
 | POST | `/recycle-bin/<id>/restore` | Bring a hero back (admin) |
 | POST | `/recycle-bin/<id>/purge` | Delete a binned hero for good; its plants and actions stay, unassigned (admin) |
 | POST | `/recycle-bin/empty` | Delete every binned hero for good (admin) |
-| GET | `/farm` | The farm: all heroes doing a group activity in 3D (`?act=harvest`/`water`/`plant`/`campfire`/`party` starts on one; otherwise auto) |
+| GET | `/farm` | The farm: all heroes doing a group activity in 3D (`?act=harvest`/`water`/`plant`/`campfire`/`party` starts on one; otherwise auto). Built from the garden map when areas are drawn (`garden_map.farm_layout()`), with this week's numbers and each plant's days since watering (`farm_db.farm_numbers()`) |
 | GET | `/map` | Garden map: draw beds/areas, paths and points, pin plants; `?asset=ID` shows (or starts pinning) that plant |
 | GET | `/map/export.geojson` | Download the whole garden map as a GeoJSON file |
 | GET | `/assets` | Plants: 3D garden + table with a picture of each plant |

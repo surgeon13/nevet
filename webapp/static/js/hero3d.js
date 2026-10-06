@@ -2157,7 +2157,7 @@
     root.updateMatrixWorld(true);
     var ok = new Set();
     root.traverse(function (o) {
-      if (!o.isMesh || isBoundary(o) || Array.isArray(o.material) || o.material.map || o.material.isShaderMaterial) return;
+      if (!o.isMesh || isBoundary(o) || Array.isArray(o.material) || o.material.map || o.material.isShaderMaterial || o.material.vertexColors) return;   // (merging keeps no vertex colours)
       if (o.userData.isOutline && !ok.has(o.parent) && o.parent.isMesh) return;
       if (o.children.some(function (c) { return !(c.isMesh && c.userData.isOutline); })) return;
       ok.add(o);

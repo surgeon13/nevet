@@ -16,6 +16,9 @@
   var V = function (x, y, z) { return new THREE.Vector3(x, y || 0, z); };
   var canvas = document.getElementById('farm-canvas'), wrap = document.getElementById('farm-wrap');
   var calm = window.Nevet3D && Nevet3D.reducedMotion();
+  // the garden map (/map) in metres; with areas drawn, the bed area is built from it
+  var MAPG = D.map && (D.map.features || []).some(function (f) { return f.kind === 'area'; }) ? D.map : null;
+  var CHALK = null;
 
   // seeded random, so the farm looks the same on every visit
   function rng(seed) {
@@ -238,7 +241,7 @@
     function freeSpot() {
       for (var tries = 0; tries < 20; tries++) {
         var x = rr(-34, 34), z = rr(-34, 30);
-        var inYard = x > -9 && x < 17 && z > -13.5 && z < 9;
+        var inYard = x > -9.8 && x < 17 && z > (MAPG ? -19.5 : -13.5) && z < 9;
         var onPath = Math.abs(x) < 2 && z > 5 && z < 18;
         if (!inYard && !onPath) return [x, z];
       }
@@ -323,11 +326,21 @@
     return g;
   }
 
+  var BARN_WINDOW = null, PUMP_HANDLE = null, WORMS = [];
+  var DROP_ICON = new THREE.SpriteMaterial({ depthWrite: false, map: new THREE.CanvasTexture((function () {
+    var c = document.createElement('canvas'); c.width = c.height = 64;
+    var g = c.getContext('2d');
+    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(32, 32, 30, 0, TAU); g.fill();
+    g.fillStyle = '#3d9be0'; g.beginPath(); g.moveTo(32, 10); g.bezierCurveTo(44, 26, 48, 34, 48, 40); g.arc(32, 40, 16, 0, PI); g.bezierCurveTo(16, 34, 20, 26, 32, 10); g.fill();
+    return c;
+  })()) });
+
   // ---------------------------------------------------------------- beds
   var BED_X = [-6, -2, 2, 6], BED_Z0 = -5.2, SLOTS = 7, SLOT_STEP = 1.0, BED_W = 1.7;
   var plants = [];                                     // every plant on the farm
-  function signMesh(text) {
-    var c = textCanvas(text.length > 14 ? text.slice(0, 13) + '…' : text, { px: 34, bg: '#f3e6c8', color: '#4a321c', radius: 8, pad: 16, stroke: '#8a5f3a' });
+  function signMesh(text, max) {
+    max = max || 14;
+    var c = textCanvas(text.length > max ? text.slice(0, max - 1) + '…' : text, { px: 34, bg: '#f3e6c8', color: '#4a321c', radius: 8, pad: 16, stroke: '#8a5f3a' });
     var w = 0.24 * c.width / c.height;
     var g = group();
     g.add(cyl(0.025, 0.025, 0.55, '#8a5f3a', [0, 0.27, 0], 5));
@@ -336,7 +349,7 @@
     g.add(board);
     return g;
   }
-  (function () {
+  if (!MAPG) (function () {                            // the default beds (no garden map drawn yet)
     var real = (D.plants || []).filter(function (p) { return p.type !== 'worm_bin'; });
     var fill = rng(77);
     BED_X.forEach(function (bx, bi) {
@@ -355,9 +368,10 @@
       }
     });
   })();
-  function addPlant(species, pos, stage, name, where) {
+  function addPlant(species, pos, stage, name, where, opts) {
+    opts = opts || {};
     var young = stage === 'seed' || stage === 'germination';
-    var model = plantModel(species, stage, Math.round(pos.x * 100 + pos.z * 7 + 1000));
+    var model = plantModel(species, stage, Math.round(pos.x * 100 + pos.z * 7 + 1000), opts.fit);
     var base = 1;
     var holder = group([pos.x, pos.y, pos.z]);
     holder.add(model);
@@ -369,7 +383,16 @@
     scene.add(soil);
     var p = { species: species, pos: pos, holder: holder, model: model, base: base, name: name, where: where,
               ripe: !young && stage !== 'seedling' && stage !== 'harvested' && stage !== 'archived', ripeK: 1, regrowAt: 0, claimed: null,
-              wateredAt: -999, perk: 0, soil: soil, color: model.userData.color || LEAF3 };
+              wateredAt: -999, perk: 0, soil: soil, color: model.userData.color || LEAF3, height: model.userData.height || 0.6 };
+    // not watered for 3+ days (a whole-garden watering counts): droops, and gets watered first
+    var info = opts.info;
+    if (info && info.dry >= 3 && !young && stage !== 'harvested' && stage !== 'archived' && where !== 'greenhouse') {
+      p.thirsty = true;
+      p.drop = new THREE.Sprite(DROP_ICON);
+      p.drop.scale.setScalar(0.42);
+      p.drop.position.set(pos.x, pos.y + Math.min(2.2, p.height) + 0.45, pos.z);
+      scene.add(p.drop);
+    }
     if (name) {
       var sign = signMesh(name);
       sign.position.set(pos.x + 0.62, pos.y, pos.z + 0.28);
@@ -395,8 +418,399 @@
     var fs = signMesh('New field'); fs.position.set(16.2, 0, -4.8); statics.add(fs);
   })();
 
+  // ---------------------------------------------------------------- the garden from the map
+  // When the garden map (/map) has areas drawn, the bed area behind the lane
+  // is built from it instead of the default beds: beds in their real shapes
+  // with each plant where it was pinned, worm beds (busier the more they were
+  // fed this month), compost, greenhouse, pond, orchard, lawn, wildflowers,
+  // walkways, fences, irrigation lines, taps, hives, trees, the Nevet node...
+  // all turned and scaled to fit. Unpinned plants fill the beds, then pots.
+  var MAP_OBST = [], MAP_TAPS = [], mapWorms = [], mapBees = [], mapLeds = [], PINNED = {};
+  var REGION = { x0: -9.2, x1: 8.6, z0: -18.8, z1: -6.9 };
+  var GARDEN_CENTRE = MAPG ? V((REGION.x0 + REGION.x1) / 2, 0.6, (REGION.z0 + REGION.z1) / 2 + 1.5) : V(0, 0.6, -5.5);
+  function shapeOf(pts) {
+    var sh = new THREE.Shape();
+    pts.forEach(function (p, i) { if (i) sh.lineTo(p[0], -p[1]); else sh.moveTo(p[0], -p[1]); });
+    return sh;
+  }
+  function flatPoly(pts, color, y) {                   // a coloured patch of ground
+    var g = new THREE.ShapeGeometry(shapeOf(pts)); g.rotateX(-PI / 2);
+    var m = mesh(g, color); m.position.y = y; statics.add(m); return m;
+  }
+  function slabPoly(pts, h, color, y0) {               // the polygon raised into a block (bed soil, compost)
+    var g = new THREE.ExtrudeGeometry(shapeOf(pts), { depth: h, bevelEnabled: false }); g.rotateX(-PI / 2);
+    var m = mesh(g, color); m.position.y = y0 || 0; statics.add(m); return m;
+  }
+  function polyEdges(pts, h, t, color, y0) {           // a wall along every edge (bed boards, stone edging)
+    for (var i = 0; i < pts.length; i++) {
+      var a = pts[i], b = pts[(i + 1) % pts.length], dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz);
+      if (L < 0.05) continue;
+      var w = box(L + t, h, t, color, [(a[0] + b[0]) / 2, (y0 || 0) + h / 2, (a[1] + b[1]) / 2]);
+      w.rotation.y = -Math.atan2(dz, dx);
+      statics.add(outline(w));
+    }
+  }
+  function polyCentre(pts) {
+    var a = 0, cx = 0, cz = 0;
+    for (var i = 0; i < pts.length; i++) {
+      var p = pts[i], q = pts[(i + 1) % pts.length], k = p[0] * q[1] - q[0] * p[1];
+      a += k; cx += (p[0] + q[0]) * k; cz += (p[1] + q[1]) * k;
+    }
+    if (Math.abs(a) < 1e-6) return pts.reduce(function (s, p) { return [s[0] + p[0] / pts.length, s[1] + p[1] / pts.length]; }, [0, 0]);
+    return [cx / (3 * a), cz / (3 * a)];
+  }
+  function polyBox(pts) {
+    var b = { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity };
+    pts.forEach(function (p) { b.x0 = Math.min(b.x0, p[0]); b.x1 = Math.max(b.x1, p[0]); b.z0 = Math.min(b.z0, p[1]); b.z1 = Math.max(b.z1, p[1]); });
+    return b;
+  }
+  function randomIn(pts, rnd, margin) {                // a random point inside the polygon (keeping off its edges)
+    var b = polyBox(pts);
+    for (var t = 0; t < 40; t++) {
+      var x = b.x0 + rnd() * (b.x1 - b.x0), z = b.z0 + rnd() * (b.z1 - b.z0);
+      if (pointInPoly(x, z, pts) && polyDist(x, z, pts) >= (margin || 0)) return [x, z];
+    }
+    return null;
+  }
+  function minRect(pts) {                              // smallest rectangle around the polygon (greenhouses)
+    var best = null;
+    for (var i = 0; i < pts.length; i++) {
+      var a = pts[i], b = pts[(i + 1) % pts.length], ang = Math.atan2(b[1] - a[1], b[0] - a[0]), c = Math.cos(ang), s = Math.sin(ang);
+      var u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+      pts.forEach(function (p) { var u = p[0] * c + p[1] * s, v = -p[0] * s + p[1] * c; u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); });
+      var area = (u1 - u0) * (v1 - v0);
+      if (!best || area < best.area) {
+        var cu = (u0 + u1) / 2, cv = (v0 + v1) / 2;
+        best = { area: area, x: cu * c - cv * s, z: cu * s + cv * c, w: u1 - u0, d: v1 - v0, ang: ang };
+      }
+    }
+    return best;
+  }
+  function areaSign(text, pts) {                       // a name sign at the front of an area
+    var front = pts.reduce(function (m, p) { return p[1] > m[1] ? p : m; }, pts[0]), c = polyCentre(pts);
+    var sg = signMesh(text, 24);
+    sg.position.set(front[0] + (c[0] - front[0]) * 0.15, 0, front[1] + 0.35);
+    statics.add(sg);
+  }
+  function wormMesh(rnd) {                             // a little wiggly worm
+    var pts = [], a = rnd() * TAU;
+    for (var k = 0; k < 5; k++) pts.push(V(Math.cos(a) * k * 0.07 + Math.sin(k * 1.9) * 0.03, 0, Math.sin(a) * k * 0.07 + Math.cos(k * 1.7) * 0.03));
+    return mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 10, 0.028, 5, false), rnd() < 0.5 ? '#e58fa0' : '#d77a8c');
+  }
+  function treeAt(x, z, k) {
+    var t = group([x, 0, z]), hgt = 1.6 * k;
+    t.add(cyl(0.16 * k, 0.24 * k, hgt, '#7a5233', [0, hgt / 2, 0], 8));
+    [[0, hgt + 0.8 * k, 0, 1.05], [0.6, hgt + 0.45 * k, 0.15, 0.75], [-0.55, hgt + 0.5 * k, -0.2, 0.8], [0.05, hgt + 1.35 * k, 0.1, 0.7]].forEach(function (c, i) {
+      t.add(sphere(c[3] * k, ['#4f9a3e', '#5fae48', '#3f8a34'][i % 3], [c[0] * k, c[1], c[2] * k], null, 10));
+    });
+    statics.add(outline(t, 1.025));
+    statics.add(blobShadow(1.3 * k, x, z));
+    MAP_OBST.push(['c', x, z, 0.35 * k]);
+  }
+  function wormBinAt(x, z, info) {
+    var bg = group([x, 0, z]);
+    bg.add(box(1.2, 0.8, 1.0, '#9c6b3c', [0, 0.4, 0]));
+    bg.add(box(1.3, 0.1, 1.1, '#7a5233', [0, 0.85, 0]));
+    bg.add(box(1.1, 0.06, 0.06, '#7a5233', [0, 0.5, 0.52]));
+    var n = Math.min(5, 1 + (info.fed || 0)), r = rng(info.id || 7);
+    for (var i = 0; i < n; i++) {
+      var worm = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.035, 6, 12, PI), mat('#e58fa0'));
+      worm.position.set(-0.35 + r() * 0.7, 0.92, -0.3 + r() * 0.6); worm.rotation.y = r() * TAU; worm.userData.wiggle = i + (info.id || 0);
+      bg.add(worm);
+      WORMS.push(worm); movers.add(worm);
+    }
+    statics.add(outline(bg));
+    var sg = signMesh(info.name); sg.position.set(x + 0.7, 0, z + 0.6); statics.add(sg);
+    MAP_OBST.push(['r', x, z, 0.65, 0.55, 0]);
+  }
+  function buildMapGarden() {
+    var feats = (MAPG.features || []).filter(function (f) {
+      return f.pts && f.pts.length >= (f.kind === 'area' ? 3 : f.kind === 'path' ? 2 : 1);
+    });
+    // fit: turn the garden a quarter if its long side then runs along the farm
+    var xs = [], zs = [];
+    feats.forEach(function (f) { f.pts.forEach(function (p) { xs.push(p[0]); zs.push(p[1]); }); });
+    var mx0 = Math.min.apply(null, xs), mx1 = Math.max.apply(null, xs), mz0 = Math.min.apply(null, zs), mz1 = Math.max.apply(null, zs);
+    var w = Math.max(1, mx1 - mx0), d = Math.max(1, mz1 - mz0), RW = REGION.x1 - REGION.x0, RD = REGION.z1 - REGION.z0;
+    var s0 = Math.min(RW / w, RD / d), s1 = Math.min(RW / d, RD / w), turn = s1 > s0 * 1.15;
+    var s = Math.min(1.6, turn ? s1 : s0), cx = (mx0 + mx1) / 2, cz = (mz0 + mz1) / 2;
+    var rx = (REGION.x0 + REGION.x1) / 2, rz = (REGION.z0 + REGION.z1) / 2;
+    function T(p) { var x = p[0] - cx, z = p[1] - cz; if (turn) { var t = x; x = -z; z = t; } return [rx + x * s, rz + z * s]; }
+    var plantK = Math.max(0.55, Math.min(1, s));        // plants shrink a little in a big garden squeezed onto the farm
+    var rnd = rng(4242), beds = [], houses = [];
+    var areas = feats.filter(function (f) { return f.kind === 'area'; }).sort(function (a, b) { return (b.area_m2 || 0) - (a.area_m2 || 0); });
+    areas.forEach(function (f, i) {
+      var pts = f.pts.map(T), y = 0.014 + i * 0.0015, c = polyCentre(pts), k;
+      switch (f.category) {
+        case 'bed': case 'herbs': {
+          var herbs = f.category === 'herbs', top = herbs ? 0.26 : 0.42;
+          slabPoly(pts, top - 0.02, '#5b3d27');
+          polyEdges(pts, top + 0.04, 0.14, herbs ? '#a3a39b' : '#a8743f');
+          if (!herbs) pts.forEach(function (p) { statics.add(outline(box(0.2, top + 0.12, 0.2, '#8a5f3a', [p[0], (top + 0.12) / 2, p[1]]))); });
+          beds.push({ pts: pts, y: top });
+          MAP_OBST.push(['p', pts]);
+          if (f.name) areaSign(f.name, pts);
+          break;
+        }
+        case 'worm_bed': {                              // a long worm trough: the more feedings this month, the busier
+          slabPoly(pts, 0.36, '#3b2a1e');
+          polyEdges(pts, 0.44, 0.16, '#8a5f3a');
+          var nw = Math.min(28, 6 + 2 * (D.monthFeedings || 0));
+          for (k = 0; k < nw; k++) {
+            var at = randomIn(pts, rnd, 0.2); if (!at) continue;
+            var wm = wormMesh(rnd); wm.position.set(at[0], 0.37, at[1]); wm.userData.ph = rnd() * TAU;
+            scene.add(wm); mapWorms.push(wm);
+          }
+          for (k = 0; k < 10; k++) {
+            var sc = randomIn(pts, rnd, 0.15); if (!sc) continue;
+            var bit = box(0.14, 0.03, 0.1, ['#f08a24', '#7cc35a', '#f3ecdf', '#c9a26b', '#e8d04a'][k % 5], [sc[0], 0.375, sc[1]]); bit.rotation.y = rnd() * 3;
+            statics.add(bit);
+          }
+          MAP_OBST.push(['p', pts]);
+          var fed = D.monthFeedings || 0;
+          areaSign((f.name || 'Worm bed') + (fed ? ' · fed ' + fed + '×' : ''), pts);
+          break;
+        }
+        case 'greenhouse': {
+          var r = minRect(pts), gw = Math.max(1.6, r.w), gd = Math.max(1.4, r.d), H = 2.1;
+          var g = group([r.x, 0, r.z], -r.ang);
+          var glass = new THREE.MeshToonMaterial({ color: 0xbfe6f0, transparent: true, opacity: 0.3, depthWrite: false });
+          g.add(mesh(new THREE.BoxGeometry(gw, H, gd), glass, [0, H / 2, 0]));
+          var roof = new THREE.Shape(); roof.moveTo(-gd / 2, 0); roof.lineTo(0, 0.9); roof.lineTo(gd / 2, 0); roof.lineTo(-gd / 2, 0);
+          var rg = new THREE.ExtrudeGeometry(roof, { depth: gw, bevelEnabled: false }); rg.translate(0, 0, -gw / 2); rg.rotateY(PI / 2);
+          g.add(mesh(rg, glass, [0, H, 0]));
+          [-1, 1].forEach(function (sx) { [-1, 1].forEach(function (sz) { g.add(box(0.08, H, 0.08, '#e9f0ec', [sx * gw / 2, H / 2, sz * gd / 2])); }); });
+          g.add(box(gw, 0.08, 0.08, '#e9f0ec', [0, H + 0.9, 0]));
+          [-1, 1].forEach(function (sz) { g.add(box(gw, 0.08, 0.08, '#e9f0ec', [0, H, sz * gd / 2])); });
+          statics.add(g);
+          houses.push(pts);
+          MAP_OBST.push(['r', r.x, r.z, gw / 2, gd / 2, -r.ang]);
+          if (f.name) areaSign(f.name, pts);
+          break;
+        }
+        case 'water': {
+          var rim = pts.map(function (p) { var dx = p[0] - c[0], dz = p[1] - c[1], L = Math.hypot(dx, dz) || 1; return [p[0] + dx / L * 0.25, p[1] + dz / L * 0.25]; });
+          flatPoly(rim, '#a19a8a', 0.02);
+          flatPoly(pts, '#6fb3e0', 0.035);
+          for (k = 0; k < 5; k++) { var lp = randomIn(pts, rnd, 0.4); if (lp) { var pad = mesh(new THREE.CircleGeometry(0.22, 10), '#5c9e48', [lp[0], 0.045, lp[1]]); pad.rotation.x = -PI / 2; statics.add(pad); } }
+          pts.forEach(function (p, j) { if (j % 2) return; for (var q = 0; q < 3; q++) statics.add(cone(0.035, 0.7 + q * 0.15, '#6f9a3c', [p[0] + (q - 1) * 0.12, 0.38 + q * 0.07, p[1]], 5)); });
+          MAP_OBST.push(['p', pts]);
+          if (f.name) areaSign(f.name, rim);
+          break;
+        }
+        case 'compost':
+          flatPoly(pts, '#8a6a4a', y);
+          for (k = 0; k < Math.max(1, Math.min(3, Math.round((f.area_m2 || 4) / 6))); k++) {
+            var hp = k ? randomIn(pts, rnd, 0.6) : c; if (!hp) continue;
+            statics.add(outline(sphere(0.7, '#6b4a2f', [hp[0], 0.05, hp[1]], [1, 0.55, 1], 10)));
+            statics.add(sphere(0.12, '#7cc35a', [hp[0] + 0.2, 0.38, hp[1] + 0.1], null, 6));
+            MAP_OBST.push(['c', hp[0], hp[1], 0.7]);
+          }
+          if (f.name) areaSign(f.name, pts);
+          break;
+        case 'orchard': flatPoly(pts, '#7fb35e', y); houses.orchards = (houses.orchards || []).concat([pts]); if (f.name) areaSign(f.name, pts); break;
+        case 'lawn': flatPoly(pts, '#a9d684', y); break;
+        case 'wild':
+          flatPoly(pts, '#93c26b', y);
+          for (k = 0; k < Math.min(60, 8 + (f.area_m2 || 4) * 2); k++) {
+            var wp = randomIn(pts, rnd, 0.1); if (!wp) continue;
+            statics.add(cone(0.05, 0.3 + rnd() * 0.2, '#5f9e46', [wp[0], 0.18, wp[1]], 4));
+            if (k % 2) statics.add(sphere(0.07, ['#f29bc0', '#f6d743', '#c9a7f2', '#ffffff', '#ff8a65'][k % 5], [wp[0] + 0.05, 0.42, wp[1]], null, 6));
+          }
+          break;
+        case 'seating':
+          flatPoly(pts, '#d8c497', y);
+          var bench = group([c[0], 0, c[1]]);
+          bench.add(box(1.4, 0.08, 0.45, '#a8743f', [0, 0.45, 0])); bench.add(box(1.4, 0.4, 0.08, '#a8743f', [0, 0.7, -0.22]));
+          [-0.6, 0.6].forEach(function (bx) { bench.add(box(0.08, 0.45, 0.4, '#7a5233', [bx, 0.22, 0])); });
+          statics.add(outline(bench));
+          statics.add(cyl(0.04, 0.04, 2.2, '#eee', [c[0] + 1.0, 1.1, c[1] + 0.5], 6));
+          statics.add(cone(1.1, 0.5, '#e8664a', [c[0] + 1.0, 2.25, c[1] + 0.5], 8));
+          MAP_OBST.push(['r', c[0], c[1], 0.75, 0.3, 0]);
+          if (f.name) areaSign(f.name, pts);
+          break;
+        default:
+          flatPoly(pts, new THREE.Color(f.color || '#8fbf6a').lerp(new THREE.Color('#8cc76a'), 0.5).getStyle(), y);
+          if (f.name) areaSign(f.name, pts);
+      }
+    });
+    // lines: walkways, fences, irrigation
+    feats.filter(function (f) { return f.kind === 'path'; }).forEach(function (f) {
+      var pts = f.pts.map(T), i, a, b, L, ang;
+      if (f.category === 'fence') {
+        for (i = 0; i < pts.length - 1; i++) {
+          a = pts[i]; b = pts[i + 1]; L = Math.hypot(b[0] - a[0], b[1] - a[1]); ang = -Math.atan2(b[1] - a[1], b[0] - a[0]);
+          var n = Math.max(1, Math.ceil(L / 1.3));
+          for (var k = 0; k <= n; k++) statics.add(box(0.14, 1.0, 0.14, '#8a5f3a', [a[0] + (b[0] - a[0]) * k / n, 0.5, a[1] + (b[1] - a[1]) * k / n]));
+          [0.4, 0.78].forEach(function (y) { var rl = box(L, 0.09, 0.06, '#b98b5a', [(a[0] + b[0]) / 2, y, (a[1] + b[1]) / 2]); rl.rotation.y = ang; statics.add(rl); });
+          MAP_OBST.push(['r', (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, L / 2, 0.08, ang]);
+        }
+      } else if (f.category === 'irrigation') {
+        var curve = pts.map(function (p) { return V(p[0], 0.06, p[1]); });
+        for (i = 0; i < curve.length - 1; i++) {
+          var seg = cyl(0.035, 0.035, curve[i].distanceTo(curve[i + 1]), '#2f3b45', [(curve[i].x + curve[i + 1].x) / 2, 0.06, (curve[i].z + curve[i + 1].z) / 2], 6);
+          seg.rotation.order = 'YXZ'; seg.rotation.set(PI / 2, -Math.atan2(curve[i + 1].z - curve[i].z, curve[i + 1].x - curve[i].x) + PI / 2, 0);
+          statics.add(seg);
+          var segL = curve[i].distanceTo(curve[i + 1]);
+          for (var e = 0.35; e < segL; e += 0.7) statics.add(sphere(0.05, '#3d85c6', [curve[i].x + (curve[i + 1].x - curve[i].x) * e / segL, 0.1, curve[i].z + (curve[i + 1].z - curve[i].z) * e / segL], null, 6));
+        }
+      } else {
+        var width = f.category === 'path' ? 1.0 : 0.35, col = f.category === 'path' ? '#d2bb8c' : '#bfae8a';
+        for (i = 0; i < pts.length - 1; i++) {
+          a = pts[i]; b = pts[i + 1]; L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+          var strip = mesh(new THREE.PlaneGeometry(L, width), col, [(a[0] + b[0]) / 2, 0.03, (a[1] + b[1]) / 2]);
+          strip.rotation.order = 'YXZ'; strip.rotation.set(-PI / 2, -Math.atan2(b[1] - a[1], b[0] - a[0]), 0);
+          statics.add(strip);
+        }
+        pts.forEach(function (p) { var dot = mesh(new THREE.CircleGeometry(width / 2, 12), col, [p[0], 0.03, p[1]]); dot.rotation.x = -PI / 2; statics.add(dot); });
+      }
+    });
+    // points: taps, hives, trees, the Nevet node...
+    feats.filter(function (f) { return f.kind === 'point'; }).forEach(function (f) {
+      var p = T(f.pts[0]), x = p[0], z = p[1], g = group([x, 0, z]);
+      switch (f.category) {
+        case 'tap':
+          g.add(box(0.12, 0.9, 0.12, '#8a8f94', [0, 0.45, 0]));
+          g.add(rot(cyl(0.04, 0.04, 0.22, '#c0c4c8', [0, 0.8, 0.1], 6), PI / 2));
+          g.add(cyl(0.07, 0.07, 0.04, '#d9534f', [0, 0.9, 0.12], 8));
+          g.add(cyl(0.3, 0.26, 0.12, '#9a9a96', [0, 0.06, 0.25], 12));
+          MAP_TAPS.push(V(x, 0, z));
+          MAP_OBST.push(['c', x, z + 0.15, 0.3]);
+          break;
+        case 'compost':
+          g.add(sphere(0.55, '#6b4a2f', [0, 0.05, 0], [1, 0.6, 1], 10)); g.add(sphere(0.1, '#7cc35a', [0.15, 0.33, 0.1], null, 6));
+          MAP_OBST.push(['c', x, z, 0.55]);
+          break;
+        case 'tree': treeAt(x, z, 0.85); return;
+        case 'tools':
+          g.add(box(1.1, 1.25, 0.9, '#9c6b3c', [0, 0.62, 0]));
+          g.add(rot(box(1.3, 0.08, 1.1, '#6b3a2e', [0, 1.33, 0]), 0.18));
+          g.add(box(0.5, 0.95, 0.04, '#7a5233', [0, 0.48, 0.46]));
+          MAP_OBST.push(['r', x, z, 0.6, 0.5, 0]);
+          break;
+        case 'seat':
+          g.add(box(1.3, 0.08, 0.42, '#a8743f', [0, 0.45, 0])); g.add(box(1.3, 0.36, 0.07, '#a8743f', [0, 0.7, -0.2]));
+          [-0.55, 0.55].forEach(function (bx) { g.add(box(0.08, 0.45, 0.38, '#7a5233', [bx, 0.22, 0])); });
+          MAP_OBST.push(['r', x, z, 0.7, 0.25, 0]);
+          break;
+        case 'hive':
+          if (NP) { var hv = NP.build('bees', 'mature'); hv.scale.setScalar(1.8); g.add(hv); }
+          else g.add(box(0.7, 0.9, 0.6, '#f2c94c', [0, 0.45, 0]));
+          for (var b = 0; b < 5; b++) { var bee = sphere(0.05, '#f2c230', [0, 0, 0], [1.4, 1, 1], 6); bee.userData = { c: V(x, 0.9, z), ph: b * 1.3, r: 0.5 + b * 0.12 }; scene.add(bee); mapBees.push(bee); }
+          MAP_OBST.push(['c', x, z, 0.5]);
+          break;
+        case 'rain':
+          g.add(cyl(0.36, 0.36, 0.9, '#3d6f9e', [0, 0.45, 0], 14)); g.add(cyl(0.38, 0.38, 0.05, '#2f5577', [0, 0.92, 0], 14));
+          g.add(cyl(0.05, 0.05, 1.4, '#8a8f94', [0.3, 1.4, 0], 6));
+          MAP_OBST.push(['c', x, z, 0.4]);
+          break;
+        case 'gate':
+          [-0.9, 0.9].forEach(function (gx) { g.add(box(0.18, 2.2, 0.18, '#8a5f3a', [gx, 1.1, 0])); });
+          g.add(box(2.1, 0.18, 0.2, '#8a5f3a', [0, 2.2, 0]));
+          MAP_OBST.push(['c', x - 0.9, z, 0.12]); MAP_OBST.push(['c', x + 0.9, z, 0.12]);
+          break;
+        case 'node': {                                  // the Nevet node: a Pi in a box on a pole, with its camera
+          g.add(cyl(0.05, 0.06, 1.7, '#8a8f94', [0, 0.85, 0], 8));
+          g.add(box(0.36, 0.26, 0.18, '#f4f6f2', [0, 1.55, 0.06]));
+          g.add(box(0.37, 0.05, 0.19, '#4c9a5b', [0, 1.7, 0.06]));
+          var lens = rot(cyl(0.06, 0.07, 0.12, '#1f2522', [0.08, 1.52, 0.2], 10), PI / 2); g.add(lens);
+          g.add(cyl(0.012, 0.012, 0.4, '#555', [-0.14, 1.9, 0.02], 4));
+          var panel = box(0.6, 0.03, 0.4, '#2c4a7a', [0, 1.95, -0.15]); panel.rotation.x = 0.5; g.add(panel);
+          var led = sphere(0.025, '#7dff6a', [-0.1, 1.6, 0.16], null, 6); led.material = new THREE.MeshBasicMaterial({ color: 0x7dff6a }); g.add(led);
+          movers.add(led); mapLeds.push(led);
+          g.rotation.y = Math.atan2(GARDEN_CENTRE.x - x, GARDEN_CENTRE.z - z);       // the camera looks over the garden
+          var ns = signMesh(f.name || 'Nevet node'); ns.position.set(x + 0.5, 0, z + 0.4); statics.add(ns);
+          MAP_OBST.push(['c', x, z, 0.25]);
+          break;
+        }
+        default: { var sn = signMesh(f.name || 'Note'); sn.position.set(x, 0, z); statics.add(sn); return; }
+      }
+      statics.add(outline(g));
+      if (f.name && f.category !== 'node') { var lb = signMesh(f.name); lb.position.set(x + 0.6, 0, z + 0.5); statics.add(lb); }
+    });
+    // pinned plants and worm bins where they grow
+    var byId = {};
+    (D.plants || []).forEach(function (q) { byId[q.id] = q; });
+    function bedAt(x, z) { for (var i = 0; i < beds.length; i++) if (pointInPoly(x, z, beds[i].pts)) return beds[i]; return null; }
+    function inside(list, x, z) { return (list || []).some(function (pts) { return pointInPoly(x, z, pts); }); }
+    feats.filter(function (f) { return f.kind === 'asset'; }).forEach(function (f) {
+      var info = byId[f.asset_id];
+      if (!info || PINNED[info.id]) return;
+      var p = T(f.pts[0]);
+      PINNED[info.id] = true;
+      if (info.type === 'worm_bin') return wormBinAt(p[0], p[1], info);
+      var bed = bedAt(p[0], p[1]), tree = NP && (NP.species(info.species) || {}).model === 'tree';
+      var where = inside(houses, p[0], p[1]) ? 'greenhouse' : bed ? 'bed' : 'map';
+      addPlant(info.species, V(p[0], bed ? bed.y : 0, p[1]), info.stage, info.name, where,
+               { fit: tree ? { r: 1.1, h: 2.8 } : { r: 0.5 * plantK, h: 1.7 * plantK }, info: info });
+      if (tree) MAP_OBST.push(['c', p[0], p[1], 0.3]);
+    });
+    // orchards without trees get a few
+    (houses.orchards || []).forEach(function (pts) {
+      var has = plants.some(function (q) { return pointInPoly(q.pos.x, q.pos.z, pts); });
+      if (has) return;
+      for (var k = 0; k < 3; k++) { var tp = randomIn(pts, rnd, 0.8); if (tp) treeAt(tp[0], tp[1], 0.7); }
+    });
+    // the rest of the plants fill the beds (taking turns between beds), then pots by the lane
+    var slotLists = beds.map(function (b) {
+      var bb = polyBox(b.pts), list = [];
+      for (var x = bb.x0 + 0.45; x < bb.x1; x += 0.9) for (var z = bb.z0 + 0.45; z < bb.z1; z += 0.9) {
+        if (!pointInPoly(x, z, b.pts) || polyDist(x, z, b.pts) < 0.3) continue;
+        if (plants.some(function (q) { return Math.hypot(q.pos.x - x, q.pos.z - z) < 0.75; })) continue;
+        list.push({ x: x, z: z, y: b.y });
+      }
+      return list;
+    });
+    var slots = [];
+    for (var round = 0; slotLists.some(function (l) { return l.length > round; }); round++) slotLists.forEach(function (l) { if (l[round]) slots.push(l[round]); });
+    var rest = (D.plants || []).filter(function (q) { return q.type !== 'worm_bin' && !PINNED[q.id]; }), pots = 0;
+    rest.forEach(function (info) {
+      var sl = slots.shift(), opts = { fit: { r: 0.45 * plantK, h: 1.6 * plantK }, info: info };
+      if (sl) { addPlant(info.species, V(sl.x, sl.y, sl.z), info.stage, info.name, 'bed', opts); return; }
+      if (pots >= 16) return;
+      var px = REGION.x0 + 0.7 + (pots % 16) * 1.1, pz = REGION.z1 + 0.35;
+      statics.add(outline(cyl(0.3, 0.22, 0.36, '#c96f42', [px, 0.18, pz], 12)));
+      statics.add(cyl(0.27, 0.27, 0.02, '#5a3d27', [px, 0.35, pz], 12));
+      MAP_OBST.push(['c', px, pz, 0.3]);
+      opts.fit = { r: 0.4, h: 1.3 };
+      addPlant(info.species, V(px, 0.36, pz), info.stage, null, 'pot', opts);
+      pots++;
+    });
+  }
+  if (MAPG) buildMapGarden();
+
+  // The chalkboard in the yard: this week's real numbers
+  (function () {
+    var wk = D.week || {};
+    var c = document.createElement('canvas'); c.width = 512; c.height = 360;
+    var g = c.getContext('2d');
+    g.fillStyle = '#2f4a3a'; g.fillRect(0, 0, 512, 360);
+    g.strokeStyle = '#8a5f3a'; g.lineWidth = 22; g.strokeRect(0, 0, 512, 360);
+    g.fillStyle = '#f4f1e8'; g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.font = 'bold 38px "Comic Sans MS", "Chalkboard SE", "Segoe Print", cursive, sans-serif';
+    g.fillText('This week at Nevet', 34, 52);
+    g.font = '30px "Comic Sans MS", "Chalkboard SE", "Segoe Print", cursive, sans-serif';
+    var lines = [
+      (wk.actions || 0) + ' actions' + (wk.heroes ? ' by ' + wk.heroes + ' hero' + (wk.heroes === 1 ? '' : 'es') : ''),
+      (wk.harvests || 0) + ' harvest' + (wk.harvests === 1 ? '' : 's') + (wk.kg ? ' · ' + wk.kg + ' kg' : ''),
+      (wk.waterings || 0) + ' watering' + (wk.waterings === 1 ? '' : 's'),
+      (wk.feedings || 0) + ' worm feeding' + (wk.feedings === 1 ? '' : 's'),
+      (wk.growing || 0) + ' plants growing'
+    ];
+    lines.forEach(function (t, i) { g.fillText('• ' + t, 40, 110 + i * 48); });
+    var board = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.34), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), side: THREE.DoubleSide }));
+    var easel = group([-6.6, 0, 5.0], 0.55);
+    board.position.set(0, 1.45, 0.06); board.rotation.x = -0.12;
+    easel.add(board);
+    [-0.8, 0.8].forEach(function (x) { easel.add(rot(box(0.08, 2.1, 0.08, '#8a5f3a', [x, 1.0, 0.1]), -0.08)); });
+    easel.add(rot(box(0.08, 2.0, 0.08, '#8a5f3a', [0, 0.95, -0.45]), 0.3));
+    easel.add(box(1.9, 0.07, 0.12, '#8a5f3a', [0, 0.72, 0.18]));
+    statics.add(easel);
+    CHALK = { x: -6.6, z: 5.0 };
+  })();
+
   // ---------------------------------------------------------------- buildings
-  var BARN_WINDOW = null, PUMP_HANDLE = null, WORMS = [];
+
   // Barn
   (function () {
     var g = group([-15.5, 0, -9.5], PI / 2);
@@ -527,6 +941,7 @@
   })();
 
   // Harvest cart, hay bales, hand pump, scarecrow, compost / worm bins
+  var BARN_BINS = (D.plants || []).filter(function (q) { return q.type === 'worm_bin' && !PINNED[q.id]; }).slice(0, 4);
   var CART = V(-6, 0, -1.2), cartPile = [], PUMP = V(-9.4, 0, -2.6);
   (function () {
     var g = group([CART.x, 0, CART.z], PI / 2);
@@ -563,7 +978,7 @@
     p.add(cyl(0.38, 0.32, 0.4, '#7a5233', [0, 0.2, 0.75], 12));
     statics.add(outline(p));
     // scarecrow behind the beds
-    var sc = group([0, 0, -13.6]);
+    var sc = group(MAPG ? [12.4, 0, -14.3] : [0, 0, -13.6]);      // with a map garden it guards the new field
     sc.add(cyl(0.06, 0.06, 2.4, '#7a5233', [0, 1.2, 0], 6));
     sc.add(box(1.8, 0.1, 0.1, '#7a5233', [0, 1.75, 0]));
     sc.add(cyl(0.32, 0.38, 0.9, '#5d82b8', [0, 1.55, 0], 10));
@@ -572,8 +987,8 @@
     [-0.85, 0.85].forEach(function (x) { sc.add(sphere(0.12, '#e1c25f', [x, 1.75, 0], [1.3, 0.8, 0.8])); });
     statics.add(outline(sc));
     // compost and the garden's worm bins
-    var bins = (D.plants || []).filter(function (q) { return q.type === 'worm_bin'; });
-    if (!bins.length) bins = [{ name: 'Compost' }];
+    var bins = BARN_BINS;
+    if (!bins.length && !MAPG) bins = [{ name: 'Compost' }];
     bins.slice(0, 4).forEach(function (b, i) {
       var bg = group([-11.2 + (i % 2) * 1.6, 0, 1.2 + Math.floor(i / 2) * 1.6]);
       bg.add(box(1.2, 0.8, 1.0, '#9c6b3c', [0, 0.4, 0]));
@@ -930,7 +1345,13 @@
   }
 
   (function () {                                       // what heroes walk around
-    BED_X.forEach(function (bx) { obstacleRect(bx, BED_Z0 - (SLOTS - 1) * SLOT_STEP / 2 - 0.5, BED_W / 2 + 0.05, (SLOTS * SLOT_STEP + 0.4) / 2); });
+    if (!MAPG) BED_X.forEach(function (bx) { obstacleRect(bx, BED_Z0 - (SLOTS - 1) * SLOT_STEP / 2 - 0.5, BED_W / 2 + 0.05, (SLOTS * SLOT_STEP + 0.4) / 2); });
+    MAP_OBST.forEach(function (o) {
+      if (o[0] === 'p') obstaclePoly(o[1]);
+      else if (o[0] === 'c') obstacleCircle(o[1], o[2], o[3]);
+      else obstacleRect(o[1], o[2], o[3], o[4], o[5]);
+    });
+    if (CHALK) obstacleRect(CHALK.x, CHALK.z, 1.0, 0.45, 0.55);
     obstacleRect(CART.x, CART.z + 0.35, 0.75, 1.65);
     obstacleCircle(PUMP.x, PUMP.z + 0.3, 0.55);
     obstacleCircle(FIRE.x, FIRE.z, 1.0);
@@ -938,15 +1359,25 @@
     obstacleRect(-15, 5.5, 1.75, 2.45);                      // greenhouse
     obstacleCircle(13.5, -17.5, 1.9);                        // windmill
     obstacleCircle(12, 8, 3.55);                             // pond
-    obstacleCircle(0, -13.6, 0.35);                          // scarecrow
+    if (MAPG) obstacleCircle(12.4, -14.3, 0.35); else obstacleCircle(0, -13.6, 0.35);   // scarecrow
     [[-11, -4.2], [-11.4, -2.8], [-11.2, -3.5]].forEach(function (b) { obstacleCircle(b[0], b[1], 0.75); });
-    for (var i = 0; i < Math.min(4, Math.max(1, (D.plants || []).filter(function (q) { return q.type === 'worm_bin'; }).length)); i++)
+    for (var i = 0; i < (BARN_BINS.length || (MAPG ? 0 : 1)); i++)
       obstacleRect(-11.2 + (i % 2) * 1.6, 1.2 + Math.floor(i / 2) * 1.6, 0.65, 0.55);
     [[17, -2], [-18, -16]].forEach(function (t) { obstacleCircle(t[0], t[1], 0.9); });
     obstacleRect(DJ_SPOT.x - 0.95, DJ_SPOT.z, 0.5, 1.15);                               // DJ booth
     [-1.8, 1.8].forEach(function (z) { obstacleRect(DJ_SPOT.x - 0.9, DJ_SPOT.z + z, 0.45, 0.45); });
     [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (k) { obstacleCircle(PARTY.c.x + k[0] * (PARTY.half + 0.4), PARTY.c.z + k[1] * (PARTY.half + 0.4), 0.12); });
     buildNav();
+    // where to stand to tend each map-garden plant: free spots around it, nearest first
+    plants.forEach(function (p) {
+      if (p.where !== 'bed' && p.where !== 'map' && p.where !== 'pot' || !MAPG) return;
+      var st = [];
+      [0.95, 1.3, 1.7, 2.2, 2.8].forEach(function (r) {
+        if (st.length >= 4) return;
+        for (var k = 0; k < 12; k++) { var a = k / 12 * TAU, c = V(p.pos.x + Math.cos(a) * r, 0, p.pos.z + Math.sin(a) * r); if (!blockedAt(c.x, c.z, 0.42)) st.push(c); }
+      });
+      if (st.length) p.stands = st.slice(0, 8); else p.where = 'unreachable';
+    });
   })();
 
   // ---------------------------------------------------------------- particles (water drops, dirt puffs, sparkles)
@@ -1101,11 +1532,11 @@
   var stats = { harvest: 0, water: 0, plant: 0 };
   ACTS = {
     harvest: {
-      name: 'Harvest festival', tool: 'none', night: 0, centre: V(0, 0.6, -5.5),
+      name: 'Harvest festival', tool: 'none', night: 0, centre: GARDEN_CENTRE,
       stat: function () { return stats.harvest + ' picked'; },
       next: function harvestNext(h, now) {
         var stand = null;
-        var p = nearest(h, plants, function (q) { return q.ripe && !q.claimed && q.where !== 'field' && (stand = workSpot(q, h)) && (q.stand = stand); });
+        var p = nearest(h, plants, function (q) { return q.ripe && !q.claimed && TENDED[q.where] && (stand = workSpot(q, h)) && (q.stand = stand); });
         if (!p) return wanderNear(h, V(2, 0, 3), 4, now, function () { harvestNext(h, clockNow()); });
         p.claimed = h;
         goTo(h, p.stand, function () {
@@ -1130,18 +1561,21 @@
       }
     },
     water: {
-      name: 'Watering round', tool: 'watering_can', night: 0, centre: V(-1, 0.6, -6),
+      name: 'Watering round', tool: 'watering_can', night: 0, centre: MAPG ? GARDEN_CENTRE : V(-1, 0.6, -6),
       stat: function () { return stats.water + ' watered'; },
       next: function waterNext(h, now) {
-        if (h.watered >= 3) {                          // can's empty: refill at the pump
-          var at = pickSpot(h, PUMP_SPOTS);
+        if (h.watered >= 3) {                          // can's empty: refill at the pump (or a garden tap)
+          var at = pickSpot(h, REFILL_SPOTS);
           if (!at) return wanderNear(h, PUMP, 3, now, function () { waterNext(h, clockNow()); });
+          var src = at.src || PUMP;
           return goTo(h, at, function () {
-            face(h, PUMP);
-            doAct(h, 'refill', 1.6, function () { h.watered = 0; waterNext(h, clockNow()); }, clockNow());
+            face(h, src);
+            h.refillAt = src;
+            doAct(h, 'refill', 1.6, function () { h.watered = 0; h.refillAt = null; waterNext(h, clockNow()); }, clockNow());
           });
         }
-        var p = nearest(h, plants, function (q) { return !q.claimed && clockNow() - q.wateredAt > 25 && q.where !== 'field' && (q.stand = workSpot(q, h)); });
+        var thirsty = plants.some(function (q) { return q.thirsty && !q.claimed && TENDED[q.where]; });
+        var p = nearest(h, plants, function (q) { return !q.claimed && (thirsty ? q.thirsty : clockNow() - q.wateredAt > 25) && TENDED[q.where] && (q.stand = workSpot(q, h)); });
         if (!p) return wanderNear(h, V(-2, 0, 2), 4, now, function () { waterNext(h, clockNow()); });
         p.claimed = h;
         goTo(h, p.stand, function () {
@@ -1149,6 +1583,7 @@
           h.waterTarget = p;
           doAct(h, 'water', 2.4, function () {
             p.claimed = null; p.wateredAt = clockNow(); p.perk = 1;
+            if (p.thirsty) { p.thirsty = false; if (p.drop) { scene.remove(p.drop); p.drop = null; } }
             h.watered++; stats.water++; h.waterTarget = null;
             waterNext(h, clockNow());
           }, clockNow());
@@ -1212,6 +1647,11 @@
   var CART_SPOTS = [V(CART.x - 1.3, 0, CART.z - 0.4), V(CART.x + 1.3, 0, CART.z - 0.4), V(CART.x - 1.3, 0, CART.z + 1.0),
                     V(CART.x + 1.3, 0, CART.z + 1.0), V(CART.x, 0, CART.z - 1.75)];
   var PUMP_SPOTS = [V(PUMP.x + 1.05, 0, PUMP.z + 0.1), V(PUMP.x - 1.05, 0, PUMP.z + 0.1), V(PUMP.x, 0, PUMP.z - 1.05)];
+  var REFILL_SPOTS = PUMP_SPOTS.slice();
+  MAP_TAPS.forEach(function (t) {
+    [V(t.x + 0.9, 0, t.z + 0.3), V(t.x - 0.9, 0, t.z + 0.3), V(t.x, 0, t.z + 1.0)].forEach(function (sp) { sp.src = t; REFILL_SPOTS.push(sp); });
+  });
+  var TENDED = { bed: 1, map: 1, pot: 1 };            // plants heroes can reach (not the greenhouse or the new field)
   function assign(h, now) {
     plants.forEach(function (p) { if (p.claimed === h) p.claimed = null; });
     spots.forEach(function (s) { if (s.claimed === h) s.claimed = null; });
@@ -1373,8 +1813,8 @@
         break;
       case 'refill':
         if (arms[1]) arms[1].rotation.x = -0.6 + Math.sin(p * 8) * 0.5;
-        if (PUMP_HANDLE) PUMP_HANDLE.rotation.z = Math.sin(p * 8) * 0.3;
-        if (Math.random() < dt * 12) emit(PUMP.clone().add(V(0, 1.1, 0.5)), V(rr(-0.1, 0.1), -0.5, 0.3), DROP_MAT, 0.5);
+        if (PUMP_HANDLE && !(h.refillAt && h.refillAt !== PUMP)) PUMP_HANDLE.rotation.z = Math.sin(p * 8) * 0.3;
+        if (Math.random() < dt * 12) emit(h.refillAt && h.refillAt !== PUMP ? h.refillAt.clone().add(V(0, 0.8, 0.2)) : PUMP.clone().add(V(0, 1.1, 0.5)), V(rr(-0.1, 0.1), -0.5, 0.3), DROP_MAT, 0.5);
         break;
       case 'plant':
         u.hero.position.y -= 0.18; u.hero.rotation.x = 0.4;
@@ -1723,6 +2163,9 @@
       u.shadow.position.set(c.position.x, 0.03, c.position.z);
     });
     WORMS.forEach(function (w) { w.rotation.z = Math.sin(now * 3 + w.userData.wiggle) * 0.4; w.position.y = 0.9 + Math.abs(Math.sin(now * 1.5 + w.userData.wiggle)) * 0.05; });
+    if (!calm) mapWorms.forEach(function (w) { w.rotation.y = Math.sin(now * 1.3 + w.userData.ph) * 0.6; w.scale.set(1 + Math.sin(now * 4 + w.userData.ph) * 0.12, 1, 1); });
+    mapBees.forEach(function (b) { var u = b.userData, a = now * 2.2 + u.ph; b.position.set(u.c.x + Math.cos(a) * u.r, u.c.y + Math.sin(a * 1.7) * 0.25, u.c.z + Math.sin(a) * u.r); b.rotation.y = -a; });
+    mapLeds.forEach(function (l) { l.visible = (now % 2) < 1.6; });
     // plants: fruit regrows, watered plants perk up and their soil darkens
     plants.forEach(function (p) {
       if (!p.ripe && p.regrowAt && now > p.regrowAt) { p.ripe = true; p.regrowAt = 0; }
@@ -1732,8 +2175,11 @@
       var sc = Math.max(0.001, ms + (1 - ms) * p.ripeK);
       (p.model.userData.produce || []).forEach(function (o) { if (!o.userData.s0) o.userData.s0 = o.scale.clone(); o.scale.copy(o.userData.s0).multiplyScalar(sc); });
       if (p.perk > 0) p.perk = Math.max(0, p.perk - dt * 0.8);
-      p.holder.scale.set(1, 1 + Math.sin(p.perk * PI) * 0.18, 1);
+      p.droop = (p.droop || 0) + ((p.thirsty ? 1 : 0) - (p.droop || 0)) * Math.min(1, dt * 2);
+      p.holder.scale.set(1, 1 + Math.sin(p.perk * PI) * 0.18 - p.droop * 0.16, 1);
       p.holder.rotation.z = calm ? 0 : Math.sin(now * 1.2 + p.pos.x + p.pos.z) * 0.03;
+      p.holder.rotation.x = p.droop * 0.2;
+      if (p.drop) p.drop.position.y = p.pos.y + Math.min(2.2, p.height) + 0.45 + Math.sin(now * 3 + p.pos.x) * 0.06;
       var wet = Math.max(0, 1 - (now - p.wateredAt) / 40);
       p.soil.material.opacity = wet * 0.55;
       p.soil.visible = wet > 0.01;
@@ -1866,6 +2312,7 @@
     },
     free: function (x, z) { return freeAt(x, z); }, path: function (a, b) { return findPath(V(a[0], 0, a[1]), V(b[0], 0, b[1])).map(function (v) { return [+v.x.toFixed(1), +v.z.toFixed(1)]; }); },
     plants: plants,
+    blocked: function (x, z, pad) { return blockedAt(x, z, pad); },
     blockedHeroes: function () { return heroes.filter(function (h) { return blockedAt(h.root.position.x, h.root.position.z, 0.2); }).length; }
   };
 })();

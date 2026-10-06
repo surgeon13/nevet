@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-06 (your garden on the farm)
+
+- The farm builds its garden from the **garden map**: beds in their real
+  shapes with plants where they were pinned, worm beds, compost,
+  greenhouse, pond, orchard, lawn, wildflowers, walkways, fences, drip
+  lines, taps, beehives, trees, rain barrels, sheds, benches and the Nevet
+  node. With nothing drawn yet it keeps its default beds.
+- New map area type: **Worm bed**. On the farm, the more worm feedings
+  this month, the more worms.
+- Plants not watered for 3+ days droop and show a water drop; heroes water
+  those first, and refill at the garden's taps too.
+- A chalkboard in the farm yard shows this week's real numbers.
+
 ## 2026-10-06 (plants in 3D)
 
 - **3D plant models** for about 90 species (tomatoes, cherry tomatoes,

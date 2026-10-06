@@ -548,6 +548,51 @@ def plants(grower_id=None, current=True):
     return rows
 
 
+def farm_numbers():
+    """Live numbers for the farm: per asset, days since it was last watered
+    (a whole-garden watering counts for every plant; never watered counts
+    from when it was added) and feedings this month; and this week's totals
+    for the farm's chalkboard."""
+    from datetime import date, timedelta
+    today = date.today()
+    week = (today - timedelta(days=6)).isoformat()
+    month = today.replace(day=1).isoformat()
+    conn = get_conn()
+    garden_watered = conn.execute("SELECT MAX(timestamp) FROM logs WHERE log_type = 'watering' AND asset_id IS NULL").fetchone()[0]
+    rows = conn.execute("""
+        SELECT assets.id, assets.created_at,
+               (SELECT MAX(timestamp) FROM logs WHERE logs.asset_id = assets.id AND log_type = 'watering') AS watered,
+               (SELECT COUNT(*) FROM logs WHERE logs.asset_id = assets.id AND log_type = 'feeding' AND timestamp >= ?) AS fed
+        FROM assets""", (month,)).fetchall()
+    one = lambda sql, *a: conn.execute(sql, a).fetchone()[0]
+    grams = one("""SELECT COALESCE(SUM(CASE WHEN q.units = 'kg' THEN q.value * 1000 ELSE q.value END), 0)
+                   FROM quantities q JOIN logs ON logs.id = q.log_id
+                   WHERE logs.log_type = 'harvest' AND logs.timestamp >= ? AND q.units IN ('g', 'kg')""", week)
+    numbers = {
+        "week": {
+            "actions": one("SELECT COUNT(*) FROM logs WHERE timestamp >= ?", week),
+            "harvests": one("SELECT COUNT(*) FROM logs WHERE log_type = 'harvest' AND timestamp >= ?", week),
+            "kg": round(grams / 1000.0, 1),
+            "waterings": one("SELECT COUNT(*) FROM logs WHERE log_type = 'watering' AND timestamp >= ?", week),
+            "feedings": one("SELECT COUNT(*) FROM logs WHERE log_type = 'feeding' AND timestamp >= ?", week),
+            "growing": one(f"SELECT COUNT(*) FROM assets WHERE {ACTIVE_STAGES_SQL}"),
+            "heroes": one("SELECT COUNT(DISTINCT grower_id) FROM logs WHERE timestamp >= ? AND grower_id IS NOT NULL", week),
+        },
+        "month_feedings": one("SELECT COUNT(*) FROM logs WHERE log_type = 'feeding' AND timestamp >= ?", month),
+        "assets": {},
+    }
+    conn.close()
+    now = datetime.now()
+    for r in rows:
+        last = max([t for t in (r["watered"], garden_watered) if t] or [r["created_at"]])
+        try:
+            dry = max(0.0, (now - datetime.fromisoformat(last)).total_seconds() / 86400.0)
+        except (TypeError, ValueError):
+            dry = 0.0
+        numbers["assets"][r["id"]] = {"dry": round(dry, 1), "fed": r["fed"]}
+    return numbers
+
+
 def player_activity():
     """Per player: total actions, actions this week, favourite action, last action."""
     from datetime import date, timedelta

@@ -156,9 +156,14 @@ A Flask app served by waitress on port 8000:
   totals exist per player and for the whole garden: dashboard
   (Everyone / Just me), hero profiles, and the filterable `/activity`
   history.
-- **The farm** — `/farm` passes up to 16 heroes and the garden's growing
-  plants to `static/js/farm3d.js`, which builds the farm from toon shapes,
-  places each hero with `hero3d.js` and runs the group activities on a
+- **The farm** — `/farm` passes up to 16 heroes, the garden's growing
+  plants (species, stage, days since watered, feedings), the garden map
+  projected to local metres (`garden_map.farm_layout()`) and this week's
+  numbers (`farm_db.farm_numbers()`) to `static/js/farm3d.js`. With areas on
+  the map, the bed area is built from the map (fitted, turned a quarter if
+  that fits better), every shape registering its obstacles on the
+  navigation grid; otherwise the farm uses its default beds. farm3d.js
+  builds the farm from toon shapes, places each hero with `hero3d.js` and runs the group activities on a
   simulation clock. Static props and each hero's rig parts are merged into
   a few meshes (`NevetHero.merge`) to keep draw calls low on phones.
 - **Plant models** — `static/assets/plants/catalog.json` lists ~90

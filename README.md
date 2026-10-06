@@ -377,6 +377,21 @@ the gate and joins a group activity:
   on group moves and now and then forms a conga line. The speaker button
   plays a little synth beat (off until you tap it).
 
+**Your garden, on the farm.** Once areas are drawn on the garden map,
+the farm builds its garden from it, turned and scaled to fit behind the
+lane: beds in their real shapes with each plant growing where it was
+pinned (unpinned plants fill the beds, then pots), **worm beds** (a map
+area type; the more worm feedings this month, the more worms), compost,
+greenhouse (its plants stay inside), pond, orchard, lawn, wildflowers,
+walkways, fences and drip lines, and the map's points: taps (heroes refill
+their cans there too), beehives with bees, trees, rain barrels, tool sheds,
+benches, gates and the Nevet node with its camera. Plants nobody has
+watered for 3 days or more droop and show a water drop; on the watering
+round heroes go to those first. A chalkboard in the yard shows this
+week's real numbers: actions, harvests (and kilos), waterings, worm
+feedings and plants growing. With nothing drawn on the map yet, the farm
+keeps its own four beds.
+
 **Auto** changes activity about every minute. Drag to look around,
 pinch to zoom, tap a hero to follow them (they wave), tap the ground to
 let go. The beds show the garden's real plants (as their 3D models, at

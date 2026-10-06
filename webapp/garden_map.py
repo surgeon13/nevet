@@ -33,6 +33,7 @@ CATEGORIES = {
         {"id": "herbs", "label": "Herb garden", "color": "#9bbf3b"},
         {"id": "lawn", "label": "Lawn", "color": "#b5d69a"},
         {"id": "compost", "label": "Compost area", "color": "#8d6e52"},
+        {"id": "worm_bed", "label": "Worm bed", "color": "#a0522d"},
         {"id": "water", "label": "Pond / water", "color": "#5b9bd5"},
         {"id": "wild", "label": "Wildflowers", "color": "#c27ba0"},
         {"id": "seating", "label": "Seating / shade", "color": "#b39a7a"},
@@ -374,6 +375,47 @@ def feature_dict(row):
     if not props["color"] and cat:
         props["color"] = cat["color"]
     return {"type": "Feature", "id": row["id"], "geometry": geom, "properties": props}
+
+
+def farm_layout(rows=None):
+    """The map in local metres for the 3D farm: x east, z south, centred on
+    the garden. Returns {"features": [...], "size": [width, depth]} or None
+    when nothing is drawn yet. Each feature: kind, category, name, color,
+    asset_id (pins), and pts ([[x, z], ...]; one point for points/pins).
+    Areas also carry area_m2."""
+    rows = list_features() if rows is None else rows
+    items = []
+    for r in rows:
+        try:
+            geom = json.loads(r["geometry"])
+        except (TypeError, ValueError):
+            continue
+        c = geom.get("coordinates")
+        pts = [c] if geom["type"] == "Point" else (c[0][:-1] if geom["type"] == "Polygon" else c)
+        if pts:
+            items.append((r, geom, pts))
+    if not items:
+        return None
+    lons = [p[0] for _, _, pts in items for p in pts]
+    lats = [p[1] for _, _, pts in items for p in pts]
+    lon0, lat0 = (min(lons) + max(lons)) / 2, (min(lats) + max(lats)) / 2
+    kx = math.cos(math.radians(lat0)) * math.pi * EARTH_R / 180.0     # metres per degree of longitude here
+    kz = math.pi * EARTH_R / 180.0
+    out = []
+    for r, geom, pts in items:
+        f = {"id": r["id"], "kind": r["kind"], "category": r["asset_type"] if r["kind"] == "asset" else r["category"],
+             "name": (r["asset_name"] if r["kind"] == "asset" else r["name"]) or "", "color": r["color"],
+             "asset_id": r["asset_id"],
+             "pts": [[round((p[0] - lon0) * kx, 2), round(-(p[1] - lat0) * kz, 2)] for p in pts]}
+        if r["kind"] == "area":
+            f["area_m2"] = round(area_m2(geom), 1)
+        cat = category(r["kind"], f["category"])
+        if not f["color"] and cat:
+            f["color"] = cat["color"]
+        out.append(f)
+    xs = [p[0] for f in out for p in f["pts"]]
+    zs = [p[1] for f in out for p in f["pts"]]
+    return {"features": out, "size": [round(max(xs) - min(xs), 2), round(max(zs) - min(zs), 2)]}
 
 
 def feature_collection(rows=None, garden_name="Nevet garden"):
