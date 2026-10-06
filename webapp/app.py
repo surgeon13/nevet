@@ -808,6 +808,31 @@ def api_map_geojson():
     return jsonify(garden_map.feature_collection())
 
 
+# ---------- the farm: every hero together (tap the brain on the dashboard) ----------
+FARM_MAX_HEROES = 16
+
+
+@app.route("/farm")
+def farm_page():
+    rows = farm_db.list_growers()
+    # players who log in come first, most recently active first; the current player always joins
+    rows = sorted(rows, key=lambda r: r["last_login"] or "", reverse=True)            # most recent first...
+    rows = sorted(rows, key=lambda r: (r["id"] != g.user["id"], not r["password_hash"]))  # ...within each group (stable)
+    party = [hero_view(r) for r in rows[:FARM_MAX_HEROES]]
+    plants = [{"name": a["name"], "type": a["asset_type"], "stage": a["life_stage"] or "growing"}
+              for a in farm_db.plants(current=True)][:40]
+    data = {
+        "heroes": [{"id": h["id"], "name": h["name"], "level": h["progress"]["level"], "appearance": h["appearance"]}
+                   for h in party],
+        "more": max(0, len(rows) - FARM_MAX_HEROES),
+        "plants": plants,
+        "catalog": heroes.catalog(),
+        "gardenName": "Nevet Farm",
+        "start": request.args.get("act") if request.args.get("act") in ("harvest", "water", "plant", "campfire") else None,
+    }
+    return render_template("farm.html", data=data)
+
+
 @app.route("/healthz")
 def healthz():
     """Unauthenticated liveness check used by the watchdog. Touches the

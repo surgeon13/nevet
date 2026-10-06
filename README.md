@@ -33,6 +33,7 @@ webapp/                      Flask app: dashboard, heroes, garden map, gallery, 
   webapp/app.py
   webapp/garden_map.py         garden map data (GeoJSON beds, paths, points, plant pins)
   webapp/about.py              numbers, version and "what's new" for the About popup
+  webapp/static/js/farm3d.js   the farm: all heroes doing group activities in 3D
   webapp/static/vendor/        Leaflet + Leaflet-Geoman (map drawing), MIT licensed
   webapp/game_stats.py         importable helper for logging game stats
   webapp/logging_config.py     rotating file logging setup
@@ -348,9 +349,34 @@ in the bin can't be taken by a new sign-up until it's deleted for good.
 The dashboard's brain is the garden's hub: fine mycelium threads braid
 out to each section, waves of colour and little sparks of light travel
 along them, and they sway a little (all still with "reduce motion").
-Every section is a node on the hub (there's no menu bar); the **Nevet** logo at the top always leads back to it. Tap the
-brain, or the ⓘ button, for **About Nevet**: the garden's numbers, the
-version running and what's new in the latest update.
+Every section is a node on the hub (there's no menu bar); the **Nevet**
+logo at the top always leads back to it. The ⓘ button opens **About
+Nevet**: the garden's numbers, the version running and what's new in
+the latest update.
+
+### The farm (tap the brain)
+
+Tapping the brain dives into **the farm**: a full-screen 3D farm where
+every hero (up to 16, the most recently active first) walks in through
+the gate and joins a group activity:
+
+- **Harvest festival**: heroes pick ripe produce from the beds and carry
+  it to the cart, which fills up as they go; plants grow new fruit.
+- **Watering round**: watering cans out, plants perk up and their soil
+  darkens; empty cans get refilled at the hand pump.
+- **Planting day**: heroes sow the new field and the sprouts grow into
+  plants; a full field is harvested and sown again.
+- **Campfire dance**: night falls, the fire is lit and everyone dances
+  the same moves around it, the ring turning now and then.
+
+**Auto** changes activity about every minute. Drag to look around,
+pinch to zoom, tap a hero to follow them (they wave), tap the ground to
+let go. The beds show the garden's real plants with name signs and the
+worm bins stand by the barn; there's also a barn, windmill, greenhouse,
+pond with ducks, chickens, butterflies and fireflies. The camera button
+saves a picture. Keys 1-4 pick an activity, A toggles auto, Esc goes
+back. The farm is just for fun: nothing there changes the garden's
+records.
 
 Heroes move on the profile and customize pages: they breathe and blink,
 and every few seconds play a short emote (wave, look around, hop, tool

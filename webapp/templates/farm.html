@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#6fb8ec">
+<title>Nevet — The farm</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='farm.css') }}">
+<script>
+  (function () { try { if (localStorage.getItem('nevet-theme') === 'dark') document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem('nevet-farm-visited', '1'); } catch (e) {} })();
+</script>
+</head>
+<body class="farm-body">
+<div class="farm-wrap" id="farm-wrap">
+  <canvas id="farm-canvas" aria-label="The farm: all heroes together, drag to look around"></canvas>
+
+  <div class="farm-loading" id="farm-loading" role="status">
+    <span class="farm-loading-sprout" aria-hidden="true">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21v-9M12 12c0-4-3-6.5-7-6.5 0 4 3 6.5 7 6.5zM12 10c0-3 2.2-5 6-5 0 3-2.2 5-6 5zM7 21h10"/></svg>
+    </span>
+    Gathering the heroes…
+  </div>
+
+  <div class="farm-top">
+    <a class="farm-btn farm-close" href="{{ url_for('hub') }}" aria-label="Back to the dashboard">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      <span>Dashboard</span>
+    </a>
+    <div class="farm-title" aria-live="polite">
+      <b id="farm-act-name">Harvest festival</b>
+      <span id="farm-act-stat"></span>
+    </div>
+    <div class="farm-top-right">
+      <button type="button" class="farm-btn farm-icon active" id="farm-names" aria-pressed="true" title="Show names">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="5"/><path d="M8 12h8"/></svg>
+        <span class="sr-only">Names</span>
+      </button>
+      <button type="button" class="farm-btn farm-icon" id="farm-photo" title="Save a photo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        <span class="sr-only">Photo</span>
+      </button>
+    </div>
+  </div>
+
+  <p class="farm-follow" id="farm-follow" hidden></p>
+
+  <div class="farm-acts" role="group" aria-label="Group activity">
+    <button type="button" class="farm-chip" data-act="harvest" aria-pressed="false">🍅 <span>Harvest</span></button>
+    <button type="button" class="farm-chip" data-act="water" aria-pressed="false">💧 <span>Watering</span></button>
+    <button type="button" class="farm-chip" data-act="plant" aria-pressed="false">🌱 <span>Planting</span></button>
+    <button type="button" class="farm-chip" data-act="campfire" aria-pressed="false">🔥 <span>Campfire</span></button>
+    <button type="button" class="farm-chip farm-auto" id="farm-auto" aria-pressed="true" title="Change activity every minute">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4"/></svg>
+      <span>Auto</span>
+    </button>
+  </div>
+  {% if data.more %}<p class="farm-more">+{{ data.more }} more hero{{ 'es' if data.more != 1 }} resting in the barn</p>{% endif %}
+  <noscript><p class="farm-loading">The farm needs JavaScript and WebGL.</p></noscript>
+</div>
+
+<script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/OrbitControls.js') }}"></script>
+<script src="{{ url_for('static', filename='js/nevet3d.js') }}"></script>
+<script src="{{ url_for('static', filename='js/hero3d.js') }}"></script>
+<script>window.NEVET_FARM = {{ data | tojson }};</script>
+<script>
+  if (!window.Nevet3D || !Nevet3D.supportsWebGL || !Nevet3D.supportsWebGL()) {
+    document.getElementById('farm-loading').textContent = 'This device can’t show 3D (WebGL is off or not supported).';
+  }
+</script>
+<script src="{{ url_for('static', filename='js/farm3d.js') }}"></script>
+</body>
+</html>

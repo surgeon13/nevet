@@ -1,0 +1,43 @@
+/* The farm (templates/farm.html, static/js/farm3d.js): a full-screen game view */
+html, body.farm-body { height: 100%; margin: 0; overflow: hidden; background: #6fb8ec; }
+.farm-wrap { position: fixed; inset: 0; }
+#farm-canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+
+.farm-btn { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px; border-radius: 999px; border: 0;
+  background: rgba(255, 255, 255, 0.9); color: #1e2a20; font: 700 14px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  text-decoration: none; cursor: pointer; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); backdrop-filter: blur(4px); }
+.farm-btn:active { transform: scale(0.97); }
+.farm-icon { width: 40px; padding: 0; justify-content: center; }
+.farm-icon.active { background: #4c9a5b; color: #fff; }
+
+.farm-top { position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 10px; right: 10px; display: flex; align-items: flex-start; gap: 8px; pointer-events: none; }
+.farm-top > * { pointer-events: auto; }
+.farm-title { flex: 1; min-width: 0; margin: 0 auto; max-width: 340px; padding: 7px 14px; border-radius: 16px; text-align: center;
+  background: rgba(255, 255, 255, 0.9); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); color: #1e2a20; font: 14px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.farm-title b { display: block; font-size: 15px; }
+.farm-title span { color: #5c6b5e; font-size: 12.5px; }
+.farm-top-right { display: flex; gap: 6px; }
+@media (max-width: 520px) {
+  .farm-close span { display: none; }
+  .farm-close { width: 40px; padding: 0; justify-content: center; }
+}
+
+.farm-acts { position: absolute; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 6px;
+  padding: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.86); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2); max-width: calc(100% - 20px); overflow-x: auto; }
+.farm-chip { flex: none; display: inline-flex; align-items: center; gap: 5px; height: 38px; padding: 0 13px; border: 0; border-radius: 999px;
+  background: transparent; color: #1e2a20; font: 700 13.5px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; cursor: pointer; white-space: nowrap; }
+.farm-chip.active { background: #4c9a5b; color: #fff; }
+.farm-auto { border-left: 1px solid #dde5d8; border-radius: 0 999px 999px 0; margin-left: 2px; padding-left: 12px; color: #5c6b5e; }
+.farm-auto.active { background: #e3f0dc; color: #2f6b3c; }
+@media (max-width: 520px) { .farm-chip span { display: none; } .farm-chip { font-size: 18px; padding: 0 11px; } .farm-auto span { display: inline; font-size: 12.5px; } }
+
+.farm-follow { position: absolute; left: 50%; bottom: calc(70px + env(safe-area-inset-bottom)); transform: translateX(-50%); margin: 0; padding: 8px 14px; border-radius: 12px;
+  background: rgba(30, 42, 32, 0.88); color: #fff; font: 600 13px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; white-space: nowrap; max-width: calc(100% - 20px); overflow: hidden; text-overflow: ellipsis; }
+.farm-more { position: absolute; right: 12px; bottom: calc(70px + env(safe-area-inset-bottom)); margin: 0; padding: 5px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.8); color: #5c6b5e; font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+.farm-loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; margin: 0;
+  background: linear-gradient(#bfe3f7, #e4f4ff 60%, #b7dc94); color: #2f6b3c; font: 700 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; z-index: 5; transition: opacity 0.4s; }
+.farm-loading[hidden] { display: flex !important; opacity: 0; pointer-events: none; }
+.farm-loading-sprout { animation: farm-grow 1.2s ease-in-out infinite alternate; }
+@keyframes farm-grow { from { transform: scale(0.85) translateY(4px); } to { transform: scale(1.1) translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) { .farm-loading-sprout { animation: none; } }

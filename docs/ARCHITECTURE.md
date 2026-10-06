@@ -156,6 +156,11 @@ A Flask app served by waitress on port 8000:
   totals exist per player and for the whole garden: dashboard
   (Everyone / Just me), hero profiles, and the filterable `/activity`
   history.
+- **The farm** — `/farm` passes up to 16 heroes and the garden's growing
+  plants to `static/js/farm3d.js`, which builds the farm from toon shapes,
+  places each hero with `hero3d.js` and runs the group activities on a
+  simulation clock. Static props and each hero's rig parts are merged into
+  a few meshes (`NevetHero.merge`) to keep draw calls low on phones.
 - **Garden map** — `garden_map.py` stores beds, paths, points and plant
   pins as GeoJSON in `map_features` (soft delete for undo) and validates
   every shape; `/map` draws them with Leaflet and Leaflet-Geoman

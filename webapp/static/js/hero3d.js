@@ -12,12 +12,13 @@
  * ahead of the art.
  *
  * API (window.NevetHero):
- *   build(appearance, catalog)                -> THREE.Group
+ *   build(appearance, catalog, {outlines, merge}) -> THREE.Group (userData: hero, headRig, arms, legs, pet...)
  *   viewer(canvas, wrap, appearance, catalog) -> { set(appearance), emote(name) }
  *     (heroes breathe, blink and play an emote every few seconds: wave,
  *      look around, hop, tool swing, cheer...; tap the hero for one)
  *   snapshot(appearance, catalog, w, h)       -> PNG data URL (full body)
  *   itemIcon(catId, optId, appearance, catalog, size) -> data URL or null
+ *   animate(root, t, {calm}), emote(root, name), dispose(root)  (used by the farm scene)
  *   faceIcon(appearance, catalog, size)       -> data URL (2D face)
  */
 (function () {
@@ -1117,6 +1118,7 @@
     // o: { top, sleeves, pants, boots, legs:false }
     var g = group();
     g.userData.arms = {};
+    g.userData.legs = {};
     g.add(cyl(0.3, 0.36, 0.56, o.top, [0, 0.82, 0], 28));
     [1, -1].forEach(function (side) {
       if (!o.noShoulders) g.add(sphere(0.13, o.sleeves, [side * 0.33, 1.02, 0]));
@@ -1127,9 +1129,12 @@
       arm.userData.rest = arm.rotation.z;
       g.userData.arms[side] = arm;
       g.add(arm);
-      if (o.legs !== false) {
-        g.add(cyl(0.11, 0.1, 0.36, o.pants, [side * 0.14, 0.3, 0], 16));
-        g.add(sphere(0.13, o.boots || '#5b3a24', [side * 0.14, 0.07, 0.05], [1, 0.7, 1.35]));
+      if (o.legs !== false) {                      // each leg swings from the hip (walking on the farm)
+        var leg = group([side * 0.14, 0.48, 0]);
+        leg.add(cyl(0.11, 0.1, 0.36, o.pants, [0, -0.18, 0], 16));
+        leg.add(sphere(0.13, o.boots || '#5b3a24', [0, -0.41, 0.05], [1, 0.7, 1.35]));
+        g.userData.legs[side] = leg;
+        g.add(leg);
       }
     });
     return g;
@@ -2138,8 +2143,79 @@
     });
   }
 
+  // ---------- merging: fewer draw calls when many heroes are on screen ----------
+  // Meshes that never move relative to each other (same rig part) and share a
+  // plain colour material are baked into one mesh. Animated parts (the
+  // hero, head, arms, legs, pet, item effects) and textured meshes (the face)
+  // stay separate, so every animation keeps working.
+  function matKey(m) {
+    return [m.type, m.color ? m.color.getHex() : '', m.side, m.transparent ? 1 : 0, m.opacity, m.depthWrite ? 1 : 0,
+            m.emissive ? m.emissive.getHex() : '', m.emissiveIntensity || 0, m.vertexColors ? 1 : 0].join('|');
+  }
+  var _inv = new THREE.Matrix4(), _m = new THREE.Matrix4();
+  function mergeMeshes(root, isBoundary) {
+    root.updateMatrixWorld(true);
+    var ok = new Set();
+    root.traverse(function (o) {
+      if (!o.isMesh || isBoundary(o) || Array.isArray(o.material) || o.material.map || o.material.isShaderMaterial) return;
+      if (o.userData.isOutline && !ok.has(o.parent) && o.parent.isMesh) return;
+      if (o.children.some(function (c) { return !(c.isMesh && c.userData.isOutline); })) return;
+      ok.add(o);
+    });
+    var buckets = new Map();
+    ok.forEach(function (o) {
+      if (o.userData.isOutline && o.parent.isMesh && !ok.has(o.parent)) return;
+      var b = o.parent;
+      while (b && b !== root && !isBoundary(b)) b = b.parent;
+      if (!b) return;
+      var key = b.uuid + '#' + matKey(o.material);
+      if (!buckets.has(key)) buckets.set(key, { b: b, list: [] });
+      buckets.get(key).list.push(o);
+    });
+    buckets.forEach(function (bk) {
+      if (bk.list.length < 2) return;
+      _inv.copy(bk.b.matrixWorld).invert();
+      var parts = [], nv = 0, ni = 0;
+      bk.list.forEach(function (o) {
+        var g = o.geometry.index ? o.geometry : o.geometry.clone();
+        _m.multiplyMatrices(_inv, o.matrixWorld);
+        var pos = g.attributes.position, nor = g.attributes.normal;
+        if (!pos || !nor) return;
+        var idx = g.index ? g.index.array : null, cnt = idx ? idx.length : pos.count;
+        parts.push({ g: g, m: _m.clone(), flip: _m.determinant() < 0, idx: idx, cnt: cnt });
+        nv += pos.count; ni += cnt;
+      });
+      if (parts.length < 2) return;
+      var P = new Float32Array(nv * 3), N = new Float32Array(nv * 3), I = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni);
+      var v = new THREE.Vector3(), nm = new THREE.Matrix3(), vo = 0, io = 0;
+      parts.forEach(function (pt) {
+        var pos = pt.g.attributes.position, nor = pt.g.attributes.normal;
+        nm.getNormalMatrix(pt.m);
+        for (var i = 0; i < pos.count; i++) {
+          v.fromBufferAttribute(pos, i).applyMatrix4(pt.m); P[(vo + i) * 3] = v.x; P[(vo + i) * 3 + 1] = v.y; P[(vo + i) * 3 + 2] = v.z;
+          v.fromBufferAttribute(nor, i).applyMatrix3(nm).normalize(); N[(vo + i) * 3] = v.x; N[(vo + i) * 3 + 1] = v.y; N[(vo + i) * 3 + 2] = v.z;
+        }
+        for (var k = 0; k < pt.cnt; k += 3) {
+          var a = pt.idx ? pt.idx[k] : k, b2 = pt.idx ? pt.idx[k + 1] : k + 1, c = pt.idx ? pt.idx[k + 2] : k + 2;
+          I[io + k] = vo + a; I[io + k + 1] = vo + (pt.flip ? c : b2); I[io + k + 2] = vo + (pt.flip ? b2 : c);
+        }
+        vo += pos.count; io += pt.cnt;
+      });
+      var geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(P, 3));
+      geo.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+      geo.setIndex(new THREE.BufferAttribute(I, 1));
+      geo.computeBoundingSphere();
+      var merged = new THREE.Mesh(geo, bk.list[0].material);
+      merged.userData.merged = true;
+      bk.list.forEach(function (o) { if (o.parent) o.parent.remove(o); });
+      bk.b.add(merged);
+    });
+    return root;
+  }
+
   // ---------- full hero ----------
-  function build(appearance, catalog) {
+  function build(appearance, catalog, opts) {
     var R = resolve(appearance || {}, catalog);
     var root = new THREE.Group();
     var hero = new THREE.Group();
@@ -2167,15 +2243,24 @@
     }
     var pet = buildPet(R);
     if (pet) root.add(pet);
-    addOutlines(root);
+    if (!(opts && opts.outlines === false)) addOutlines(root);
     var effects = [];
     root.traverse(function (o) {
       if (!o.userData.fx) return;
       o.userData.base = { y: o.position.y, ry: o.rotation.y, sy: o.scale.y };
       effects.push(o);
     });
+    if (opts && opts.merge) {
+      var moving = new Set([hero, headRig, headGroup.userData.face, pet, arms[1], arms[-1]].concat(effects));
+      var legs = body.userData.legs || {};
+      if (legs[1]) moving.add(legs[1]);
+      if (legs[-1]) moving.add(legs[-1]);
+      if (pet) pet.traverse(function (o) { if (o.userData.top !== undefined || o.userData.flying !== undefined) moving.add(o); });
+      mergeMeshes(root, function (o) { return moving.has(o); });
+    }
     root.userData = { hero: hero, pet: pet, petBase: pet ? pet.position.clone() : null,
-                      headRig: headRig, arms: arms, face: headGroup.userData.face, hasTool: !!tool, effects: effects };
+                      headRig: headRig, arms: arms, legs: body.userData.legs || {}, tool: tool,
+                      face: headGroup.userData.face, hasTool: !!tool, effects: effects };
     return root;
   }
   var BODY_SHAPE = { female: [0.94, 0.97], male: [1.07, 1.03] };
@@ -2577,7 +2662,8 @@
 
   window.NevetHero = {
     build: build, viewer: viewer, snapshot: snapshot, itemIcon: itemIcon,
-    faceIcon: faceIcon, supported: supported, animate: animate, emote: playEmote,
+    faceIcon: faceIcon, supported: supported, animate: animate, emote: playEmote, dispose: dispose,
+    merge: mergeMeshes,
     emotes: EMOTE_NAMES
   };
 })();

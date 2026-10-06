@@ -21,6 +21,7 @@
 <div class="hub-wrap">
   <div class="hub-3d-wrap" id="hub-3d-wrap">
     <canvas id="hub-canvas"></canvas>
+    <a class="hub-farm-hint" id="hub-farm-hint" href="{{ url_for('farm_page') }}" hidden>Tap the brain to visit the farm</a>
     <button type="button" class="hub-about-btn" onclick="openAbout()" aria-label="About Nevet" title="About Nevet">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.6" r="0.6" fill="currentColor"/></svg>
     </button>
@@ -199,6 +200,17 @@
   (function () {                       // tap outside the panel to close it
     var d = document.getElementById('about-dialog');
     if (d) d.addEventListener('click', function (e) { if (e.target === d && d.close) d.close(); });
+  })();
+
+  // Tap the brain: the dashboard dives into the farm, where every hero plays together
+  function goFarm() {
+    var wrap = document.getElementById('hub-3d-wrap');
+    if (wrap) wrap.classList.add('diving');
+    setTimeout(function () { location.href = "{{ url_for('farm_page') }}"; }, 380);
+  }
+  (function () {                       // a small hint until the farm has been visited once
+    var hint = document.getElementById('hub-farm-hint');
+    try { if (hint && !localStorage.getItem('nevet-farm-visited')) hint.hidden = false; } catch (e) {}
   })();
 
   function showComingSoon(name) {
@@ -650,7 +662,7 @@
     var hits = raycaster.intersectObjects(satMeshes.concat(satLabels, brainTargets()));
     if (hits.length) {
       var o = hits[0].object;
-      if (o === brainSprite || o === hubCore) { brainPoke = clock.getElapsedTime(); openAbout(); return; }
+      if (o === brainSprite || o === hubCore) { brainPoke = clock.getElapsedTime(); goFarm(); return; }
       current = o.userData.index !== undefined ? o.userData.index : satLabels.indexOf(o);
       updateHighlight();
       hubSelect();

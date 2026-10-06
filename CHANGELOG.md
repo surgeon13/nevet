@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-06 (the farm)
+
+- Tap the brain on the dashboard to visit **the farm**: a full-screen 3D
+  farm where all heroes walk in through the gate and do group activities
+  together: harvest festival, watering round, planting day and a
+  campfire dance at night. Auto mode cycles through them.
+- The farm has the garden's real plants (with name signs) and worm bins,
+  a barn, windmill, greenhouse, pond with ducks, chickens, butterflies,
+  fireflies, drifting clouds and stars. Follow a hero by tapping them;
+  save a photo with the camera button.
+- Heroes now swing their legs when they walk, and heroes and farm props
+  are merged into far fewer draw calls so 16 heroes run smoothly.
+- The About popup now opens from the ⓘ button; a hint shows "Tap the
+  brain to visit the farm" until the first visit.
+
 ## 2026-10-03 (simpler top bar, mycelium hub)
 
 - The row of section links under the top bar is gone: every section is
