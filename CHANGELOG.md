@@ -2,6 +2,8 @@
 
 ## 2026-10-07 (family and groups)
 
+- The Locs hairstyle now stands up in pointed locs like a pineapple crown.
+
 - Connections need the other person's confirmation (badge by their name, Confirm or Decline on their profile).
 - **Family & connections** on each profile: parents and children, husband
   and wife, partners, siblings, grandparents, guardians, friends,

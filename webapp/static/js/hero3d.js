@@ -536,17 +536,27 @@
       }
       g.add(sphere(0.8, R.hairColor, [0, HEAD_Y + 0.2, -0.2], [1.05, 0.95, 0.95]));
     },
-    dreadlocks: function (R, g) {
+    dreadlocks: function (R, g, covered) {           // pointed-up locs, a crown like pineapple leaves
       hairCap(R, g);
-      for (var i = 0; i < 13; i++) {
-        var az = PI * 0.38 + i / 12 * PI * 1.24;                       // sides and back
-        var p = onHead(0.6, 1.25, az), len = 0.5 + (i % 3) * 0.08;
-        var lock = cyl(0.05, 0.04, len, i % 2 ? shade(R.hairColor, -0.05) : R.hairColor,
-          [p.x * 1.04, p.y - len / 2 + 0.05, p.z * 1.04], 8);
-        lock.rotation.z = Math.sin(az) * 0.15;                          // splay outwards
-        lock.rotation.x = -Math.cos(az) * 0.15;
-        g.add(lock);
-      }
+      if (covered) return;
+      var centre = new THREE.Vector3(0, HEAD_Y - 0.05, 0), dark = shade(R.hairColor, -0.07), n = 0;
+      // rings from the crown outwards: the inner leaves stand tall, the outer ones lean away
+      [[1, 0.0, 0.0, 0.52], [6, 0.24, 0.24, 0.5], [10, 0.5, 0.55, 0.46], [14, 0.76, 0.95, 0.4]].forEach(function (ring, ri) {
+        for (var i = 0; i < ring[0]; i++, n++) {
+          var az = (i / ring[0]) * PI * 2 + ri * 0.37;
+          var p = onHead(0.57, ring[1], az), len = ring[3] + ((n * 5) % 3) * 0.03;
+          var root = new THREE.Group();
+          root.position.set(p.x, p.y, p.z);
+          // lean outwards from the crown by ring[2] radians, with a little jitter
+          var lean = ring[2] + ((n * 7) % 3 - 1) * 0.05;
+          var dir = new THREE.Vector3(Math.sin(az) * Math.sin(lean), Math.cos(lean), Math.cos(az) * Math.sin(lean)).normalize();
+          root.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+          var col = n % 2 ? dark : R.hairColor;
+          root.add(cyl(0.015, 0.115, len, col, [0, len / 2, 0], 10));     // fat at the root, tapers to a point
+          if (n % 5 === 2) root.add(mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.05, 10), '#e3c16f', [0, len * 0.22, 0]));
+          g.add(root);
+        }
+      });
     },
     // ---- added: punk, mullet and styles from history ----
     long_locs: function (R, g) {                    // thick dreadlocks down the back, a few gold cuffs
