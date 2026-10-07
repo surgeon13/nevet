@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ group.name }}{% endblock %}
+{% block content %}
+<div class="roster-head">
+  <h2>{{ group.name }}</h2>
+  <p class="roster-sub">{{ kind_name }}{% if group.note %} · {{ group.note }}{% endif %}</p>
+</div>
+{% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
+<ul class="rel-list">
+  {% for m in members %}
+  <li>
+    <a class="rel-name" href="{{ url_for('grower_page', grower_id=m.id) }}">{{ m.name }}</a>
+    <span class="rel-role">{{ role_names.get(m.role, m.role) }}</span>
+    {% if can_manage %}
+    <form method="post" action="{{ url_for('group_member_set', group_id=group.id) }}">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="grower" value="{{ m.id }}">
+      <select name="role" aria-label="Role">{% for v, t in roles %}<option value="{{ v }}"{% if v == m.role %} selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+      <button type="submit" name="action" value="set" class="link-btn">set</button>
+      <button type="submit" name="action" value="remove" class="link-btn rel-x" onclick="return confirm('Remove {{ m.name | e }} from the group?');">remove</button>
+    </form>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+<div class="hero-actions">
+  {% if my_role %}
+  <form method="post" action="{{ url_for('group_member_set', group_id=group.id) }}" onsubmit="return confirm('Leave this group?');">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="leave">
+    <button type="submit" class="btn btn-ghost">Leave group</button>
+  </form>
+  {% elif open_join %}
+  <form method="post" action="{{ url_for('group_member_set', group_id=group.id) }}">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="join">
+    <button type="submit" class="btn btn-primary">Join this group</button>
+  </form>
+  {% endif %}
+</div>
+{% if can_manage %}
+{% if others %}
+<details class="admin-box">
+  <summary>+ Add a member</summary>
+  <form method="post" action="{{ url_for('group_member_set', group_id=group.id) }}">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="add">
+    <select name="grower" required aria-label="Hero"><option value="">Who…</option>{% for o in others %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}</select>
+    <select name="role" aria-label="Role">{% for v, t in roles %}<option value="{{ v }}">{{ t }}</option>{% endfor %}</select>
+    <button type="submit" class="btn btn-ghost">Add</button>
+  </form>
+</details>
+{% endif %}
+<details class="admin-box danger-box">
+  <summary>Delete this group</summary>
+  <form method="post" action="{{ url_for('group_delete', group_id=group.id) }}" onsubmit="return confirm('Delete {{ group.name | e }}? Heroes and plants are not affected.');">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-danger">Delete group</button>
+  </form>
+</details>
+{% endif %}
+<p><a class="panel-link" href="{{ url_for('groups_page') }}">← All groups</a></p>
+{% endblock %}

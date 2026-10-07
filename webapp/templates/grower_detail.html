@@ -97,6 +97,51 @@
 </section>
 
 <div class="panel-grid profile-activity">
+<section class="panel panel-wide" id="connections">
+  <h3 class="panel-title">Family &amp; connections</h3>
+  {% if rel_error %}<p class="hero-error" role="alert">{{ rel_error }}</p>{% endif %}
+  {% if connections %}
+  <ul class="rel-list">
+    {% for c in connections %}
+    <li>
+      <a class="rel-name" href="{{ url_for('grower_page', grower_id=c.other_id) }}">{{ c.name }}</a>
+      <span class="rel-role">{{ 'is ' ~ ('your' if is_me else hero.name ~ "'s") }} {{ c.role | lower }}</span>
+      {% if c.note %}<span class="muted rel-note">{{ c.note }}</span>{% endif %}
+      {% if can_edit %}
+      <form method="post" action="{{ url_for('relationship_delete', rel_id=c.id) }}" onsubmit="return confirm('Remove this connection?');">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ hero.id }}">
+        <button type="submit" class="link-btn rel-x" aria-label="Remove connection with {{ c.name }}">remove</button>
+      </form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No family or connections added yet.</p>
+  {% endif %}
+  {% if my_groups %}
+  <p class="rel-groups">{% for gr in my_groups %}<a class="chip" href="{{ url_for('group_page', group_id=gr.id) }}">{{ gr.name }} <small class="muted">· {{ group_kind_names.get(gr.kind, 'Group') }}</small></a>{% endfor %}</p>
+  {% endif %}
+  {% if can_edit and rel_candidates %}
+  <details class="admin-box"{% if rel_error %} open{% endif %}>
+    <summary>+ Add a connection</summary>
+    <form method="post" action="{{ url_for('relationship_add', grower_id=hero.id) }}">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <select name="other" required aria-label="Who">
+        <option value="">Who…</option>
+        {% for o in rel_candidates %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}
+      </select>
+      <span class="rel-is">is {{ 'my' if is_me else hero.name ~ "'s" }}</span>
+      <select name="rel" required aria-label="Connection">
+        {% for v, t in rel_options %}<option value="{{ v }}">{{ t }}</option>{% endfor %}
+      </select>
+      <input type="text" name="note" maxlength="80" placeholder="Note (optional)">
+      <button type="submit" class="btn btn-ghost">Add</button>
+    </form>
+  </details>
+  {% endif %}
+  <a class="panel-link" href="{{ url_for('groups_page') }}">Households, families &amp; volunteer groups →</a>
+</section>
   <section class="panel">
     <h3 class="panel-title">Growing now</h3>
     {{ ui.plant_chips(b.growing, empty=('You have' if is_me else hero.name ~ ' has') ~ ' no plants growing right now.') }}

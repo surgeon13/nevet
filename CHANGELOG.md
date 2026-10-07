@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-07 (family and groups)
+
+- **Family & connections** on each profile: parents and children, husband
+  and wife, partners, siblings, grandparents, guardians, friends,
+  neighbours, volunteers and more, shown from both sides.
+- **Groups**: households, families, couples, community gardens and volunteer
+  teams, with coordinators and members; open groups can be joined.
+- New tables `relationships`, `groups`, `group_members` (created in place on
+  existing databases).
+
 ## 2026-10-07 (party dances)
 
 - Party mode now rotates through 14 dances, one after another: Disco,

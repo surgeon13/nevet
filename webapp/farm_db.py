@@ -169,7 +169,173 @@ def get_conn():
     asset_cols = {r[1] for r in conn.execute("PRAGMA table_info(assets)")}
     if "species" not in asset_cols:
         conn.execute("ALTER TABLE assets ADD COLUMN species TEXT")
+    # People's connections (added later): relationships and groups, see relations.py.
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS relationships (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            a_id INTEGER NOT NULL REFERENCES growers(id) ON DELETE CASCADE,
+            b_id INTEGER NOT NULL REFERENCES growers(id) ON DELETE CASCADE,
+            kind TEXT NOT NULL,
+            note TEXT,
+            created_by INTEGER,
+            created_at TEXT NOT NULL,
+            UNIQUE (a_id, b_id, kind)
+        );
+        CREATE TABLE IF NOT EXISTS groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            kind TEXT NOT NULL DEFAULT 'household',
+            note TEXT,
+            created_by INTEGER,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS group_members (
+            group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+            grower_id INTEGER NOT NULL REFERENCES growers(id) ON DELETE CASCADE,
+            role TEXT NOT NULL DEFAULT 'member',
+            PRIMARY KEY (group_id, grower_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_rel_b ON relationships(b_id);
+        CREATE INDEX IF NOT EXISTS idx_gm_grower ON group_members(grower_id);
+    """)
     return conn
+
+
+# ---------------------------------------------------------------------
+# Relationships and groups (see relations.py)
+# ---------------------------------------------------------------------
+
+def _now():
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def add_relationship(a_id, b_id, kind, note=None, by=None):
+    """A is the <kind> of B. Returns False when it already exists (either
+    direction for symmetric kinds) or the two are the same hero."""
+    import relations
+    if a_id == b_id or not relations.valid_kind(kind):
+        return False
+    symmetric = relations.KIND[kind][3]
+    conn = get_conn()
+    pairs = [(a_id, b_id)] + ([(b_id, a_id)] if symmetric else [])
+    for x, y in pairs:
+        if conn.execute("SELECT 1 FROM relationships WHERE a_id=? AND b_id=? AND kind=?", (x, y, kind)).fetchone():
+            conn.close()
+            return False
+    conn.execute("INSERT INTO relationships (a_id, b_id, kind, note, created_by, created_at) VALUES (?,?,?,?,?,?)",
+                 (a_id, b_id, kind, note, by, _now()))
+    conn.commit()
+    conn.close()
+    return True
+
+
+def relationships_of(grower_id):
+    """Rows for a hero, normalised to the hero's point of view: other_id,
+    other_name, other_appearance gender, kind, i_am_a, note."""
+    conn = get_conn()
+    rows = conn.execute("""
+        SELECT r.id, r.kind, r.note, r.a_id, r.b_id,
+               o.id AS other_id, o.name AS other_name, o.appearance AS other_look,
+               o.deleted_at AS other_deleted
+        FROM relationships r
+        JOIN growers o ON o.id = CASE WHEN r.a_id = ? THEN r.b_id ELSE r.a_id END
+        WHERE (r.a_id = ? OR r.b_id = ?) AND o.deleted_at IS NULL
+        ORDER BY r.id""", (grower_id, grower_id, grower_id)).fetchall()
+    conn.close()
+    return [dict(r, i_am_a=(r["a_id"] == grower_id)) for r in rows]
+
+
+def get_relationship(rel_id):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM relationships WHERE id = ?", (rel_id,)).fetchone()
+    conn.close()
+    return row
+
+
+def remove_relationship(rel_id):
+    conn = get_conn()
+    conn.execute("DELETE FROM relationships WHERE id = ?", (rel_id,))
+    conn.commit()
+    conn.close()
+
+
+def add_group(name, kind, creator_id, note=None):
+    conn = get_conn()
+    cur = conn.execute("INSERT INTO groups (name, kind, note, created_by, created_at) VALUES (?,?,?,?,?)",
+                       (name, kind, note, creator_id, _now()))
+    gid = cur.lastrowid
+    conn.execute("INSERT INTO group_members (group_id, grower_id, role) VALUES (?,?, 'coordinator')", (gid, creator_id))
+    conn.commit()
+    conn.close()
+    return gid
+
+
+def get_group(group_id):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM groups WHERE id = ?", (group_id,)).fetchone()
+    conn.close()
+    return row
+
+
+def list_groups(grower_id=None):
+    """All groups with member counts, or just the ones a hero is in (with their role)."""
+    conn = get_conn()
+    sql = ("SELECT groups.*, (SELECT COUNT(*) FROM group_members m JOIN growers g ON g.id = m.grower_id "
+           "WHERE m.group_id = groups.id AND g.deleted_at IS NULL) AS member_count")
+    if grower_id is None:
+        rows = conn.execute(sql + " FROM groups ORDER BY name COLLATE NOCASE").fetchall()
+    else:
+        rows = conn.execute(sql + ", gm.role AS my_role FROM groups JOIN group_members gm ON gm.group_id = groups.id "
+                            "WHERE gm.grower_id = ? ORDER BY name COLLATE NOCASE", (grower_id,)).fetchall()
+    conn.close()
+    return rows
+
+
+def group_members(group_id):
+    conn = get_conn()
+    rows = conn.execute("""
+        SELECT growers.id, growers.name, growers.appearance, growers.hero_class, gm.role
+        FROM group_members gm JOIN growers ON growers.id = gm.grower_id
+        WHERE gm.group_id = ? AND growers.deleted_at IS NULL
+        ORDER BY (gm.role = 'coordinator') DESC, growers.name COLLATE NOCASE""", (group_id,)).fetchall()
+    conn.close()
+    return rows
+
+
+def group_role(group_id, grower_id):
+    conn = get_conn()
+    row = conn.execute("SELECT role FROM group_members WHERE group_id=? AND grower_id=?", (group_id, grower_id)).fetchone()
+    conn.close()
+    return row["role"] if row else None
+
+
+def set_group_member(group_id, grower_id, role):
+    conn = get_conn()
+    conn.execute("INSERT INTO group_members (group_id, grower_id, role) VALUES (?,?,?) "
+                 "ON CONFLICT(group_id, grower_id) DO UPDATE SET role = excluded.role", (group_id, grower_id, role))
+    conn.commit()
+    conn.close()
+
+
+def remove_group_member(group_id, grower_id):
+    """Removes a member; a group left without any coordinator promotes its longest-standing member."""
+    conn = get_conn()
+    conn.execute("DELETE FROM group_members WHERE group_id=? AND grower_id=?", (group_id, grower_id))
+    left = conn.execute("SELECT grower_id, role FROM group_members WHERE group_id=? ORDER BY rowid", (group_id,)).fetchall()
+    if left and not any(r["role"] == "coordinator" for r in left):
+        conn.execute("UPDATE group_members SET role='coordinator' WHERE group_id=? AND grower_id=?",
+                     (group_id, left[0]["grower_id"]))
+    if not left:
+        conn.execute("DELETE FROM groups WHERE id = ?", (group_id,))
+    conn.commit()
+    conn.close()
+
+
+def delete_group(group_id):
+    conn = get_conn()
+    conn.execute("DELETE FROM groups WHERE id = ?", (group_id,))
+    conn.commit()
+    conn.close()
 
 
 def add_asset(asset_type, name, grower_id, variety=None, life_stage=None, species=None):
@@ -425,6 +591,8 @@ def purge_hero(grower_id):
         conn.execute("UPDATE logs SET grower_id = NULL WHERE grower_id = ?", (grower_id,))
         conn.execute("UPDATE map_features SET created_by = NULL WHERE created_by = ?", (grower_id,))
         conn.execute("UPDATE map_features SET updated_by = NULL WHERE updated_by = ?", (grower_id,))
+        conn.execute("DELETE FROM relationships WHERE a_id = ? OR b_id = ?", (grower_id, grower_id))
+        conn.execute("DELETE FROM group_members WHERE grower_id = ?", (grower_id,))
         conn.execute("DELETE FROM growers WHERE id = ?", (grower_id,))
         conn.commit()
     conn.close()

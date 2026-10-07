@@ -33,6 +33,7 @@ webapp/                      Flask app: dashboard, heroes, garden map, gallery, 
   webapp/app.py
   webapp/garden_map.py         garden map data (GeoJSON beds, paths, points, plant pins)
   webapp/about.py              numbers, version and "what's new" for the About popup
+  webapp/relations.py          relationship kinds (parent, spouse, sibling...) and group types
   webapp/plants.py             plant species catalog + "which plant is this?" from its name
   webapp/static/js/plants3d.js 3D models of every plant, at every growth stage
   webapp/static/assets/plants/catalog.json  the species list (add new plants here)
@@ -413,6 +414,27 @@ swing, fist pump, nod, twirl, stretch, cheer), never the same one twice
 in a row. Tap a hero to make it emote; trying on a new item makes it hop.
 With "reduce motion" switched on in the device settings, heroes only
 breathe and blink.
+
+## Family, households and groups
+
+Nevet is for small organic groups: couples, families with little children,
+households, community gardens and volunteer teams.
+
+- **Family & connections** on every profile: add who is your parent, child,
+  spouse, partner, sibling, grandparent, guardian, aunt/uncle, cousin,
+  housemate, friend, neighbour, mentor, coordinator/volunteer, fellow
+  volunteer or "connected to". It reads from both sides ("Noa is Dana's
+  child" / "Dana is Noa's parent") and uses mother/father, wife/husband and
+  so on when the hero's gender is set. You (or an admin) edit your own
+  connections; either person can remove one.
+- **Groups** (Heroes, then Groups): a household, family, couple, community
+  garden, volunteer team or other group with members and coordinators
+  (member, coordinator, guest). The creator is coordinator; coordinators add
+  and remove people and delete the group; anyone can leave; community
+  gardens and volunteer teams can be joined by anyone. A group always keeps
+  a coordinator.
+- Connections are information only. They do not give anyone control over
+  another hero.
 
 ## Plants in 3D
 

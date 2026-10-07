@@ -4,6 +4,7 @@
 <div class="roster-head">
   <h2>Heroes</h2>
   <p class="roster-sub">Every player is a hero. Tap one to see their stats and gear.</p>
+  <a class="roster-bin" href="{{ url_for('groups_page') }}">Groups</a>
   {% if current_user.is_admin %}
   <a class="roster-bin" href="{{ url_for('recycle_bin') }}">Recycle bin{% if in_bin %} <span class="count-badge">{{ in_bin }}</span>{% endif %}</a>
   {% endif %}

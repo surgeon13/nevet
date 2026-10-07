@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Groups{% endblock %}
+{% block content %}
+<div class="roster-head">
+  <h2>Groups</h2>
+  <p class="roster-sub">Households, families, couples, community gardens and volunteer teams.</p>
+</div>
+{% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
+<div class="group-list">
+  {% for gr in groups %}
+  <a class="group-card" href="{{ url_for('group_page', group_id=gr.id) }}">
+    <strong>{{ gr.name }}</strong>
+    <span class="muted">{{ kind_names.get(gr.kind, 'Group') }} · {{ gr.member_count }} {{ 'member' if gr.member_count == 1 else 'members' }}{% if gr.id in mine %} · you're in{% endif %}</span>
+    {% if gr.note %}<span class="muted">{{ gr.note }}</span>{% endif %}
+  </a>
+  {% else %}
+  <p class="muted">No groups yet. Start one below.</p>
+  {% endfor %}
+</div>
+<details class="admin-box" open>
+  <summary>+ New group</summary>
+  <form method="post" action="{{ url_for('groups_page') }}">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="text" name="name" maxlength="60" placeholder="Name, e.g. The Levi household" required>
+    <select name="kind" aria-label="Type">{% for v, t in kinds %}<option value="{{ v }}">{{ t }}</option>{% endfor %}</select>
+    <input type="text" name="note" maxlength="80" placeholder="Note (optional)">
+    <button type="submit" class="btn btn-primary">Create</button>
+  </form>
+</details>
+{% endblock %}

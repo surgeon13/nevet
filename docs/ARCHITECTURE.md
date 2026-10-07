@@ -141,7 +141,7 @@ skip quietly (logged once) while `/dev/video0` is missing.
 A Flask app served by waitress on port 8000:
 
 - **`app.py`** routes; **`auth.py`** passwords, session key, CSRF and
-  wrong-password limits; **`farm_db.py`** the farm database (players,
+  wrong-password limits; **`farm_db.py`** the farm database (with `relationships`, `groups` and `group_members` for families and volunteer groups, kinds in `relations.py`) (players,
   plants, actions) with in-place migrations; **`heroes.py`** hero
   catalog, validation and XP; **`activity_views.py`** the dashboard /
   profile / history data and small view helpers.

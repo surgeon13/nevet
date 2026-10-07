@@ -15,6 +15,7 @@ import activity_views as av
 import auth
 import farm_db
 import garden_map
+import relations
 import heroes
 import plants
 import traffic
@@ -290,6 +291,141 @@ def grower_reset_password(grower_id):
     return redirect(url_for("grower_page", grower_id=grower_id, pw_set=1))
 
 
+def gender_of(look_json):
+    try:
+        return json.loads(look_json or "{}").get("gender")
+    except ValueError:
+        return None
+
+
+def connections_for(grower_id):
+    """What a profile shows under "Family & connections"."""
+    out = []
+    for r in farm_db.relationships_of(grower_id):
+        d = relations.describe(r["kind"], r["other_name"], gender_of(r["other_look"]), r["i_am_a"], r["note"])
+        d.update(id=r["id"], other_id=r["other_id"])
+        out.append(d)
+    return out
+
+
+@app.route("/growers/<int:grower_id>/relationships", methods=["POST"])
+def relationship_add(grower_id):
+    row = farm_db.get_grower(grower_id)
+    if not row or row["deleted_at"]:
+        abort(404)
+    if not can_edit_hero(grower_id):
+        abort(403)
+    def back(**kw):
+        return redirect(url_for("grower_page", grower_id=grower_id, **kw) + "#connections")
+    try:
+        other = int(request.form.get("other", ""))
+    except ValueError:
+        return back(rel_error="Pick who they are.")
+    o = farm_db.get_grower(other)
+    kind, other_is_a = relations.parse_choice(request.form.get("rel"))
+    if not o or o["deleted_at"] or other == grower_id or not kind:
+        return back(rel_error="Pick another hero and how you are connected.")
+    a, b = (other, grower_id) if other_is_a else (grower_id, other)
+    if not farm_db.add_relationship(a, b, kind, relations.clean_note(request.form.get("note")), g.user["id"]):
+        return back(rel_error="That connection is already there.")
+    return back()
+
+
+@app.route("/relationships/<int:rel_id>/delete", methods=["POST"])
+def relationship_delete(rel_id):
+    r = farm_db.get_relationship(rel_id)
+    if not r:
+        abort(404)
+    if not (g.user["is_admin"] or g.user["id"] in (r["a_id"], r["b_id"])):
+        abort(403)
+    farm_db.remove_relationship(rel_id)
+    back = request.form.get("back")
+    return redirect(url_for("grower_page", grower_id=int(back) if back and back.isdigit() else g.user["id"]) + "#connections")
+
+
+# ---------------------------------------------------------------------
+# Groups: households, families, community gardens, volunteer teams.
+# ---------------------------------------------------------------------
+
+def can_manage_group(group_id):
+    return bool(g.user["is_admin"] or farm_db.group_role(group_id, g.user["id"]) == "coordinator")
+
+
+@app.route("/groups", methods=["GET", "POST"])
+def groups_page():
+    error = None
+    if request.method == "POST":
+        name = " ".join((request.form.get("name") or "").split())[:60]
+        kind = request.form.get("kind") if request.form.get("kind") in relations.GROUP_KIND else "household"
+        if not name:
+            error = "Give the group a name."
+        else:
+            gid = farm_db.add_group(name, kind, g.user["id"], relations.clean_note(request.form.get("note")))
+            return redirect(url_for("group_page", group_id=gid))
+    return render_template("groups.html", groups=farm_db.list_groups(), mine={r["id"] for r in farm_db.list_groups(g.user["id"])},
+                           kinds=relations.GROUP_KINDS, kind_names=relations.GROUP_KIND, error=error)
+
+
+@app.route("/groups/<int:group_id>")
+def group_page(group_id):
+    grp = farm_db.get_group(group_id)
+    if not grp:
+        abort(404)
+    members = [dict(m, appearance=heroes.hero_for_row(m)[1]) for m in farm_db.group_members(group_id)]
+    ids = {m["id"] for m in members}
+    return render_template("group_detail.html", group=grp, members=members, kind_name=relations.GROUP_KIND.get(grp["kind"], "Group"),
+                           can_manage=can_manage_group(group_id), my_role=farm_db.group_role(group_id, g.user["id"]),
+                           roles=relations.GROUP_ROLES, role_names=relations.GROUP_ROLE,
+                           others=[r for r in farm_db.list_growers() if r["id"] not in ids],
+                           open_join=grp["kind"] in ("community", "volunteers"), error=request.args.get("error"))
+
+
+@app.route("/groups/<int:group_id>/members", methods=["POST"])
+def group_member_set(group_id):
+    if not farm_db.get_group(group_id):
+        abort(404)
+    action = request.form.get("action", "add")
+    role = request.form.get("role") if request.form.get("role") in relations.GROUP_ROLE else "member"
+    me = g.user["id"]
+    if action == "join":                       # open groups: community gardens, volunteer teams
+        if farm_db.get_group(group_id)["kind"] not in ("community", "volunteers"):
+            abort(403)
+        if not farm_db.group_role(group_id, me):
+            farm_db.set_group_member(group_id, me, "member")
+    elif action == "leave":
+        farm_db.remove_group_member(group_id, me)
+        return redirect(url_for("groups_page"))
+    else:
+        if not can_manage_group(group_id):
+            abort(403)
+        try:
+            who = int(request.form.get("grower", ""))
+        except ValueError:
+            abort(400)
+        target = farm_db.get_grower(who)
+        if not target or target["deleted_at"]:
+            abort(404)
+        if action == "remove":
+            if farm_db.group_role(group_id, who) == "coordinator":
+                coords = [m for m in farm_db.group_members(group_id) if m["role"] == "coordinator"]
+                if len(coords) <= 1:
+                    return redirect(url_for("group_page", group_id=group_id, error="A group needs a coordinator."))
+            farm_db.remove_group_member(group_id, who)
+        else:
+            farm_db.set_group_member(group_id, who, role)
+    return redirect(url_for("group_page", group_id=group_id))
+
+
+@app.route("/groups/<int:group_id>/delete", methods=["POST"])
+def group_delete(group_id):
+    if not farm_db.get_group(group_id):
+        abort(404)
+    if not can_manage_group(group_id):
+        abort(403)
+    farm_db.delete_group(group_id)
+    return redirect(url_for("groups_page"))
+
+
 @app.route("/growers/<int:grower_id>")
 def grower_page(grower_id):
     grower = farm_db.get_grower(grower_id)
@@ -307,6 +443,10 @@ def grower_page(grower_id):
         has_account=bool(grower["password_hash"]), created=request.args.get("created") == "1",
         pw_set=request.args.get("pw_set") == "1", pw_error=request.args.get("pw_error"),
         delete_error=request.args.get("delete_error"),
+        connections=connections_for(grower_id), rel_error=request.args.get("rel_error"),
+        rel_options=relations.form_options(), my_groups=farm_db.list_groups(grower_id),
+        group_kind_names=relations.GROUP_KIND,
+        rel_candidates=[r for r in farm_db.list_growers() if r["id"] != grower_id],
     )
 
 
