@@ -587,3 +587,4 @@ dialog.about[open] { animation: about-in 0.2s ease-out; }
 .admin-box select { padding: 9px 10px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; }
 .group-list { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); margin-bottom: 16px; }
 .group-card { display: flex; flex-direction: column; gap: 3px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); color: var(--text); text-decoration: none; }
+.rel-wait { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent-2, #c98a1b) 22%, transparent); color: var(--text); }

@@ -100,17 +100,25 @@
 <section class="panel panel-wide" id="connections">
   <h3 class="panel-title">Family &amp; connections</h3>
   {% if rel_error %}<p class="hero-error" role="alert">{{ rel_error }}</p>{% endif %}
+  {% if rel_sent %}<p class="hero-welcome" role="status">Sent to <strong>{{ rel_sent }}</strong>. It shows up for everyone once they confirm.</p>{% endif %}
   {% if connections %}
   <ul class="rel-list">
     {% for c in connections %}
     <li>
       <a class="rel-name" href="{{ url_for('grower_page', grower_id=c.other_id) }}">{{ c.name }}</a>
       <span class="rel-role">{{ 'is ' ~ ('your' if is_me else hero.name ~ "'s") }} {{ c.role | lower }}</span>
+      {% if c.pending %}<span class="rel-wait">{{ 'waiting for ' ~ c.name ~ ' to confirm' if not c.requested_by_other else c.name ~ ' asked to connect' }}</span>{% endif %}
+      {% if c.can_confirm %}
+      <form method="post" action="{{ url_for('relationship_confirm', rel_id=c.id) }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ hero.id }}">
+        <button type="submit" class="btn btn-primary btn-small">Confirm</button>
+      </form>
+      {% endif %}
       {% if c.note %}<span class="muted rel-note">{{ c.note }}</span>{% endif %}
-      {% if can_edit %}
+      {% if can_edit or current_user.id == c.other_id %}
       <form method="post" action="{{ url_for('relationship_delete', rel_id=c.id) }}" onsubmit="return confirm('Remove this connection?');">
         <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ hero.id }}">
-        <button type="submit" class="link-btn rel-x" aria-label="Remove connection with {{ c.name }}">remove</button>
+        <button type="submit" class="link-btn rel-x" aria-label="Remove connection with {{ c.name }}">{{ 'decline' if c.can_confirm else ('cancel' if c.pending else 'remove') }}</button>
       </form>
       {% endif %}
     </li>

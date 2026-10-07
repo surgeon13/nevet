@@ -119,7 +119,9 @@ def load_user_and_guard():
 
 @app.context_processor
 def inject_user():
-    return {"current_user": g.get("user"), "csrf_token": lambda: auth.csrf_token(session)}
+    u = g.get("user")
+    return {"current_user": u, "csrf_token": lambda: auth.csrf_token(session),
+            "pending_connections": farm_db.pending_for(u["id"]) if u else 0}
 
 
 def human_size(num_bytes):
@@ -298,12 +300,20 @@ def gender_of(look_json):
         return None
 
 
-def connections_for(grower_id):
-    """What a profile shows under "Family & connections"."""
+def connections_for(grower_id, viewer):
+    """What a profile shows under "Family & connections". Confirmed ones
+    show to everyone; waiting ones only to the two people (and admins)."""
     out = []
     for r in farm_db.relationships_of(grower_id):
+        pending = r["status"] == "pending"
+        parties = (r["a_id"], r["b_id"])
+        if pending and not (viewer["is_admin"] or viewer["id"] in parties):
+            continue
         d = relations.describe(r["kind"], r["other_name"], gender_of(r["other_look"]), r["i_am_a"], r["note"])
-        d.update(id=r["id"], other_id=r["other_id"])
+        requester = r["created_by"]
+        d.update(id=r["id"], other_id=r["other_id"], pending=pending,
+                 can_confirm=pending and viewer["id"] != requester and (viewer["is_admin"] or viewer["id"] in parties),
+                 requested_by_other=pending and requester == r["other_id"])
         out.append(d)
     return out
 
@@ -326,9 +336,23 @@ def relationship_add(grower_id):
     if not o or o["deleted_at"] or other == grower_id or not kind:
         return back(rel_error="Pick another hero and how you are connected.")
     a, b = (other, grower_id) if other_is_a else (grower_id, other)
-    if not farm_db.add_relationship(a, b, kind, relations.clean_note(request.form.get("note")), g.user["id"]):
+    if not farm_db.add_relationship(a, b, kind, relations.clean_note(request.form.get("note")), g.user["id"], pending=True):
         return back(rel_error="That connection is already there.")
-    return back()
+    return back(rel_sent=o["name"])
+
+
+@app.route("/relationships/<int:rel_id>/confirm", methods=["POST"])
+def relationship_confirm(rel_id):
+    """The other person (or an admin, for a hero with no account yet) confirms a connection."""
+    r = farm_db.get_relationship(rel_id)
+    if not r:
+        abort(404)
+    me = g.user["id"]
+    if me == r["created_by"] or not (g.user["is_admin"] or me in (r["a_id"], r["b_id"])):
+        abort(403)       # you can't confirm your own request
+    farm_db.confirm_relationship(rel_id)
+    back = request.form.get("back")
+    return redirect(url_for("grower_page", grower_id=int(back) if back and back.isdigit() else me) + "#connections")
 
 
 @app.route("/relationships/<int:rel_id>/delete", methods=["POST"])
@@ -443,7 +467,7 @@ def grower_page(grower_id):
         has_account=bool(grower["password_hash"]), created=request.args.get("created") == "1",
         pw_set=request.args.get("pw_set") == "1", pw_error=request.args.get("pw_error"),
         delete_error=request.args.get("delete_error"),
-        connections=connections_for(grower_id), rel_error=request.args.get("rel_error"),
+        connections=connections_for(grower_id, g.user), rel_error=request.args.get("rel_error"), rel_sent=request.args.get("rel_sent"),
         rel_options=relations.form_options(), my_groups=farm_db.list_groups(grower_id),
         group_kind_names=relations.GROUP_KIND,
         rel_candidates=[r for r in farm_db.list_growers() if r["id"] != grower_id],

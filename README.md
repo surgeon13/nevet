@@ -425,8 +425,11 @@ households, community gardens and volunteer teams.
   housemate, friend, neighbour, mentor, coordinator/volunteer, fellow
   volunteer or "connected to". It reads from both sides ("Noa is Dana's
   child" / "Dana is Noa's parent") and uses mother/father, wife/husband and
-  so on when the hero's gender is set. You (or an admin) edit your own
-  connections; either person can remove one.
+  so on when the hero's gender is set. **Both people must agree**: when you
+  add a connection the other hero gets a badge by their name and a Confirm
+  button on their profile; until then it shows as "waiting" and only the two
+  of you (and admins) can see it. Either person can decline, cancel or
+  remove it later. An admin can confirm for a hero who has no account yet.
 - **Groups** (Heroes, then Groups): a household, family, couple, community
   garden, volunteer team or other group with members and coordinators
   (member, coordinator, guest). The creator is coordinator; coordinators add

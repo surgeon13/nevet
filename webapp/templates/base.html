@@ -20,7 +20,7 @@
 <nav class="topnav{% if current_user %} has-user{% endif %}">
   <a href="{{ url_for('hub') }}" class="brand">Nevet</a>
   {% if current_user %}
-  <a href="{{ url_for('grower_page', grower_id=current_user.id) }}" class="nav-heroes" title="Your hero"><span class="nav-hero-dot" aria-hidden="true"></span><span class="nav-hero-name">{{ current_user.name }}</span></a>
+  <a href="{{ url_for('grower_page', grower_id=current_user.id) }}" class="nav-heroes" title="Your hero"><span class="nav-hero-dot" aria-hidden="true"></span><span class="nav-hero-name">{{ current_user.name }}</span>{% if pending_connections %}<span class="count-badge" title="Connections waiting for you to confirm">{{ pending_connections }}</span>{% endif %}</a>
   {% endif %}
   {% if not current_user %}
   <div class="nav-links">

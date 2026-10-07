@@ -2,6 +2,7 @@
 
 ## 2026-10-07 (family and groups)
 
+- Connections need the other person's confirmation (badge by their name, Confirm or Decline on their profile).
 - **Family & connections** on each profile: parents and children, husband
   and wife, partners, siblings, grandparents, guardians, friends,
   neighbours, volunteers and more, shown from both sides.

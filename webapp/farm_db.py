@@ -198,6 +198,11 @@ def get_conn():
         CREATE INDEX IF NOT EXISTS idx_rel_b ON relationships(b_id);
         CREATE INDEX IF NOT EXISTS idx_gm_grower ON group_members(grower_id);
     """)
+    # A connection needs both people: the one who adds it is created_by, the
+    # other confirms. Rows from before confirmations existed count as confirmed.
+    rel_cols = {r[1] for r in conn.execute("PRAGMA table_info(relationships)")}
+    if "status" not in rel_cols:
+        conn.execute("ALTER TABLE relationships ADD COLUMN status TEXT NOT NULL DEFAULT 'accepted'")
     return conn
 
 
@@ -209,8 +214,9 @@ def _now():
     return datetime.now().isoformat(timespec="seconds")
 
 
-def add_relationship(a_id, b_id, kind, note=None, by=None):
-    """A is the <kind> of B. Returns False when it already exists (either
+def add_relationship(a_id, b_id, kind, note=None, by=None, pending=False):
+    """A is the <kind> of B; with pending=True the other person still has to
+    confirm it (confirm_relationship). Returns False when it already exists (either
     direction for symmetric kinds) or the two are the same hero."""
     import relations
     if a_id == b_id or not relations.valid_kind(kind):
@@ -222,8 +228,8 @@ def add_relationship(a_id, b_id, kind, note=None, by=None):
         if conn.execute("SELECT 1 FROM relationships WHERE a_id=? AND b_id=? AND kind=?", (x, y, kind)).fetchone():
             conn.close()
             return False
-    conn.execute("INSERT INTO relationships (a_id, b_id, kind, note, created_by, created_at) VALUES (?,?,?,?,?,?)",
-                 (a_id, b_id, kind, note, by, _now()))
+    conn.execute("INSERT INTO relationships (a_id, b_id, kind, note, created_by, created_at, status) VALUES (?,?,?,?,?,?,?)",
+                 (a_id, b_id, kind, note, by, _now(), "pending" if pending else "accepted"))
     conn.commit()
     conn.close()
     return True
@@ -234,7 +240,7 @@ def relationships_of(grower_id):
     other_name, other_appearance gender, kind, i_am_a, note."""
     conn = get_conn()
     rows = conn.execute("""
-        SELECT r.id, r.kind, r.note, r.a_id, r.b_id,
+        SELECT r.id, r.kind, r.note, r.a_id, r.b_id, r.status, r.created_by,
                o.id AS other_id, o.name AS other_name, o.appearance AS other_look,
                o.deleted_at AS other_deleted
         FROM relationships r
@@ -250,6 +256,24 @@ def get_relationship(rel_id):
     row = conn.execute("SELECT * FROM relationships WHERE id = ?", (rel_id,)).fetchone()
     conn.close()
     return row
+
+
+def confirm_relationship(rel_id):
+    conn = get_conn()
+    conn.execute("UPDATE relationships SET status = 'accepted' WHERE id = ?", (rel_id,))
+    conn.commit()
+    conn.close()
+
+
+def pending_for(grower_id):
+    """Number of connections waiting for this hero to confirm."""
+    conn = get_conn()
+    n = conn.execute("""SELECT COUNT(*) FROM relationships r
+        JOIN growers o ON o.id = r.created_by AND o.deleted_at IS NULL
+        WHERE r.status = 'pending' AND (r.a_id = ? OR r.b_id = ?) AND r.created_by != ?""",
+                     (grower_id, grower_id, grower_id)).fetchone()[0]
+    conn.close()
+    return n
 
 
 def remove_relationship(rel_id):
