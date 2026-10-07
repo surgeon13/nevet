@@ -1619,19 +1619,20 @@
     party: {
       name: 'Party!', tool: null, night: 1, centre: V(PARTY.c.x + 1, 0.9, PARTY.c.z),
       stat: function () {
-        var who = heroes.filter(function (h) { return h.act === 'party' || h.act === 'conga'; }).length;
-        return (conga.on ? 'Conga line! · ' : '') + who + ' dancing' + (heroes[0] && heroes[0].act === 'dj' ? ' · DJ ' + heroes[0].name : '');
+        var who = heroes.filter(function (h) { return h.act === 'party' || h.act === 'form' || h.act === 'formReady'; }).length;
+        return dance.cur.name + ' · ' + who + ' dancing' + (heroes[0] && heroes[0].act === 'dj' ? ' · DJ ' + heroes[0].name : '');
       },
       next: function (h, now) {
         if (h === heroes[0]) {                         // whoever opened the farm spins the records
           return goTo(h, DJ_SPOT, function () { h.wantFacing = -PI / 2; doAct(h, 'dj', 9999, null, clockNow()); });
         }
-        goTo(h, floorSlot(h), function () { face(h, V(DJ_SPOT.x, 0, DJ_SPOT.z)); h.style = h.i % 4; doAct(h, 'party', 9999, null, clockNow()); });
+        goTo(h, floorSlot(h), function () { face(h, V(DJ_SPOT.x, 0, DJ_SPOT.z)); doAct(h, 'party', 9999, null, clockNow()); });
       }
     }
   };
-  function floorSlot(h) {                             // a 4 x 4 grid of spots on the dance floor
-    var dancers = heroes.filter(function (o) { return o !== heroes[0]; }), k = Math.max(0, dancers.indexOf(h));
+  function floorSlot(h, kk) {                         // a 4 x 4 grid of spots on the dance floor
+    var dancers = heroes.filter(function (o) { return o !== heroes[0]; });
+    var k = kk !== undefined ? kk : h.floorK !== undefined ? h.floorK : Math.max(0, dancers.indexOf(h));
     var cols = 4, sp = 1.3, i = k % cols, j = Math.floor(k / cols) % 4;
     return V(PARTY.c.x - 1.5 * sp + i * sp + (Math.floor(k / 16) * 0.5), 0, PARTY.c.z - 1.5 * sp + j * sp);
   }
@@ -1703,7 +1704,7 @@
   }
 
   // ---------------------------------------------------------------- switching
-  var auto = !D.start, actStarted = 0, AUTO_DUR = { harvest: 50, water: 45, plant: 45, campfire: 40, party: 45 };
+  var auto = !D.start, actStarted = 0, AUTO_DUR = { harvest: 50, water: 45, plant: 45, campfire: 40, party: 75 };
   var nightTarget = 0, night = 0;
   function setActivity(name, now, byUser) {
     if (!ACTS[name]) return;
@@ -1714,8 +1715,9 @@
     focusTarget = ACTS[name].centre.clone();
     focusUntil = now + 2.2;
     PARTY.group.visible = name === 'party';
-    conga.on = false;
-    if (name !== 'party') music.stop();
+    form.on = false;
+    if (name === 'party') { dance.k = 0; dance.cur = DANCES[0]; dance.startBeat = Math.floor(now * BPM / 60); heroes.forEach(function (h) { h.floorK = undefined; }); }
+    else music.stop();
     heroes.forEach(function (h, idx) { h.switchAt = now + idx * 0.06; });     // swap tools one hero at a time
     updateUI();
   }
@@ -1773,7 +1775,8 @@
     var free = (h.act === 'dance' || h.act === 'idle') && !moving;
     NevetHero.animate(root, now, { calm: calm || !free || h.act === 'dance' });
     var legs = u.legs || {}, arms = u.arms || {};
-    [1, -1].forEach(function (s) { if (legs[s]) legs[s].rotation.x = 0; });
+    [1, -1].forEach(function (s) { if (legs[s]) { legs[s].rotation.x = 0; legs[s].rotation.z = 0; } });
+    u.hero.position.x = 0; u.hero.position.z = 0;
     if (moving) {
       var cyc = now * 9.5 * h.speedK + h.phase;
       [1, -1].forEach(function (s) {
@@ -1784,12 +1787,6 @@
       u.hero.rotation.z = Math.sin(cyc) * (legs[1] ? 0.03 : 0.08);      // robes waddle a bit more
     }
     if (h.carry) [1, -1].forEach(function (s) { if (arms[s]) { arms[s].rotation.x = -1.15; arms[s].rotation.z = arms[s].userData.rest - s * 0.25; } });
-    if (h.act === 'conga') {
-      var bc = beatPhase(now);
-      [1, -1].forEach(function (s) { if (arms[s]) { arms[s].rotation.x = -1.35; arms[s].rotation.z = arms[s].userData.rest - s * 0.2; } if (legs[s]) legs[s].rotation.x = Math.sin(bc * PI * 2) * 0.5 * s; });
-      u.hero.position.y += Math.abs(Math.sin(bc * PI * 2)) * 0.08;
-      u.hero.rotation.z = Math.sin(bc * PI * 2) * 0.1;
-    }
     var p = h.act ? (now - h.actStart) : 0;
     switch (h.act) {
       case 'pick':
@@ -1823,15 +1820,17 @@
       case 'dance':
         if (now >= h.emoteAt && h.emoteAt) { NevetHero.emote(root, h.nextMove); h.emoteAt = 0; }
         break;
-      case 'party':
-        if (now >= h.emoteAt && h.emoteAt) { NevetHero.emote(root, h.nextMove); h.emoteAt = 0; }
-        if (!u.emote) groove(h, u, arms, legs, now);
+      case 'party':                                    // the floor's dance of the moment
+        dancePose(dance.cur.form ? 'handsup' : dance.cur.id, h, u, arms, legs, now);
         break;
-      case 'congaReady':
-        if (!conga.on && h.backAt && now >= h.backAt) {
+      case 'form':                                     // dancing in a ring, lines or a conga
+        dancePose(form.kind, h, u, arms, legs, now);
+        break;
+      case 'formReady':                                // waiting in place for the formation (or to go back)
+        if (!form.on && h.backAt && now >= h.backAt) {
           h.backAt = 0;
           goTo(h, floorSlot(h), function () { face(h, V(DJ_SPOT.x, 0, DJ_SPOT.z)); doAct(h, 'party', 9999, null, clockNow()); });
-        } else groove(h, u, arms, legs, now);
+        } else dancePose(form.on ? form.kind : dance.cur.form ? 'handsup' : dance.cur.id, h, u, arms, legs, now);
         break;
       case 'dj':
         if (arms[1]) arms[1].rotation.x = -1.0 + Math.sin(now * 14) * 0.18;        // scratching
@@ -1881,7 +1880,7 @@
         var MIN = 1.05;
         if (d2 >= MIN * MIN || d2 < 1e-6) continue;
         var d = Math.sqrt(d2), push = (MIN - d) / d * 0.35;
-        var wa = A.path.length || A.act === 'conga' ? 1 : 0.12, wb = B.path.length || B.act === 'conga' ? 1 : 0.12, sum = wa + wb;
+        var wa = A.path.length || A.act === 'form' ? 1 : 0.12, wb = B.path.length || B.act === 'form' ? 1 : 0.12, sum = wa + wb;
         var ax = a.x - dx * push * wa / sum, az = a.z - dz * push * wa / sum;
         var bx = b.x + dx * push * wb / sum, bz = b.z + dz * push * wb / sum;
         if (walkable(ax, az) || !walkable(a.x, a.z)) { a.x = ax; a.z = az; }
@@ -1891,34 +1890,217 @@
   }
 
   // ---------------------------------------------------------------- party choreography
+  // The whole floor does one dance at a time and moves on to the next:
+  // dances in place on the floor grid, and formation dances where everyone
+  // first walks to a place (circle, lines, conga oval), then moves together.
   var BPM = 120;
   function beatPhase(now) { return (now * BPM / 60) % 1; }
-  function groove(h, u, arms, legs, now) {             // dancing between the big moves, each hero in their own style
-    var b = now * BPM / 60, ph = (b % 1), up = Math.abs(Math.sin(ph * PI));
-    u.hero.position.y += up * 0.09;
-    switch (h.style) {
-      case 0:                                          // bounce and pump
-        if (arms[1]) arms[1].rotation.x = -0.5 - 0.7 * up;
-        if (arms[-1]) arms[-1].rotation.x = -0.5 - 0.7 * (1 - up);
+  var DANCES = [
+    { id: 'disco', name: 'Disco' }, { id: 'pogo', name: 'Pogo' }, { id: 'hora', name: 'Hora', form: 'hora' },
+    { id: 'voodoo', name: 'Voodoo' }, { id: 'yemenite', name: 'Yemenite step' }, { id: 'robot', name: 'Robot' },
+    { id: 'mayim', name: 'Mayim Mayim', form: 'mayim' }, { id: 'chicken', name: 'Chicken dance' }, { id: 'sprinkler', name: 'The sprinkler' },
+    { id: 'debka', name: 'Debka', form: 'debka' }, { id: 'twist', name: 'Twist' }, { id: 'runningman', name: 'Running man' },
+    { id: 'conga', name: 'Conga line', form: 'conga' }, { id: 'handsup', name: 'Hands up!' }
+  ];
+  var FLOOR_BEATS = 16, FORM_SECS = { conga: 10, hora: 11, mayim: 12, debka: 10 };
+  var dance = { k: 0, startBeat: 0, cur: DANCES[0] };
+  function armSet(arms, s, x, z) { if (arms[s]) { arms[s].rotation.x = x; arms[s].rotation.z = arms[s].userData.rest + s * z; } }
+  function legSet(legs, s, x, z) { if (legs[s]) { legs[s].rotation.x = x; legs[s].rotation.z = s * (z || 0); } }
+  // one frame of a dance's moves; b = beats (with a tiny per-hero delay so the floor ripples)
+  function dancePose(id, h, u, arms, legs, now) {
+    var b = now * BPM / 60 - (h.i % 4) * 0.03, ph = b % 1, up = Math.abs(Math.sin(ph * PI)), on = Math.floor(b), body = u.hero, head = u.headRig;
+    body.position.x = 0; body.position.z = 0;
+    [1, -1].forEach(function (s) { legSet(legs, s, 0, 0); });
+    switch (id) {
+      case 'disco': {                                  // point up to the right, then down across; hips sway
+        var hi = on % 2 === 0;
+        armSet(arms, 1, hi ? -2.7 : -0.5, hi ? 0.55 : -0.5);
+        armSet(arms, -1, 0.25, 0.55);
+        body.rotation.z = Math.sin(b * PI) * 0.12; body.position.x = Math.sin(b * PI) * 0.06; body.position.y += up * 0.05;
+        if (head) { head.rotation.y = hi ? -0.3 : 0.25; head.rotation.x = hi ? -0.25 : 0.2; }
         break;
-      case 1:                                          // hands in the air, swaying
-        [1, -1].forEach(function (s) { if (arms[s]) arms[s].rotation.z = arms[s].userData.rest + s * (2.0 + Math.sin(b * PI) * 0.3); });
-        u.hero.rotation.z = Math.sin(b * PI) * 0.12;
+      }
+      case 'pogo':                                     // straight up and down, as high as you can
+        body.position.y += Math.pow(up, 0.7) * 0.42;
+        [1, -1].forEach(function (s) { armSet(arms, s, on % 4 === 3 && s === 1 ? -2.8 : 0.08, 0.06); });
+        body.rotation.z = Math.sin(b * 1.7 + h.i) * 0.08;
+        if (head) head.rotation.x = up * 0.28;
         break;
-      case 2:                                          // side step
-        u.hero.position.x = Math.sin(b * PI) * 0.18;
-        [1, -1].forEach(function (s) { if (legs[s]) legs[s].rotation.z = s * up * 0.25; if (arms[s]) arms[s].rotation.z = arms[s].userData.rest + s * up * 0.8; });
+      case 'voodoo':                                   // hunched, deep knees, shaking hands up high, swirling head
+        body.rotation.x = 0.35; body.position.y += -0.08 + up * 0.07;
+        body.rotation.y = Math.sin(b * PI / 4) * 0.8;
+        [1, -1].forEach(function (s) {
+          armSet(arms, s, -2.2 + Math.sin(now * 26 + s) * 0.14, 0.3 + Math.sin(b * PI * 2 + s) * 0.25);
+          legSet(legs, s, on % 2 === (s > 0 ? 0 : 1) ? -0.35 * up : 0, 0.12);
+        });
+        if (head) { head.rotation.z = Math.sin(b * PI) * 0.3; head.rotation.x = Math.cos(b * PI) * 0.2; }
         break;
-      default:                                         // the twist
-        u.hero.rotation.y = Math.sin(b * PI) * 0.5;
-        [1, -1].forEach(function (s) { if (arms[s]) arms[s].rotation.x = -0.8 + Math.sin(b * PI + s) * 0.3; });
-        u.hero.position.y -= up * 0.05;
+      case 'yemenite': {                               // side, back, forward with a dip, hold (and snap); then to the left
+        var c = b % 8, side = c < 4 ? 1 : -1, sub = c % 4, t = sub % 1, step = Math.floor(sub);
+        var xs = [0, 0.2, 0.2, 0.08, 0.08], x0 = xs[step], x1 = xs[step + 1];
+        body.position.x = side * (x0 + (x1 - x0) * Math.min(1, t * 2));
+        body.position.z = step === 1 ? -0.07 : step === 2 ? 0.07 * Math.sin(t * PI) : 0;
+        if (step === 2) { body.position.y -= Math.sin(t * PI) * 0.12; body.rotation.x = Math.sin(t * PI) * 0.15; }
+        legSet(legs, side, step === 0 ? -0.3 * Math.sin(t * PI) : step === 2 ? -0.45 * Math.sin(t * PI) : 0, step === 0 ? 0.18 : 0);
+        legSet(legs, -side, step === 1 ? 0.4 * Math.sin(t * PI) : 0, 0);
+        [1, -1].forEach(function (s) { armSet(arms, s, -1.15, 0.28 + (step === 3 ? Math.sin(t * PI * 4) * 0.08 : 0)); });
+        body.rotation.z = side * 0.06;
+        break;
+      }
+      case 'robot': {                                  // stiff poses that click into place twice a beat
+        var POSES = [[-1.57, 0, 0, 0.15], [0, 1.5, -1.57, 0], [-1.57, 1.5, -1.57, 1.5], [-3.0, 0.1, 0, 0.1], [0.3, 0.4, -1.57, 0.9], [-1.57, 0.2, -3.0, 0.1]];
+        var pz = POSES[Math.floor(b * 2) % POSES.length];
+        armSet(arms, 1, pz[0], pz[1]); armSet(arms, -1, pz[2], pz[3]);
+        if (head) head.rotation.y = [0, 0.6, 0, -0.6][Math.floor(b) % 4];
+        body.position.y += (Math.floor(b * 2) % 2) * 0.03;
+        body.rotation.y = [0, 0.25, 0, -0.25][Math.floor(b / 2) % 4];
+        break;
+      }
+      case 'sprinkler': {                              // hand behind the head, arm out, tick-tick-tick round, then swoosh back
+        var cyc = b % 4, tick = Math.floor(cyc * 2);
+        body.rotation.y = cyc < 3 ? -0.7 + tick * 0.24 : 0.7 - (cyc - 3) * 1.4;
+        armSet(arms, -1, -2.9, -0.35);
+        armSet(arms, 1, -1.5, 0.05);
+        legSet(legs, 1, -0.35, 0);
+        body.position.y -= 0.04 - (cyc < 3 ? (cyc * 2 % 1) * 0.03 : 0);
+        break;
+      }
+      case 'chicken':                                  // flap the wings, peck, wiggle the tail
+        body.rotation.x = 0.22; body.position.y += -0.06 + up * 0.04;
+        [1, -1].forEach(function (s) { armSet(arms, s, 0.35, 0.45 + up * 0.55); });
+        if (head) head.rotation.x = on % 2 ? 0.45 * up : -0.1;
+        body.rotation.z = Math.sin(b * PI * 2) * 0.14;
+        break;
+      case 'twist':
+        body.rotation.y = Math.sin(b * PI) * 0.5;
+        [1, -1].forEach(function (s) { armSet(arms, s, -0.8 + Math.sin(b * PI + s) * 0.3, 0.35); legSet(legs, s, Math.sin(b * PI) * 0.15 * s, 0); });
+        body.position.y += up * 0.04 - 0.05;
+        break;
+      case 'runningman':                               // run on the spot, kicking back
+        [1, -1].forEach(function (s) {
+          var k2 = Math.sin(b * PI + (s > 0 ? 0 : PI));
+          legSet(legs, s, k2 * 0.7, 0);
+          armSet(arms, s, -k2 * 0.9 - 0.2, 0.15);
+        });
+        body.position.y += up * 0.1; body.rotation.x = 0.1;
+        break;
+      case 'hora':                                     // holding hands in a ring, step and hop with a kick
+        [1, -1].forEach(function (s) { armSet(arms, s, -0.25 - up * 0.3, 1.15); legSet(legs, s, on % 2 === (s > 0 ? 0 : 1) ? -0.45 * up : 0, 0.05); });
+        body.position.y += up * 0.14;
+        break;
+      case 'mayim': {                                  // round the ring; into the middle, arms up, "hey!"; and back out
+        var m = b % 16;
+        if (m < 8) {
+          body.position.x = Math.sin(b * PI) * 0.12;
+          [1, -1].forEach(function (s) { armSet(arms, s, -0.2, 1.1); legSet(legs, s, 0, Math.max(0, Math.sin(b * PI * s)) * 0.3); });
+          body.position.y += up * 0.06;
+        } else {
+          var lift = m < 12 ? (m - 8) / 4 : 1 - (m - 12) / 4;
+          [1, -1].forEach(function (s) { armSet(arms, s, -0.3 - lift * 2.6, 0.6 + lift * 0.4); legSet(legs, s, on % 2 === (s > 0 ? 0 : 1) ? -0.4 * up : 0, 0); });
+          body.position.y += up * (0.06 + lift * 0.12);
+          if (head) head.rotation.x = -lift * 0.3;
+        }
+        break;
+      }
+      case 'debka': {                                  // shoulder to shoulder: stomp, stomp, kick, stomp
+        var beat4 = on % 4;
+        [1, -1].forEach(function (s) { armSet(arms, s, -0.15, 1.45); });
+        var foot = beat4 % 2 ? -1 : 1;
+        if (beat4 === 2) legSet(legs, 1, -0.8 * up, 0);
+        else legSet(legs, foot, -0.35 * up, 0);
+        body.position.y += beat4 === 2 ? up * 0.12 : -up * 0.05;
+        body.rotation.x = 0.08;
+        if (head) head.rotation.x = beat4 === 2 ? -0.2 : 0.1;
+        break;
+      }
+      case 'conga': {
+        [1, -1].forEach(function (s) { armSet(arms, s, -1.35, -0.2); legSet(legs, s, Math.sin(ph * PI * 2) * 0.5 * s, 0); });
+        body.position.y += Math.abs(Math.sin(ph * PI * 2)) * 0.08;
+        body.rotation.z = Math.sin(ph * PI * 2) * 0.1;
+        break;
+      }
+      default:                                         // hands up, swaying
+        [1, -1].forEach(function (s) { armSet(arms, s, 0, 2.0 + Math.sin(b * PI) * 0.3); });
+        body.rotation.z = Math.sin(b * PI) * 0.12; body.position.y += up * 0.09;
     }
   }
-  var conga = { on: false, t0: 0, theta: 0 }, partyBeat = -1;
+  // formation dances: where each dancer belongs (k of n) right now
+  var form = { on: false, moving: false, kind: null, order: [], t0: 0, t1: 0, theta: 0 }, partyBeat = -1;
   function congaPoint(s) {                            // an oval loop around the dance floor
     var a = s / 2.75;
     return V(PARTY.c.x - 0.6 + Math.cos(a) * 2.75, 0, PARTY.c.z + Math.sin(a) * 2.65);
+  }
+  function congaGap(n) { return Math.min(1.25, 16.9 / Math.max(1, n)); }   // the oval is about 17 units round
+  var RING_C = V(PARTY.c.x - 0.6, 0, PARTY.c.z);
+  function ringR(n) { return Math.max(1.9, n * 1.15 / TAU); }
+  function formSlot(kind, k, n, now) {
+    if (kind === 'conga') return congaPoint(form.theta - k * congaGap(n));
+    if (kind === 'debka') {                            // lines of up to 5 facing the DJ, drifting side to side together
+      var perRow = Math.min(5, n), row = Math.floor(k / perRow), inRow = Math.min(perRow, n - row * perRow), j = k % perRow;
+      var drift = form.moving ? Math.sin((now - form.t1) * PI / 4) * 0.35 : 0;
+      return V(PARTY.c.x + 0.4 - row * 1.35, 0, PARTY.c.z + (j - (inRow - 1) / 2) * 1.12 + drift);
+    }
+    var r = ringR(n), a = form.theta + k / n * TAU;
+    if (kind === 'mayim' && form.moving) {             // into the middle on beats 8-15 of every 16
+      var m = ((now - form.t1) * BPM / 60) % 16;
+      var inner = Math.max(0.55, Math.min(1, n * 0.95 / TAU / r)), f = m < 8 ? 0 : m < 12 ? (m - 8) / 4 : 1 - (m - 12) / 4;
+      r *= 1 - (1 - inner) * f;                        // (never so tight that dancers overlap)
+    }
+    return V(RING_C.x + Math.cos(a) * r, 0, RING_C.z + Math.sin(a) * r);
+  }
+  function startForm(kind, now) {
+    var line = heroes.filter(function (h) { return h.act === 'party'; });
+    if (kind === 'debka') {                            // nearest the DJ make the front row; each row in the order they stand
+      line.sort(function (a, b) { return b.root.position.x - a.root.position.x; });
+      var per = Math.min(5, line.length), rows = [];
+      for (var r0 = 0; r0 < line.length; r0 += per) rows.push(line.slice(r0, r0 + per).sort(function (a, b) { return a.root.position.z - b.root.position.z; }));
+      line = [].concat.apply([], rows);
+    } else {                                           // in the order they stand around the floor, so nobody crosses
+      var cx = kind === 'conga' ? PARTY.c.x - 0.6 : RING_C.x;
+      line.forEach(function (h) { h.ang = Math.atan2(h.root.position.z - PARTY.c.z, h.root.position.x - cx); });
+      line.sort(function (a, b) { return kind === 'conga' ? b.ang - a.ang : a.ang - b.ang; });
+    }
+    form.on = true; form.moving = false; form.kind = kind; form.t0 = now; form.order = line;
+    form.theta = kind === 'conga' ? (line.length ? line[0].ang * 2.75 : 0) : (line.length ? line[0].ang : 0);
+    line.forEach(function (h, k) {
+      goTo(h, formSlot(kind, k, line.length, now), function () { h.wantFacing = undefined; doAct(h, 'formReady', 9999, null, clockNow()); });
+    });
+  }
+  function endForm(now) {
+    form.on = false;
+    // back to the floor: everyone takes the nearest free spot (closest pairs first), one after another
+    var back = (form.order || []).filter(function (h) { return h.act === 'form' || h.act === 'formReady'; });
+    var taken = {}, rank = 0, n = heroes.length - 1;
+    var floor = heroes.filter(function (o) { return o !== heroes[0]; });
+    floor.forEach(function (h, i) { if (back.indexOf(h) < 0) taken[h.floorK !== undefined ? h.floorK : i] = true; });
+    var left = back.slice();
+    while (left.length) {
+      var best = null;
+      left.forEach(function (h) {
+        for (var k = 0; k < Math.max(n, left.length); k++) {
+          if (taken[k]) continue;
+          var d = h.root.position.distanceToSquared(floorSlot(h, k));
+          if (!best || d < best.d) best = { h: h, k: k, d: d };
+        }
+      });
+      if (!best) break;
+      taken[best.k] = true;
+      best.h.floorK = best.k;
+      best.h.act = 'formReady';
+      best.h.backAt = now + rank++ * 0.22;
+      left.splice(left.indexOf(best.h), 1);
+    }
+  }
+  function nextDance(now, beat) {
+    var settled = heroes.every(function (h) { return h === heroes[0] || h.act === 'party'; });
+    var dancers = heroes.filter(function (h) { return h.act === 'party'; }).length;
+    for (var tries = 0; tries < DANCES.length; tries++) {
+      dance.k = (dance.k + 1) % DANCES.length;
+      var d = DANCES[dance.k];
+      if (!d.form || (settled && dancers > 2)) break;  // formations wait until everyone is on the floor
+    }
+    dance.cur = DANCES[dance.k]; dance.startBeat = beat;
+    if (dance.cur.form) startForm(dance.cur.form, now);
   }
   function stepParty(now, dt) {
     if (!PARTY.group.visible) return;
@@ -1934,15 +2116,10 @@
         PARTY.tiles.setColorAt(i * n + j, col);
       }
       PARTY.tiles.instanceColor.needsUpdate = true;
-      // group moves on the beat (most of the time), sometimes a conga line
-      var dancers = heroes.filter(function (h) { return h.act === 'party'; });
-      var settled = heroes.every(function (h) { return h === heroes[0] || h.act === 'party'; });   // everyone in place
-      if (beat % 40 === 32 && dancers.length > 2 && !conga.on && settled) startConga(now);
-      else if (beat % 8 === 0 && !conga.on && R() < 0.75) {
-        var move = ['cheer', 'hop', 'twirl', 'pump', 'wave', 'cheer'][Math.floor(beat / 8) % 6];
-        dancers.forEach(function (h, k) { h.nextMove = move; h.emoteAt = now + k * 0.05; });
-      }
-      if (conga.on && conga.moving && now - conga.t1 > 9) endConga(now);
+      // the next dance: floor dances last 16 beats, formations until they've gone round
+      if (!dance.cur.form && beat - dance.startBeat >= FLOOR_BEATS && beat % 4 === 0) nextDance(now, beat);
+      else if (dance.cur.form && form.on && form.moving && now - form.t1 > FORM_SECS[form.kind]) { endForm(now); nextDance(now, beat); }
+      else if (dance.cur.form && !form.on) nextDance(now, beat);
     }
     var bulbCount = PARTY.bulbs.count;
     for (var k = 0; k < bulbCount; k++) { col.setHSL((k * 0.13 + now * 0.25) % 1, 0.9, 0.45 + 0.25 * Math.max(0, Math.sin(now * 6 + k))); PARTY.bulbs.setColorAt(k, col); }
@@ -1968,48 +2145,27 @@
       nt.position.set(DJ_SPOT.x - 0.9 - u * 0.6, 1.7 + u * 2.4, DJ_SPOT.z + nt.userData.side * 1.8 + Math.sin(u * 9) * 0.25);
       nt.material.opacity = Math.sin(u * PI);
     });
-    // conga line: everyone follows the leader around the floor
-    if (conga.on && !conga.moving) {
-      var ready = (conga.order || []).every(function (h) { return h.act === 'congaReady' || heroes.indexOf(h) < 0; });
-      if (ready || now - conga.t0 > 7) {
-        conga.moving = true; conga.t1 = now;
-        conga.order.forEach(function (h) { h.path = []; h.act = 'conga'; h.goal = null; });
+    // a formation: once everyone is in place, they all move together
+    if (form.on && !form.moving) {
+      var ready = (form.order || []).every(function (h) { return h.act === 'formReady' || heroes.indexOf(h) < 0; });
+      if (ready || now - form.t0 > 7) {
+        form.moving = true; form.t1 = now;
+        form.order.forEach(function (h) { h.path = []; h.act = 'form'; h.goal = null; });
       }
     }
-    if (conga.on && conga.moving) {
-      conga.theta += dt * 1.25;
-      var line = (conga.order || []).filter(function (h) { return h.act === 'conga'; });
-      var gap = congaGap(conga.order.length);
-      line.forEach(function (h, k) {
-        var target = congaPoint(conga.theta - k * gap), r = h.root.position;
+    if (form.on && form.moving) {
+      form.theta += dt * (form.kind === 'conga' ? 1.25 : form.kind === 'hora' ? 0.45 : form.kind === 'mayim' ? ((((now - form.t1) * BPM / 60) % 16) < 8 ? 0.6 : 0) : 0);
+      var line = (form.order || []).filter(function (h) { return h.act === 'form'; }), cnt = form.order.length;
+      line.forEach(function (h) {
+        var k = form.order.indexOf(h), target = formSlot(form.kind, k, cnt, now), r = h.root.position;
         var dx = target.x - r.x, dz = target.z - r.z, d = Math.hypot(dx, dz);
         var spd = Math.min(d, (1.25 + d) * dt * 1.6);
-        if (d > 1e-3) { r.x += dx / d * spd; r.z += dz / d * spd; h.wantFacing = Math.atan2(dx, dz); }
+        if (d > 1e-3) { r.x += dx / d * spd; r.z += dz / d * spd; }
+        if (form.kind === 'conga') { if (d > 1e-3) h.wantFacing = Math.atan2(dx, dz); }
+        else if (form.kind === 'debka') h.wantFacing = Math.atan2(DJ_SPOT.x - r.x, DJ_SPOT.z - r.z);
+        else h.wantFacing = Math.atan2(RING_C.x - r.x, RING_C.z - r.z);           // facing into the ring
       });
     }
-  }
-  function congaGap(n) { return Math.min(1.25, 16.9 / Math.max(1, n)); }   // the oval is about 17 units round
-  function startConga(now) {
-    // first everyone walks to their place in the line (in the order they stand around the floor),
-    // then the whole line moves together, so nobody bumps into anybody
-    var c = PARTY.c, line = heroes.filter(function (h) { return h.act === 'party'; });
-    line.forEach(function (h) { h.ang = Math.atan2(h.root.position.z - c.z, h.root.position.x - (c.x - 0.6)); });
-    line.sort(function (a, b) { return b.ang - a.ang; });
-    conga.on = true; conga.moving = false; conga.t0 = now;
-    conga.theta = line.length ? line[0].ang * 2.75 : 0;
-    conga.order = line;
-    var gap = congaGap(line.length);
-    line.forEach(function (h, k) {
-      goTo(h, congaPoint(conga.theta - k * gap), function () { h.wantFacing = undefined; doAct(h, 'congaReady', 9999, null, clockNow()); });
-    });
-  }
-  function endConga(now) {
-    conga.on = false;
-    (conga.order || []).forEach(function (h, k) {      // back to the floor, the leader first
-      if (h.act !== 'conga' && h.act !== 'congaReady') return;
-      h.act = 'congaReady';
-      h.backAt = now + k * 0.25;
-    });
   }
 
   // ---------------------------------------------------------------- music (party mode, off until you switch it on)
@@ -2313,6 +2469,7 @@
     free: function (x, z) { return freeAt(x, z); }, path: function (a, b) { return findPath(V(a[0], 0, a[1]), V(b[0], 0, b[1])).map(function (v) { return [+v.x.toFixed(1), +v.z.toFixed(1)]; }); },
     plants: plants,
     blocked: function (x, z, pad) { return blockedAt(x, z, pad); },
+    party: function () { return { dance: dance.cur.id, name: dance.cur.name, form: form.on ? form.kind : null, moving: form.moving }; },
     blockedHeroes: function () { return heroes.filter(function (h) { return blockedAt(h.root.position.x, h.root.position.z, 0.2); }).length; }
   };
 })();

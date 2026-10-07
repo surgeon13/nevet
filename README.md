@@ -373,9 +373,13 @@ the gate and joins a group activity:
   the same moves around it, the ring turning now and then.
 - **Party!**: a pop-up dance floor with flashing tiles, string lights, a
   disco ball with coloured beams, balloons and confetti. Whoever opened
-  the farm is the DJ; everyone else dances in their own style, joins in
-  on group moves and now and then forms a conga line. The speaker button
-  plays a little synth beat (off until you tap it).
+  the farm is the DJ. The whole floor does one dance at a time and moves
+  on to the next: Disco, Pogo, Voodoo, Yemenite step, Robot, Chicken
+  dance, The sprinkler, Twist, Running man and Hands up, plus formation
+  dances where everyone walks into place first: Hora (circle), Mayim
+  Mayim, Debka (line) and the Conga line. The current dance is shown in
+  the title. The speaker button plays a little synth beat (off until you
+  tap it).
 
 **Your garden, on the farm.** Once areas are drawn on the garden map,
 the farm builds its garden from it, turned and scaled to fit behind the

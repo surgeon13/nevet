@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-07 (party dances)
+
+- Party mode now rotates through 14 dances, one after another: Disco,
+  Pogo, Voodoo, Yemenite step, Robot, Chicken dance, The sprinkler, Twist,
+  Running man, Hands up, and the Israeli folk dances Hora, Mayim Mayim and
+  Debka, plus the Conga line. The title shows the current dance.
+
 ## 2026-10-06 (your garden on the farm)
 
 - The farm builds its garden from the **garden map**: beds in their real
