@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
+{% block title %}Add many plants{% endblock %}
+{% block fab %}{% endblock %}
+{% block content %}
+<form method="post" class="auth-card plant-form bulk-form" id="bulk-form">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <h2>Add many plants</h2>
+  {% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
+
+  {% if not rows %}
+  <p class="auth-sub">Type one line per plant with how many. Each plant is added on its own, so every tree or pot keeps its own history.</p>
+  <label class="hero-field">
+    <span class="hero-field-label">Your list</span>
+    <textarea name="text" rows="8" required class="bulk-text" placeholder="olive x 5&#10;mint x 3&#10;yellow cherry x 3&#10;basil x 3&#10;bishops crown pepper x 3">{{ text }}</textarea>
+    <small class="muted">“olive x 5”, “5 olive” and “olive 5” all work. Hebrew names work too.</small>
+  </label>
+  {% else %}
+  <p class="auth-sub">Check the list. You can fix names, counts and the 3D plant before adding. A count of 0 skips a line.</p>
+  {% if problems %}<p class="hero-error" role="status">Skipped (no plant name found): {{ problems | join(', ') }}</p>{% endif %}
+  <input type="hidden" name="text" value="{{ text }}">
+  <div class="bulk-rows">
+    {% for r in rows %}
+    <div class="bulk-row">
+      <input type="number" name="count" min="0" max="50" value="{{ r.count }}" aria-label="How many {{ r.name }}" class="bulk-count">
+      <span class="bulk-x" aria-hidden="true">×</span>
+      <div class="bulk-main">
+        <input type="text" name="name" maxlength="40" value="{{ r.name }}" aria-label="Name" required>
+        <div class="bulk-sub">
+          <input type="text" name="variety" maxlength="40" value="{{ r.variety }}" placeholder="Variety (optional)" aria-label="Variety for {{ r.name }}">
+          <select name="species" aria-label="3D plant for {{ r.name }}">
+            {% for group, items in species_groups %}{% if items[0].model not in ('worms',) %}
+            <optgroup label="{{ group }}">{% for sp in items %}<option value="{{ sp.id }}"{% if sp.id == r.species %} selected{% endif %}>{{ sp.name }}</option>{% endfor %}</optgroup>
+            {% endif %}{% endfor %}
+          </select>
+        </div>
+        <small class="muted bulk-names">Will be added as {{ r.names[:3] | join(', ') }}{% if r.names | length > 3 %} … {{ r.names[-1] }}{% endif %}</small>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="bulk-total" id="bulk-total"></p>
+  {% endif %}
+
+  <fieldset class="log-step">
+    <legend class="hero-field-label">How are they starting?</legend>
+    <div class="choice-list">
+      {% for value, label, icon_name in [('seeding', 'Sowed seeds', 'seed'), ('planting', 'Planted seedlings', 'sprout'), ('growing', "Already growing", 'leaf')] %}
+      <label class="choice"><input type="radio" name="how" value="{{ value }}" {% if how == value %}checked{% endif %}>
+        <span>{{ ui.icon(icon_name, 18) }} {{ label }}</span></label>
+      {% endfor %}
+    </div>
+  </fieldset>
+
+  <label class="hero-field">
+    <span class="hero-field-label">Where <span class="muted">(optional)</span></span>
+    <select name="place">
+      <option value="">{{ 'Anywhere: the farm finds them a spot' if beds else 'The farm finds them a spot' }}</option>
+      {% for id, label in beds %}<option value="{{ id }}"{% if place == id %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    {% if beds %}<small class="muted">Picking an area from the garden map pins them there, spread out.</small>
+    {% else %}<small class="muted">Draw beds on the <a href="{{ url_for('map_page') }}">garden map</a> to choose where they go.</small>{% endif %}
+  </label>
+
+  <label class="hero-field">
+    <span class="hero-field-label">Note <span class="muted">(optional, added to each)</span></span>
+    <textarea name="notes" rows="2" maxlength="500" placeholder="Where they came from...">{{ request.form.get('notes', '') }}</textarea>
+  </label>
+
+  {% if rows %}
+  <button type="submit" name="step" value="add" class="btn btn-primary auth-submit" id="bulk-add">Add them</button>
+  <button type="submit" name="step" value="edit" class="btn btn-ghost auth-submit" formnovalidate>Back to the list</button>
+  {% else %}
+  <button type="submit" name="step" value="preview" class="btn btn-primary auth-submit">Check the list</button>
+  {% endif %}
+  <p class="auth-alt"><a href="{{ url_for('plant_new') }}">Add just one plant</a></p>
+</form>
+{% if rows %}
+<script>
+(function () {
+  var counts = document.querySelectorAll('.bulk-count'), out = document.getElementById('bulk-total'), btn = document.getElementById('bulk-add');
+  function total() {
+    var n = 0; counts.forEach(function (c) { n += Math.max(0, parseInt(c.value, 10) || 0); });
+    out.textContent = n + ' plant' + (n === 1 ? '' : 's') + ' in total' + (n > {{ max_total }} ? ': at most {{ max_total }} at a time' : '');
+    btn.textContent = n ? 'Add ' + n + ' plant' + (n === 1 ? '' : 's') : 'Add them';
+    btn.disabled = !n || n > {{ max_total }};
+  }
+  counts.forEach(function (c) { c.addEventListener('input', total); });
+  total();
+})();
+</script>
+{% endif %}
+{% endblock %}

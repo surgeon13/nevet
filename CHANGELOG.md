@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-14 (many plants at once)
+
+- **Add many plants** from a typed list ("olive x 5, mint x 3, ..."), with a
+  preview to fix names, counts, varieties and 3D models. Each becomes its
+  own plant with a planting log; pick a garden-map bed to pin them there.
+- The farm shows up to 80 plants (the most recently tended), and its
+  default beds hold two or three rows when there are many.
+- "Bishop's crown" peppers are drawn as chili peppers.
+
 ## 2026-10-14 (today at the farm)
 
 - The dashboard shows **Today at the farm**: today's logged actions and a

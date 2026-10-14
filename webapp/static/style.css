@@ -613,3 +613,18 @@ dialog.about[open] { animation: about-in 0.2s ease-out; }
 dialog.today-dialog { width: min(440px, calc(100vw - 32px)); }
 .today-ok { width: 100%; margin-top: 12px; }
 @media (max-width: 420px) { .todo { flex-wrap: wrap; } .todo .btn { margin-left: 40px; } }
+
+/* ===================== Add many plants (bulk.py) ===================== */
+.bulk-text { width: 100%; box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important; font-size: 15px; line-height: 1.5; }
+.bulk-rows { display: grid; gap: 8px; margin: 4px 0 8px; }
+.bulk-row { display: flex; align-items: flex-start; gap: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); }
+.bulk-count { width: 64px; flex: none; padding: 10px 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); font: inherit; font-size: 16px; font-weight: 800; text-align: center; }
+.bulk-x { padding-top: 11px; color: var(--text-dim); font-weight: 800; }
+.bulk-main { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.bulk-main input[type=text], .bulk-main select { width: 100%; box-sizing: border-box; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); font: inherit; font-size: 15px; }
+.bulk-main input[name=name] { font-weight: 700; }
+.bulk-sub { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.bulk-names { font-size: 12px; }
+.bulk-total { margin: 0 0 14px; font-weight: 700; }
+.bulk-form .auth-submit + .auth-submit { margin-top: 8px; }
+@media (max-width: 420px) { .bulk-sub { grid-template-columns: 1fr; } }

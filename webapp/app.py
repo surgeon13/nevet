@@ -14,6 +14,7 @@ import about
 import activity_views as av
 import auth
 import farm_db
+import bulk
 import extras
 import garden_map
 import relations
@@ -714,6 +715,81 @@ def plant_new():
                            plant_catalog=plants.catalog())
 
 
+def _map_beds():
+    """Areas drawn on the garden map that plants can go in: [(id, label, row)]."""
+    out = []
+    for f in garden_map.list_features():
+        if f["kind"] != "area":
+            continue
+        cat = garden_map.category("area", f["category"]) or {}
+        label = f["name"] or cat.get("label", "Area")
+        if f["name"] and cat.get("label"):
+            label += f" ({cat['label'].lower()})"
+        out.append((f["id"], label, f))
+    return out
+
+
+@app.route("/plants/bulk", methods=["GET", "POST"])
+def plants_bulk():
+    """Many plants at once from a typed list ("olive x 5"), checked in a preview first."""
+    step = request.form.get("step") if request.method == "POST" else None
+    beds = _map_beds()
+    ctx = dict(species_groups=plants.groups(), beds=[(i, l) for i, l, _ in beds], max_total=bulk.MAX_TOTAL)
+    text = request.form.get("text", "")
+    how = request.form.get("how") if request.form.get("how") in ("seeding", "planting", "growing") else "planting"
+    place = request.form.get("place", type=int)
+    if step == "preview":
+        rows, problems = bulk.parse(text)
+        if not rows:
+            return render_template("plants_bulk.html", error="Type at least one plant, like “olive x 5”.", text=text, how=how, place=place, **ctx)
+        taken = bulk.existing_names()
+        for r in rows:
+            r["names"] = bulk.names_for(r["name"], r["count"], taken)
+        return render_template("plants_bulk.html", rows=rows, problems=problems, text=text, how=how, place=place, **ctx)
+    if step == "add":
+        names, counts = request.form.getlist("name"), request.form.getlist("count")
+        varieties, species = request.form.getlist("variety"), request.form.getlist("species")
+        rows = []
+        for i, raw in enumerate(names):
+            name = bulk._clean_name(raw)
+            try:
+                count = max(0, min(bulk.MAX_PER_LINE, int(counts[i])))
+            except (IndexError, ValueError):
+                count = 0
+            if name and count:
+                sp = species[i] if i < len(species) and plants.valid(species[i]) else None
+                var = " ".join((varieties[i] if i < len(varieties) else "").split())[:40] or None
+                rows.append((name, count, var, sp))
+        total = sum(r[1] for r in rows)
+        if not rows:
+            return render_template("plants_bulk.html", error="Nothing to add: every line has a count of 0.", text=text, how=how, place=place, **ctx)
+        if total > bulk.MAX_TOTAL:
+            return render_template("plants_bulk.html", error=f"That's {total} plants; add at most {bulk.MAX_TOTAL} at a time.", text=text, how=how, place=place, **ctx)
+        me = g.user["id"]
+        before = heroes.progress(**farm_db.grower_counts(me))
+        stage = {"seeding": "seed", "planting": "seedling", "growing": "growing"}[how]
+        action = "seeding" if how == "seeding" else "planting"
+        notes = (request.form.get("notes") or "").strip()[:500] or None
+        taken = bulk.existing_names()
+        new_ids = []
+        for name, count, var, sp in rows:
+            for nm in bulk.names_for(name, count, taken):
+                aid = farm_db.add_asset("plant", nm, me, variety=var, life_stage=stage, species=sp)
+                farm_db.add_log(action, aid, notes=notes, grower_id=me, new_stage=stage)
+                taken.add(nm.lower())
+                new_ids.append(aid)
+        bed = next((f for i, _, f in beds if i == place), None)
+        if bed:                                        # pin them on the garden map, spread over the bed
+            geom = json.loads(bed["geometry"])
+            pins = [json.loads(f["geometry"])["coordinates"] for f in garden_map.list_features() if f["kind"] == "asset"]
+            for aid, pt in zip(new_ids, bulk.spread_points(geom, len(new_ids), pins)):
+                garden_map.create_feature({"kind": "asset", "asset_id": aid, "category": "plant",
+                                           "geometry": {"type": "Point", "coordinates": pt}}, me)
+        logger.info("%s added %d plants at once%s", g.user["name"], len(new_ids), f" in {bed['name'] or 'a bed'}" if bed else "")
+        return _after_logging(before, action, len(new_ids), plant=f"{len(new_ids)} plants")
+    return render_template("plants_bulk.html", text=text, how=how, place=place, **ctx)
+
+
 @app.route("/activity")
 def activity():
     """Full history with filters: who, what, which plant, when."""
@@ -1030,6 +1106,7 @@ def api_map_geojson():
 # ---------- the farm: every hero together (tap the brain on the dashboard) ----------
 FARM_MAX_HEROES = 16
 # what grows in the farm's empty bed spots and the planting field
+FARM_MAX_PLANTS = 80          # plants drawn on the farm (each one is 2 meshes)
 FARM_FILL_SPECIES = ("tomato", "cherry_tomato", "bell_pepper", "lettuce", "basil", "mint", "carrot", "strawberry",
                      "sunflower", "corn", "zucchini", "pumpkin", "green_beans", "parsley", "chard", "radish", "spinach",
                      "apple", "lemon", "olive", "fig", "bees", "compost_worms")
@@ -1042,7 +1119,8 @@ def farm_page():
     rows = sorted(rows, key=lambda r: r["last_login"] or "", reverse=True)            # most recent first...
     rows = sorted(rows, key=lambda r: (r["id"] != g.user["id"], not r["password_hash"]))  # ...within each group (stable)
     party = [hero_view(r) for r in rows[:FARM_MAX_HEROES]]
-    growing = [plant_view(a) for a in farm_db.plants(current=True)][:40]
+    current = sorted(farm_db.plants(current=True), key=lambda a: a["last_action"] or a["created_at"] or "", reverse=True)
+    growing = [plant_view(a) for a in current[:FARM_MAX_PLANTS]]          # the most recently tended ones
     numbers = farm_db.farm_numbers()
     data = {
         "heroes": [{"id": h["id"], "name": h["name"], "level": h["progress"]["level"], "appearance": h["appearance"]}

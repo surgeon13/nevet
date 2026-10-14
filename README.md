@@ -34,6 +34,8 @@ webapp/                      Flask app: dashboard, heroes, garden map, gallery, 
   webapp/garden_map.py         garden map data (GeoJSON beds, paths, points, plant pins)
   webapp/about.py              numbers, version and "what's new" for the About popup
   webapp/relations.py          relationship kinds (parent, spouse, sibling...) and group types
+  webapp/bulk.py               "olive x 5" lists -> many plants at once, spread over a bed
+  webapp/today.py              today's actions + to-dos for the dashboard
   webapp/plants.py             plant species catalog + "which plant is this?" from its name
   webapp/static/js/plants3d.js 3D models of every plant, at every growth stage
   webapp/static/assets/plants/catalog.json  the species list (add new plants here)
@@ -441,6 +443,29 @@ swing, fist pump, nod, twirl, stretch, cheer), never the same one twice
 in a row. Tap a hero to make it emote; trying on a new item makes it hop.
 With "reduce motion" switched on in the device settings, heroes only
 breathe and blink.
+
+## Adding many plants at once
+
+**Plants → + Add many** (or the link on "Add a plant") takes a typed list:
+
+```
+olive x 5
+mint x 3
+yellow cherry x 3
+basil x 3
+bishops crown pepper x 3
+```
+
+"olive x 5", "5 olive", "5 x olive", "olive 5", "olive: 5" all work,
+Hebrew names too. A preview shows each line with its count, name, an
+optional variety and the 3D plant it detected (changeable), and the names
+it will use. Every plant is added on its own (Olive 1 … Olive 5, numbered
+on after any olives already there) with a planting log, so each tree or pot
+keeps its own history. Pick how they start (seeds, seedlings, already
+growing) and, if beds are drawn on the garden map, which bed: they are
+pinned there, spread out. They show up on the farm right away; without a
+garden map the farm's beds take two or three rows when there are many
+plants. Up to 200 plants at a time.
 
 ## Today at the farm
 

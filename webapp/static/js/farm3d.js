@@ -351,6 +351,7 @@
   }
   if (!MAPG) (function () {                            // the default beds (no garden map drawn yet)
     var real = (D.plants || []).filter(function (p) { return p.type !== 'worm_bin'; });
+    var COLS = real.length > BED_X.length * SLOTS * 2 ? 3 : real.length > BED_X.length * SLOTS ? 2 : 1;
     var fill = rng(77);
     BED_X.forEach(function (bx, bi) {
       var bed = group([bx, 0, BED_Z0 - (SLOTS - 1) * SLOT_STEP / 2 - 0.5]);
@@ -360,11 +361,15 @@
       bed.add(box(BED_W - 0.1, 0.4, len - 0.1, '#5b3d27', [0, 0.2, 0]));
       [-1, 1].forEach(function (s) { [-1, 1].forEach(function (e) { bed.add(box(0.2, 0.56, 0.2, '#8a5f3a', [s * BED_W / 2, 0.28, e * len / 2])); }); });
       statics.add(outline(bed));
-      for (var k = 0; k < SLOTS; k++) {
-        var z = BED_Z0 - k * SLOT_STEP - 0.3, idx = bi * SLOTS + k;
-        var info = real[idx], species = info ? info.species || 'generic' : FILL[Math.floor(fill() * FILL.length)];
+      // a bed holds one row of plants, or two or three narrower rows when there are many
+      for (var k = 0; k < SLOTS; k++) for (var c = 0; c < COLS; c++) {
+        var z = BED_Z0 - k * SLOT_STEP - 0.3, idx = COLS > 1 ? (k * COLS + c) * BED_X.length + bi : bi * SLOTS + k;   // crowded: deal plants out over all beds
+        var info = real[idx];
+        if (!info && COLS > 1) continue;                 // a crowded farm: no filler plants between real ones
+        var species = info ? info.species || 'generic' : FILL[Math.floor(fill() * FILL.length)];
         var stage = info ? info.stage : (fill() < 0.35 ? 'growing' : 'mature');
-        addPlant(species, V(bx, 0.4, z), stage, info ? info.name : null, 'bed');
+        addPlant(species, V(bx + (c - (COLS - 1) / 2) * (BED_W - 0.5) / Math.max(1, COLS - 1), 0.4, z), stage, info && COLS === 1 ? info.name : null, 'bed',
+          COLS > 1 ? { fit: { r: COLS === 2 ? 0.36 : 0.26, h: COLS === 2 ? 1.5 : 1.25 }, info: info } : { info: info });
       }
     });
   })();
