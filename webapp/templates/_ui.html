@@ -92,3 +92,33 @@
 <p class="muted">{{ empty }}</p>
 {% endif %}
 {% endmacro %}
+
+{# "Today at the farm": today's logged actions + things to do (today.py) #}
+{% macro today_body(t, compact=False) %}
+{% if t.todos %}
+<ul class="todo-list">
+  {% for d in t.todos %}
+  <li class="todo todo-{{ d.level }}">
+    <span class="todo-icon">{{ icon(d.icon, 17) }}</span>
+    <span class="todo-text"><strong>{{ d.text }}</strong><small>{{ d.detail }}</small></span>
+    <a class="btn btn-small {{ 'btn-primary' if d.level != 'ok' else 'btn-ghost' }}" href="{{ d.href }}">{{ d.button }}</a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="todo-none">{{ icon('sparkle', 16) }} Nothing needs doing right now.</p>
+{% endif %}
+<h4 class="today-sub">Logged today{% if t.total %} <span class="muted">· {{ t.total }} action{{ 's' if t.total != 1 }} by {{ t.heroes }} hero{{ 'es' if t.heroes != 1 }}</span>{% endif %}</h4>
+{% if t.groups %}
+<ul class="today-list">
+  {% for gr in (t.groups[:5] if compact else t.groups) %}{% set m = action_meta(gr.action) %}
+  <li><span class="feed-icon">{{ icon(m.icon, 16) }}</span>
+    <span><strong>{{ gr.who }}</strong> {{ gr.verb }} {{ gr.what }}{% if gr.count > 1 and not gr.whole %} <span class="muted">({{ gr.count }})</span>{% endif %}</span>
+    <time class="muted">{{ gr.time }}</time></li>
+  {% endfor %}
+  {% if compact and t.groups | length > 5 %}<li class="muted">and {{ t.groups | length - 5 }} more…</li>{% endif %}
+</ul>
+{% else %}
+<p class="muted today-empty">Nothing logged yet today.</p>
+{% endif %}
+{% endmacro %}

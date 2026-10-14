@@ -32,6 +32,12 @@
     <span class="hub-stat">{{ ui.icon('basket', 15) }}<strong>{{ summary.harvested }}</strong> harvested</span>
   </div>
 
+  <section class="today-card" aria-labelledby="today-title">
+    <h2 id="today-title">Today at the farm <span class="muted">· {{ today.date.strftime('%A %-d %B') }}</span></h2>
+    {{ ui.today_body(today, compact=True) }}
+    <a class="panel-link" href="{{ url_for('activity', period='7') }}">All activity →</a>
+  </section>
+
   <a class="btn btn-primary log-cta" href="{{ url_for('log_action') }}">{{ ui.icon('plus', 18) }} Log an action</a>
 
   <section class="activity-panel" id="activity">
@@ -169,6 +175,30 @@
     {% if about.version.repo %} · <a href="{{ about.version.repo }}" target="_blank" rel="noopener">source</a>{% endif %}
   </p>
 </dialog>
+{% if greet %}
+<dialog class="about today-dialog" id="today-dialog" aria-labelledby="today-dialog-title">
+  <form method="dialog" class="about-close-form"><button class="about-close" aria-label="Close">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  </button></form>
+  <div class="about-head">
+    <span class="about-mark">{{ ui.icon('sprout', 20) }}</span>
+    <div>
+      <h2 id="today-dialog-title">Hi {{ current_user.name }}!</h2>
+      <p class="about-tag">Today at the farm · {{ today.date.strftime('%A %-d %B') }}</p>
+    </div>
+  </div>
+  {{ ui.today_body(today) }}
+  <form method="dialog"><button class="btn btn-ghost today-ok">Got it</button></form>
+</dialog>
+<script>
+  (function () {
+    var d = document.getElementById('today-dialog');
+    if (!d) return;
+    if (d.showModal) d.showModal(); else d.setAttribute('open', '');
+    d.addEventListener('click', function (e) { if (e.target === d && d.close) d.close(); });
+  })();
+</script>
+{% endif %}
 <script>
   var nodes = Array.from(document.querySelectorAll('#node-grid .node-card'));
   var current = 0;

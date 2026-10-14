@@ -785,6 +785,15 @@ def farm_numbers():
     return numbers
 
 
+def last_logs(log_type):
+    """{asset_id: timestamp of its latest log of this type}."""
+    conn = get_conn()
+    rows = conn.execute("SELECT asset_id, MAX(timestamp) FROM logs WHERE log_type = ? AND asset_id IS NOT NULL "
+                        "GROUP BY asset_id", (log_type,)).fetchall()
+    conn.close()
+    return {r[0]: r[1] for r in rows}
+
+
 def player_activity():
     """Per player: total actions, actions this week, favourite action, last action."""
     from datetime import date, timedelta

@@ -19,6 +19,7 @@ import garden_map
 import relations
 import heroes
 import plants
+import today
 import traffic
 
 BASE_DIR = Path(os.environ.get("CAMERA_BASE_DIR", str(Path.home() / "camera_captures")))
@@ -90,6 +91,7 @@ def log_in(row):
     session.clear()
     session.permanent = True
     session["user_id"] = row["id"]
+    session["show_today"] = 1                 # the dashboard greets them with today's farm
     farm_db.touch_login(row["id"])
 
 
@@ -187,8 +189,14 @@ def hub():
     banner = session.pop("banner", None)      # set once by _after_logging, shown once
     if banner:
         banner["label"] = av.action_meta(banner.get("action"))["label"]
+    report = today.report(g.user["id"])
+    # the "Today at the farm" pop-up: after logging in, and on the first visit of each day,
+    # when there is something to tell (actions logged today or things to do)
+    day = report["date"].isoformat()
+    greet = bool(session.pop("show_today", None) or session.get("today_seen") != day)
+    session["today_seen"] = day
     return render_template(
-        "console.html",
+        "console.html", today=report, greet=greet and not banner and bool(report["groups"] or report["todos"]),
         summary=farm_db.dashboard_summary(),
         recent=recent_photos(3),
         everyone=av.activity_bundle(None),
@@ -665,7 +673,7 @@ def log_action():
     if request.method == "POST":
         selected = {int(x) for x in request.form.getlist("asset") if x.isdigit()}
     else:
-        selected = {request.args.get("asset", type=int)} - {None}
+        selected = {int(x) for x in request.args.getlist("asset") if x.isdigit()}   # a to-do link can pick several
     return render_template(
         "log_action.html", error=error, form=form,
         actions=[a for a in farm_db.ACTIONS if not a.get("legacy") and not a.get("new_plant")],

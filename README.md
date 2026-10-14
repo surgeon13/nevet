@@ -442,6 +442,23 @@ in a row. Tap a hero to make it emote; trying on a new item makes it hop.
 With "reduce motion" switched on in the device settings, heroes only
 breathe and blink.
 
+## Today at the farm
+
+The dashboard opens with **Today at the farm**: what was logged today
+(grouped, e.g. "Dror watered the whole garden · 05:41") and what needs
+doing, worked out from the farm's own data:
+
+- plants not watered for 3+ days (a whole-garden watering counts for all)
+- worm bins not fed for 7+ days
+- plants marked mature: ready to harvest
+- seeds sown 14+ days ago with no sprouts logged
+- connections waiting for you to confirm
+
+Each to-do has a button that opens the log page with the right action and
+plants already picked. The same summary pops up the first time you open
+Nevet after logging in, and on your first visit each new day (only when
+there's something to tell). The limits are at the top of `webapp/today.py`.
+
 ## Family, households and groups
 
 Nevet is for small organic groups: couples, families with little children,

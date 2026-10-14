@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-14 (today at the farm)
+
+- The dashboard shows **Today at the farm**: today's logged actions and a
+  to-do list (thirsty plants, hungry worms, ripe plants, seeds to check,
+  connections to confirm), each with a one-tap button to log it. It pops
+  up after logging in and on the first visit of each day.
+
 ## 2026-10-14 (DJ booth: the acid synth)
 
 - Party mode has a **DJ booth**: the Acid Machine (kg13-acid-space) opens in

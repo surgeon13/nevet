@@ -588,3 +588,28 @@ dialog.about[open] { animation: about-in 0.2s ease-out; }
 .group-list { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); margin-bottom: 16px; }
 .group-card { display: flex; flex-direction: column; gap: 3px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); color: var(--text); text-decoration: none; }
 .rel-wait { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent-2, #c98a1b) 22%, transparent); color: var(--text); }
+
+/* ===================== Today at the farm (today.py) ===================== */
+.today-card { margin: 14px 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-card); }
+.today-card h2 { margin: 0 0 10px; font-size: 1.05rem; }
+.today-card h2 .muted { font-weight: 500; font-size: 0.85rem; }
+.todo-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 7px; }
+.todo { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); }
+.todo-warn { border-color: color-mix(in srgb, #e0a020 55%, var(--border)); background: color-mix(in srgb, #e0a020 9%, var(--bg)); }
+.todo-bad { border-color: color-mix(in srgb, #d0503c 60%, var(--border)); background: color-mix(in srgb, #d0503c 9%, var(--bg)); }
+.todo-icon { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: var(--bg-card); color: var(--accent); }
+.todo-warn .todo-icon { color: #b07a10; } .todo-bad .todo-icon { color: #c0402c; }
+.todo-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; font-size: 13.5px; }
+.todo-text small { color: var(--text-dim); font-size: 12px; line-height: 1.35; }
+.todo .btn { flex: none; white-space: nowrap; }
+.todo-none { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; color: var(--text-dim); font-size: 13.5px; }
+.today-sub { margin: 4px 0 6px; font-size: 13px; }
+.today-sub .muted { font-weight: 500; }
+.today-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: 13.5px; }
+.today-list li { display: flex; align-items: center; gap: 8px; }
+.today-list li > span:nth-child(2) { flex: 1; min-width: 0; }
+.today-list time { font-size: 12px; }
+.today-empty { margin: 0; font-size: 13px; }
+dialog.today-dialog { width: min(440px, calc(100vw - 32px)); }
+.today-ok { width: 100%; margin-top: 12px; }
+@media (max-width: 420px) { .todo { flex-wrap: wrap; } .todo .btn { margin-left: 40px; } }
