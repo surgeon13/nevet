@@ -10,6 +10,9 @@
 #      back to the previous version and skips that update until a newer
 #      one is published
 #
+# Every run also updates the companion repos in config/extra_repos.conf
+# (scripts/update_extras.sh), e.g. the acid synth used by the farm's party.
+#
 # It never overwrites local edits: if tracked files were changed on the
 # Pi, or the Pi has its own commits, it logs a warning and waits.
 #
@@ -91,6 +94,13 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     exit 1
 fi
 
+# ---- companion repos (acid synth, ...): static files, no restart needed ----
+if [ "$MODE" = "check" ]; then
+    "$SCRIPT_DIR/update_extras.sh" --check 9>&-
+else
+    timeout 300 "$SCRIPT_DIR/update_extras.sh" 9>&- >/dev/null 2>&1 || log_msg "extras: update_extras.sh failed"
+fi
+
 # ---- 1. check GitHub ----
 if ! FETCH_OUT=$(timeout 90 git fetch --quiet "$REMOTE" "$BRANCH" 2>&1); then
     if echo "$FETCH_OUT" | grep -qiE "permission denied|insufficient permission|unable to (create|write)"; then
@@ -161,7 +171,7 @@ fi
 say "Updated $SHORT_LOCAL -> $SHORT_LATEST ($COUNT commit(s)):"
 echo "$SUMMARY" | while IFS= read -r line; do log_msg "$line"; done
 
-if echo "$CHANGED" | grep -v '^config/\.env\.example$' | grep -qE '^(systemd/|install\.sh|config/|webapp/requirements\.txt)'; then
+if echo "$CHANGED" | grep -v -e '^config/\.env\.example$' -e '^config/extra_repos\.conf$' | grep -qE '^(systemd/|install\.sh|config/|webapp/requirements\.txt)'; then
     say "NOTE this update changes system setup (services/dependencies). Run once on the Pi: sudo ./install.sh"
 fi
 

@@ -196,3 +196,14 @@ A Flask app served by waitress on port 8000:
 
 See `docs/API.md` for the full HTTP surface and `docs/TROUBLESHOOTING.md`
 for known failure modes and fixes.
+
+## Companion repos (extras)
+
+`config/extra_repos.conf` lists repos that live next to Nevet. `scripts/update_extras.sh`
+(run by `auto_update.sh` on every check) keeps a shallow read-only copy of each in
+`~/nevet-extras/<name>` and writes `~/camera_captures/.update/extras.json`. `webapp/extras.py`
+serves them at `/extras/<name>/` (configured names only, never `.git`, login required).
+The farm's party mode embeds `/extras/acid/` (kg13-acid-space) in an iframe and follows its
+embed API: `acid-machine:transport` and per-step `acid-machine:step` messages drive the farm's
+beat clock (`beatsAt()`, phase-locked to the synth's steps), lights and dancers;
+`acid-machine:command` messages (stop, bpm, generate) go back.

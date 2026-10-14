@@ -14,6 +14,7 @@ import about
 import activity_views as av
 import auth
 import farm_db
+import extras
 import garden_map
 import relations
 import heroes
@@ -733,6 +734,22 @@ def activity():
     )
 
 
+@app.route("/extras/<name>/")
+@app.route("/extras/<name>/<path:filepath>")
+def extra_file(name, filepath="index.html"):
+    """Files of a companion repo (config/extra_repos.conf), e.g. the acid synth."""
+    full = extras.path_for(name, filepath)
+    if full is None:
+        abort(404)
+    if full.is_dir():
+        full = full / "index.html"
+    if not full.is_file():
+        abort(404)
+    resp = send_from_directory(full.parent, full.name)
+    resp.headers["Cache-Control"] = "no-cache"          # updates show up on the next load
+    return resp
+
+
 @app.route("/media/<path:filepath>")
 def media(filepath):
     full = (BASE_DIR / filepath).resolve()
@@ -1026,6 +1043,7 @@ def farm_page():
         "plants": [{"id": p["id"], "name": p["name"], "type": p["type"], "species": p["species"], "stage": p["model_stage"],
                     "dry": numbers["assets"].get(p["id"], {}).get("dry", 0),
                     "fed": numbers["assets"].get(p["id"], {}).get("fed", 0)} for p in growing],
+        "acid": url_for("extra_file", name="acid") if extras.available("acid") else None,   # the DJ booth's synth
         "map": garden_map.farm_layout(),          # the garden map in metres (None: nothing drawn yet)
         "week": numbers["week"],                  # for the chalkboard
         "monthFeedings": numbers["month_feedings"],

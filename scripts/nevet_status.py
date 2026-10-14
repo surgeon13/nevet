@@ -251,6 +251,14 @@ def collect_system(logs):
         st.row(level, "Updates", f"{label} {SEP} {ago(checked)}", us.get("message"))
     else:
         st.row("off", "Updates", "no check yet")
+    try:                                  # companion repos (config/extra_repos.conf)
+        ex = json.loads((BASE / ".update" / "extras.json").read_text())
+    except (OSError, ValueError):
+        ex = {}
+    for name, info in sorted((k, v) for k, v in ex.items() if isinstance(v, dict)):
+        good = info.get("status") in ("up_to_date", "updated")
+        st.row("ok" if good else "warn", f"  {name}", f"{info.get('status', '?').replace('_', ' ')} {SEP} {info.get('version') or '-'}",
+               None if good else info.get("message"))
 
     # camera (optional)
     st.row("ok" if cam_ok else "off", "Camera", "connected" if cam_ok else "not connected")

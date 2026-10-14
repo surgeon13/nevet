@@ -41,3 +41,31 @@ html, body.farm-body { height: 100%; margin: 0; overflow: hidden; background: #6
 .farm-loading-sprout { animation: farm-grow 1.2s ease-in-out infinite alternate; }
 @keyframes farm-grow { from { transform: scale(0.85) translateY(4px); } to { transform: scale(1.1) translateY(-2px); } }
 @media (prefers-reduced-motion: reduce) { .farm-loading-sprout { animation: none; } }
+
+/* ---- DJ booth: the acid synth (kg13-acid-space) in party mode ---- */
+.farm-synth-btn.active { background: #c7ff2e; color: #12160a; animation: farm-synth-pulse 1.2s ease-in-out infinite; }
+@keyframes farm-synth-pulse { 50% { box-shadow: 0 0 0 6px rgba(199, 255, 46, 0.35), 0 4px 14px rgba(0, 0, 0, 0.18); } }
+.farm-synth { position: absolute; z-index: 5; right: 10px; top: calc(60px + env(safe-area-inset-top)); bottom: calc(76px + env(safe-area-inset-bottom));
+  width: min(440px, calc(100% - 20px)); display: flex; flex-direction: column; border-radius: 18px; overflow: hidden;
+  background: #12160a; color: #e9f5d0; box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45); font: 13px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.farm-synth[hidden] { display: none; }
+.farm-synth-head { display: flex; align-items: center; gap: 6px; padding: 8px 8px 8px 14px; background: #1c2410; }
+.farm-synth-head b { flex: 1; font-size: 13.5px; color: #c7ff2e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.farm-synth-x { width: 32px; height: 32px; border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.08); color: #e9f5d0; font-size: 15px; cursor: pointer; }
+.farm-synth-x:hover { background: rgba(255, 255, 255, 0.16); }
+.farm-synth-learn { padding: 8px 14px 9px; border-bottom: 1px solid rgba(199, 255, 46, 0.18); }
+.farm-synth-steps { display: grid; grid-template-columns: repeat(16, 1fr); gap: 3px; margin-bottom: 6px; }
+.farm-synth-steps i { height: 7px; border-radius: 3px; background: rgba(199, 255, 46, 0.16); }
+.farm-synth-steps i:nth-child(4n+1) { background: rgba(199, 255, 46, 0.32); }
+.farm-synth-steps i.on { background: #c7ff2e; box-shadow: 0 0 8px #c7ff2e; }
+.farm-synth-steps i[hidden] { display: none; }
+.farm-synth-now { margin: 0; min-height: 18px; }
+.farm-synth-now b { font-size: 15px; color: #fff; margin-right: 4px; }
+.farm-synth-now em { font-style: normal; font-size: 11.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); margin-left: 3px; }
+.farm-synth-now em.acc { background: #ff5fa2; color: #1a0610; }
+.farm-synth-now em.sld { background: #6fb8ec; color: #04121c; }
+.farm-synth-tip { margin: 5px 0 0; color: #b7c99a; font-size: 12.5px; min-height: 17px; }
+#farm-synth-frame { flex: 1; width: 100%; border: 0; background: #0b0e07; }
+@media (max-width: 640px) {
+  .farm-synth { left: 8px; right: 8px; width: auto; top: auto; height: 64vh; bottom: calc(66px + env(safe-area-inset-bottom)); }
+}

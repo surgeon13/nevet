@@ -1620,6 +1620,7 @@
       name: 'Party!', tool: null, night: 1, centre: V(PARTY.c.x + 1, 0.9, PARTY.c.z),
       stat: function () {
         var who = heroes.filter(function (h) { return h.act === 'party' || h.act === 'form' || h.act === 'formReady'; }).length;
+        if (acid.playing) return dance.cur.name + ' · ' + who + ' dancing to the acid synth · ' + BPM + ' BPM';
         return dance.cur.name + ' · ' + who + ' dancing' + (heroes[0] && heroes[0].act === 'dj' ? ' · DJ ' + heroes[0].name : '');
       },
       next: function (h, now) {
@@ -1716,8 +1717,8 @@
     focusUntil = now + 2.2;
     PARTY.group.visible = name === 'party';
     form.on = false;
-    if (name === 'party') { dance.k = 0; dance.cur = DANCES[0]; dance.startBeat = Math.floor(now * BPM / 60); heroes.forEach(function (h) { h.floorK = undefined; }); }
-    else music.stop();
+    if (name === 'party') { dance.k = 0; dance.cur = DANCES[0]; dance.startBeat = Math.floor(beatsAt(now)); heroes.forEach(function (h) { h.floorK = undefined; }); }
+    else { music.stop(); if (acidPanel) acidPanel.leave(); }
     heroes.forEach(function (h, idx) { h.switchAt = now + idx * 0.06; });     // swap tools one hero at a time
     updateUI();
   }
@@ -1822,9 +1823,11 @@
         break;
       case 'party':                                    // the floor's dance of the moment
         dancePose(dance.cur.form ? 'handsup' : dance.cur.id, h, u, arms, legs, now);
+        acidJump(h, u, now);
         break;
       case 'form':                                     // dancing in a ring, lines or a conga
         dancePose(form.kind, h, u, arms, legs, now);
+        acidJump(h, u, now);
         break;
       case 'formReady':                                // waiting in place for the formation (or to go back)
         if (!form.on && h.backAt && now >= h.backAt) {
@@ -1893,8 +1896,12 @@
   // The whole floor does one dance at a time and moves on to the next:
   // dances in place on the floor grid, and formation dances where everyone
   // first walks to a place (circle, lines, conga oval), then moves together.
-  var BPM = 120;
-  function beatPhase(now) { return (now * BPM / 60) % 1; }
+  // The beat clock. It runs at 120 BPM on its own; while the acid synth plays
+  // it takes the synth's tempo and is nudged into phase on every step heard.
+  var BPM = 120, beatT0 = 0, beatB0 = 0;
+  function beatsAt(now) { return beatB0 + (now - beatT0) * BPM / 60; }
+  function setBPM(bpm, now) { if (bpm === BPM) return; beatB0 = beatsAt(now); beatT0 = now; BPM = bpm; }
+  function beatPhase(now) { return beatsAt(now) % 1; }
   var DANCES = [
     { id: 'disco', name: 'Disco' }, { id: 'pogo', name: 'Pogo' }, { id: 'hora', name: 'Hora', form: 'hora' },
     { id: 'voodoo', name: 'Voodoo' }, { id: 'yemenite', name: 'Yemenite step' }, { id: 'robot', name: 'Robot' },
@@ -1908,7 +1915,7 @@
   function legSet(legs, s, x, z) { if (legs[s]) { legs[s].rotation.x = x; legs[s].rotation.z = s * (z || 0); } }
   // one frame of a dance's moves; b = beats (with a tiny per-hero delay so the floor ripples)
   function dancePose(id, h, u, arms, legs, now) {
-    var b = now * BPM / 60 - (h.i % 4) * 0.03, ph = b % 1, up = Math.abs(Math.sin(ph * PI)), on = Math.floor(b), body = u.hero, head = u.headRig;
+    var b = beatsAt(now) - (h.i % 4) * 0.03, ph = b % 1, up = Math.abs(Math.sin(ph * PI)), on = Math.floor(b), body = u.hero, head = u.headRig;
     body.position.x = 0; body.position.z = 0;
     [1, -1].forEach(function (s) { legSet(legs, s, 0, 0); });
     switch (id) {
@@ -2104,7 +2111,10 @@
   }
   function stepParty(now, dt) {
     if (!PARTY.group.visible) return;
-    var b = now * BPM / 60, beat = Math.floor(b), ph = b % 1, kick = Math.pow(1 - ph, 3);
+    var b = beatsAt(now), beat = Math.floor(b), ph = b % 1, kick = Math.pow(1 - ph, 3);
+    var live = acid.playing && now - acid.heardAt < 1.5;          // the acid synth is playing
+    if (live) kick = Math.max(Math.exp(-(now - acid.kickAt) * 9), 0.6 * Math.exp(-(now - acid.accentAt) * 7));
+    var bright = live ? 0.3 + 0.36 * acid.cut : 0.6;                // the filter opens, the floor lights up
     // floor tiles, bulbs, beams, ball, speakers, balloons
     var n = PARTY.tileN, col = new THREE.Color();
     if (beat !== partyBeat) {
@@ -2112,7 +2122,7 @@
       var pattern = Math.floor(beat / 8) % 3;
       for (var i = 0; i < n; i++) for (var j = 0; j < n; j++) {
         var on = pattern === 0 ? (i + j + beat) % 2 === 0 : pattern === 1 ? Math.abs(i - 3) + Math.abs(j - 3) === beat % 4 : R() < 0.45;
-        col.setHSL(((i * 7 + j * 3 + beat * 5) % 20) / 20, 0.85, on ? 0.6 : 0.16);
+        col.setHSL(((i * 7 + j * 3 + beat * 5) % 20) / 20, 0.85, on ? bright : 0.16);
         PARTY.tiles.setColorAt(i * n + j, col);
       }
       PARTY.tiles.instanceColor.needsUpdate = true;
@@ -2128,7 +2138,7 @@
     PARTY.beams.forEach(function (bm) {
       var a = now * 0.9 + bm.userData.k * TAU / PARTY.beams.length;
       bm.rotation.set(Math.sin(a * 1.3) * 0.55, 0, Math.cos(a) * 0.55);
-      bm.material.opacity = 0.1 + kick * 0.14;
+      bm.material.opacity = 0.1 + kick * 0.14 + (live ? acid.res * 0.12 : 0);
     });
     PARTY.speakers.forEach(function (w) { w.scale.set(1, 1 + kick * 0.6, 1 + kick * 0.6); });
     PARTY.decks.forEach(function (d) { d.rotation.y = now * 3.5; });
@@ -2140,6 +2150,13 @@
       cp.setXYZ(q, PARTY.c.x + sd[0] + Math.sin(now * 2 + q) * 0.15, y, PARTY.c.z + sd[2] + Math.cos(now * 1.7 + q) * 0.15);
     });
     cp.needsUpdate = true;
+    acidNotes.forEach(function (sp) {                              // the notes the synth plays float up from the booth
+      var u = (now - sp.userData.t0) / 2.2;
+      sp.visible = u >= 0 && u < 1;
+      if (!sp.visible) return;
+      sp.position.set(DJ_SPOT.x - 0.6 - u * 0.8, 2.3 + u * 2.6, DJ_SPOT.z + sp.userData.side * (0.6 + u * 0.6));
+      sp.material.opacity = Math.min(1, (1 - u) * 2.2);
+    });
     PARTY.notes.forEach(function (nt) {
       var u = (now * 0.35 + nt.userData.ph) % 1;
       nt.position.set(DJ_SPOT.x - 0.9 - u * 0.6, 1.7 + u * 2.4, DJ_SPOT.z + nt.userData.side * 1.8 + Math.sin(u * 9) * 0.25);
@@ -2219,6 +2236,118 @@
       },
       stop: function () { on = false; if (timer) clearInterval(timer); timer = null; if (ui && ui.sound) { ui.sound.classList.remove('active'); ui.sound.setAttribute('aria-pressed', 'false'); } },
       playing: function () { return on; }
+    };
+  })();
+
+
+  // ---------------------------------------------------------------- the acid synth (party mode, DJ booth)
+  // kg13-acid-space, kept up to date next to Nevet (config/extra_repos.conf)
+  // and served at D.acid. It runs in an iframe and tells us every step it
+  // plays (see its README, "Embed API"); the dancers, lights and the booth
+  // follow along, and the panel explains what you hear.
+  var acid = { playing: false, stoppedAt: -9, heardAt: -9, kickAt: -9, accentAt: -9, cut: 0.4, res: 0.3, step: 0, steps: 16 };
+  function acidJump(h, u, now) {
+    if (!acid.playing) return;
+    var t = now - acid.accentAt - (h.i % 5) * 0.025;              // a quick hop on every accent, rippling across the floor
+    if (t > 0 && t < 0.3) u.hero.position.y += Math.sin(t / 0.3 * PI) * 0.22;
+  }
+  var acidNotes = [], acidTex = {};
+  function acidNote(name, accent, now) {
+    if (!name) return;
+    var key = name + (accent ? '!' : '');
+    if (!acidTex[key]) {
+      var l = Nevet3D.makeLabel(name, accent ? '#ff5fa2' : '#c7ff2e', 1);
+      acidTex[key] = l.material.map; l.material.dispose();
+    }
+    var sp = acidNotes.filter(function (x) { return !x.visible; })[0];
+    if (!sp) {
+      if (acidNotes.length >= 8) return;
+      sp = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false }));
+      sp.scale.set(1.1, 0.275, 1);
+      PARTY.group.add(sp);
+      acidNotes.push(sp);
+    }
+    sp.material.map = acidTex[key]; sp.material.needsUpdate = true;
+    sp.userData.t0 = now; sp.userData.side = acidNotes.indexOf(sp) % 2 ? 1 : -1;
+    sp.visible = true;
+  }
+  var ACID_TIPS = {
+    intro: 'Press PLAY in the synth. The dancers, lights and the DJ follow the beat.',
+    accent: 'Accent: a louder, brighter note. Watch the dancers jump on it.',
+    slide: 'Slide: the note glides into the next one instead of starting fresh.',
+    rest: 'A rest: no note on this step. Space makes the groove.',
+    kick: 'The kick drum is the beat the dancers step on (4 per bar).',
+    cutoff: 'FREQ (cutoff) opens the filter: brighter sound, brighter dance floor.',
+    reso: 'RESO (resonance) adds the squelchy "acid" peak. The beams glow with it.',
+    bpm: 'BPM is the tempo. Turn it and the whole party speeds up or slows down.',
+    bar: 'A bar is 16 steps here: 4 beats, each split in 4 sixteenth notes.',
+    gen: 'Stuck? 🎲 makes a new acid line and drum pattern to learn from.'
+  };
+  var acidPanel = (function () {
+    var btn = document.getElementById('farm-synth'), panel = document.getElementById('farm-synth-panel');
+    var frame = document.getElementById('farm-synth-frame'), tip = document.getElementById('farm-synth-tip');
+    var dots = document.getElementById('farm-synth-steps'), now_ = document.getElementById('farm-synth-now');
+    var lastTip = 0, tipKey = '', cycle = ['bar', 'kick', 'cutoff', 'reso', 'bpm', 'gen'], cyc = 0, lastCut = null, lastRes = null, lastBpm = null;
+    if (!btn || !panel || !frame || !D.acid) return { leave: function () {}, show: function () {} };
+    btn.hidden = current !== 'party';
+    for (var i = 0; i < 16; i++) { var dd = document.createElement('i'); dots.appendChild(dd); }
+    function setTip(key, force) {
+      var t = performance.now();
+      if (!force && (key === tipKey || t - lastTip < 4500)) return;
+      tipKey = key; lastTip = t; tip.textContent = ACID_TIPS[key];
+    }
+    function send(cmd, value) { try { frame.contentWindow.postMessage({ type: 'acid-machine:command', cmd: cmd, value: value }, location.origin); } catch (e) {} }
+    function open() {
+      if (!frame.getAttribute('src')) { frame.setAttribute('src', D.acid); setTip('intro', true); }
+      panel.hidden = false; btn.classList.add('active'); btn.setAttribute('aria-pressed', 'true');
+      music.stop();                                   // one beat at a time
+    }
+    function hide() { panel.hidden = true; btn.setAttribute('aria-pressed', 'false'); btn.classList.toggle('active', acid.playing); }
+    btn.addEventListener('click', function () { if (panel.hidden) open(); else hide(); });
+    document.getElementById('farm-synth-min').addEventListener('click', hide);
+    document.getElementById('farm-synth-close').addEventListener('click', function () { send('stop'); acid.playing = false; acid.stoppedAt = clockNow(); hide(); btn.classList.remove('active'); });
+    document.getElementById('farm-synth-gen').addEventListener('click', function () { send('generate'); setTip('gen', true); });
+    window.addEventListener('message', function (e) {
+      if (e.source !== frame.contentWindow || !e.data || typeof e.data.type !== 'string') return;
+      var m = e.data, t = clockNow();
+      if (m.type === 'acid-machine:transport') {
+        acid.playing = !!m.playing;
+        if (m.bpm) setBPM(m.bpm, t);
+        if (acid.playing) { music.stop(); acid.heardAt = t; } else { acid.stoppedAt = t; now_.textContent = 'Stopped'; setBPM(120, t); }
+        btn.classList.toggle('active', acid.playing || !panel.hidden);
+        updateUI();
+      } else if (m.type === 'acid-machine:step') {
+        if (t - acid.stoppedAt < 0.6) return;              // a step still on its way after a stop
+        if (!acid.playing) { acid.playing = true; music.stop(); updateUI(); }
+        acid.heardAt = t; acid.step = m.step; acid.steps = m.steps || 16;
+        if (m.bpm && m.bpm !== BPM) { setBPM(m.bpm, t); updateUI(); }
+        // phase lock: step k of a bar is heard at beat k/4
+        var want = (m.step % 4) / 4, have = beatsAt(t) % 1, d = ((want - have + 1.5) % 1) - 0.5;
+        beatB0 += d * (Math.abs(d) > 0.3 ? 1 : 0.5);
+        if (m.kick) acid.kickAt = t;
+        if (m.accent) acid.accentAt = t;
+        acid.cut = Math.max(0, Math.min(1, Math.log((m.cutoff || 420) / 60) / Math.log(100)));
+        acid.res = Math.max(0, Math.min(1, (m.reso || 0) / 30));
+        acidNote(m.note, m.accent, t);
+        // the panel: which step, what plays on it
+        var kids = dots.children;
+        for (var k = 0; k < kids.length; k++) { kids[k].className = k === m.step ? 'on' : ''; kids[k].hidden = k >= acid.steps; }
+        now_.innerHTML = '<b>' + (m.note || 'rest') + '</b>' + (m.accent ? ' <em class="acc">accent</em>' : '') + (m.slide ? ' <em class="sld">slide</em>' : '') +
+          (m.kick ? ' <em>kick</em>' : '') + (m.clap ? ' <em>clap</em>' : '') + (m.hat ? ' <em>hat</em>' : '');
+        // a tip for what just happened, else the next general one
+        if (lastBpm !== null && m.bpm !== lastBpm) setTip('bpm', true);
+        else if (lastCut !== null && Math.abs(m.cutoff - lastCut) > 40) setTip('cutoff', true);
+        else if (lastRes !== null && Math.abs(m.reso - lastRes) > 1.5) setTip('reso', true);
+        else if (m.accent) setTip('accent');
+        else if (m.slide) setTip('slide');
+        else if (!m.note && m.step % 4 === 2) setTip('rest');
+        else if (performance.now() - lastTip > 9000) { setTip(cycle[cyc % cycle.length], true); cyc++; }
+        lastCut = m.cutoff; lastRes = m.reso; lastBpm = m.bpm;
+      }
+    });
+    return {
+      show: function (on) { btn.hidden = !on; },
+      leave: function () { if (acid.playing) send('stop'); acid.playing = false; acid.stoppedAt = clockNow(); panel.hidden = true; btn.classList.remove('active'); btn.setAttribute('aria-pressed', 'false'); setBPM(120, clockNow()); }
     };
   })();
 
@@ -2373,6 +2502,7 @@
     sound: document.getElementById('farm-sound')
   };
   if (ui.sound) ui.sound.addEventListener('click', function () {
+    if (acid.playing && acidPanel) acidPanel.leave();     // one beat at a time
     var on = music.toggle();
     ui.sound.classList.toggle('active', on); ui.sound.setAttribute('aria-pressed', on);
   });
@@ -2381,6 +2511,7 @@
     ui.chips.forEach(function (c) { c.classList.toggle('active', c.dataset.act === current); c.setAttribute('aria-pressed', c.dataset.act === current); });
     if (ui.auto) { ui.auto.classList.toggle('active', auto); ui.auto.setAttribute('aria-pressed', auto); }
     if (ui.sound) ui.sound.hidden = current !== 'party';
+    if (acidPanel) acidPanel.show(current === 'party');
   }
   ui.chips.forEach(function (c) { c.addEventListener('click', function () { setActivity(c.dataset.act, clockNow(), true); }); });
   if (ui.auto) ui.auto.addEventListener('click', function () { auto = !auto; if (auto) actStarted = clockNow(); updateUI(); });
@@ -2459,6 +2590,7 @@
   window.NevetFarm = {
     scene: scene, heroes: heroes, camera: camera, controls: controls, renderer: renderer, stats: stats,
     setActivity: function (n) { setActivity(n, clockNow(), true); },
+    acid: function () { return { playing: acid.playing, bpm: BPM, step: acid.step, cut: acid.cut, beats: beatsAt(clockNow()) }; },
     simulate: function (sec) { for (var t = 0; t < sec; t += 0.05) step(0.05); },
     closest: function () {
       var best = Infinity;

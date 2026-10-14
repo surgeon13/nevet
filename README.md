@@ -136,6 +136,22 @@ sudo systemctl start nevet-update     # same, via the service
 Everything it does is in `~/camera_captures/logs/update.log` and in the
 **Updates** panel on the Logs page.
 
+**Companion repos.** Every update check also updates the repos listed in
+`config/extra_repos.conf` (right now the acid synth,
+[kg13-acid-space](https://github.com/surgeon13/kg13-acid-space)). Each one
+is a read-only copy in `~/nevet-extras/<name>`, downloaded the first time
+and then kept on the latest commit of its branch; local edits there are
+never overwritten. No restart is needed: the web app serves them at
+`/extras/<name>/` (logged-in players only, listed names only). To add one,
+add a line `name  git-url  [branch]` to the config.
+
+```bash
+./scripts/update_extras.sh --check    # what would change
+./scripts/update_extras.sh            # update them now
+```
+
+`nevet_status.py` lists each one under Updates.
+
 ## Status in the terminal
 
 After `sudo ./install.sh`, type **`nevet`** in any SSH/terminal session for a
@@ -381,6 +397,17 @@ the gate and joins a group activity:
   Mayim, Debka (line) and the Conga line. The current dance is shown in
   the title. The speaker button plays a little synth beat (off until you
   tap it).
+- **DJ booth: the acid synth.** In party mode the synth button (top right)
+  opens the Acid Machine, a TB-303 style synth from
+  [kg13-acid-space](https://github.com/surgeon13/kg13-acid-space), as a
+  learning tool. Press PLAY and the party follows it: the beat clock takes
+  its tempo and locks to its steps, the speakers pump on the kick drum,
+  the dancers hop on accents, the floor gets brighter as the filter opens
+  (FREQ), the light beams glow with resonance, and the notes you play float
+  up from the booth. Above the synth a strip shows the 16 steps, what plays
+  on the current one (note, accent, slide, kick, clap, hat) and a tip that
+  explains what you just heard or changed. 🎲 makes a new pattern, ▾ hides
+  the synth and keeps it playing, ✕ stops it. Leaving party mode stops it.
 
 **Your garden, on the farm.** Once areas are drawn on the garden map,
 the farm builds its garden from it, turned and scaled to fit behind the

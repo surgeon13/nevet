@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-14 (DJ booth: the acid synth)
+
+- Party mode has a **DJ booth**: the Acid Machine (kg13-acid-space) opens in
+  a panel, and the party follows it: tempo and beat, kick, accents, filter
+  and resonance, with floating note names and tips that teach what each
+  part of the pattern does.
+- **Companion repos** (`config/extra_repos.conf`): the update check also
+  keeps the acid synth up to date in `~/nevet-extras/acid`, served at
+  `/extras/acid/`. New script `scripts/update_extras.sh`.
+
 ## 2026-10-07 (family and groups)
 
 - The Locs hairstyle now stands up in pointed locs like a pineapple crown.
