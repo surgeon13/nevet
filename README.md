@@ -390,9 +390,16 @@ the gate and joins a group activity:
   plants; a full field is harvested and sown again.
 - **Campfire dance**: night falls, the fire is lit and everyone dances
   the same moves around it, the ring turning now and then.
-- **Party!**: a pop-up dance floor with flashing tiles, string lights, a
-  disco ball with coloured beams, balloons and confetti. Whoever opened
-  the farm is the DJ. The whole floor does one dance at a time and moves
+- **Party!**: a stage between the yard and the pond. The dance floor is
+  sized for the heroes who come (four across, up to five rows, so up to 19
+  dancers plus the DJ) and changes its light show every 8 beats
+  (checkerboard, rippling diamonds, rolling stripes, a pinwheel, rings,
+  sparkle); lit tiles pop on the kick. The DJ booth stands at the far end
+  under a truss with chasing LEDs and a neon NEVET sign, with lasers fanning
+  over the crowd, two moving spotlights, low fog, a disco ball with eight
+  beams, string lights, balloons and confetti. Every 8 beats a spotlight
+  from the sky picks one dancer for a dance-off solo. Whoever opened the
+  farm is the DJ. The whole floor does one dance at a time and moves
   on to the next: Disco, Pogo, Voodoo, Yemenite step, Robot, Chicken
   dance, The sprinkler, Twist, Running man and Hands up, plus formation
   dances where everyone walks into place first: Hora (circle), Mayim

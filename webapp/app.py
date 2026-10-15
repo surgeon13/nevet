@@ -1104,7 +1104,7 @@ def api_map_geojson():
 
 
 # ---------- the farm: every hero together (tap the brain on the dashboard) ----------
-FARM_MAX_HEROES = 16
+FARM_MAX_HEROES = 20          # the party floor has room for 19 dancers and the DJ
 # what grows in the farm's empty bed spots and the planting field
 FARM_MAX_PLANTS = 80          # plants drawn on the farm (each one is 2 meshes)
 FARM_FILL_SPECIES = ("tomato", "cherry_tomato", "bell_pepper", "lettuce", "basil", "mint", "carrot", "strawberry",

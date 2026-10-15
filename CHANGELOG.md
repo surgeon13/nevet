@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-15 (a bigger, funkier party stage)
+
+- The party stage is sized for the hero roster: a bigger dance floor (up to
+  19 dancers plus the DJ), and the farm now brings up to 20 heroes.
+- The DJ booth moved to the far end of the floor under a truss with chasing
+  LEDs and a neon NEVET sign; new lasers, moving spotlights, fog, a bigger
+  disco ball, six floor light patterns with tiles that pop on the kick, and
+  a dance-off spotlight that picks a soloist every 8 beats.
+- The stage only blocks heroes' paths during the party, so the other
+  activities walk through the yard as before.
+
 ## 2026-10-14 (many plants at once)
 
 - **Add many plants** from a typed list ("olive x 5, mint x 3, ..."), with a
