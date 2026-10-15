@@ -46,6 +46,10 @@
         <span class="sr-only">Synth</span>
       </button>
       {% endif %}
+      <button type="button" class="farm-btn farm-icon" id="farm-world-btn" title="Farm setting: classic, desert, seaside, deep forest" aria-haspopup="true" aria-expanded="false" aria-controls="farm-world">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.5 9.5c3 1 4.5-.5 6 1.5s-1 4 1 5.5 1.5 4 1.5 4M14 3.3c-.5 2 .5 3.5 2.5 3.5s3 1.5 2.5 3.5c-.3 1.4 1 2.6 2.6 2.4"/></svg>
+        <span class="sr-only">Farm setting</span>
+      </button>
       <a class="farm-btn farm-icon" href="{{ url_for('farm_page', tv=1) }}" title="Live view: the farm as a 24/7 channel" aria-label="Live view">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M8 21h8M9 2.5l3 3.5 3-3.5"/></svg>
       </a>
@@ -58,6 +62,22 @@
 
   <p class="farm-follow" id="farm-follow" hidden></p>
 
+  <form class="farm-world" id="farm-world" method="post" action="{{ url_for('farm_world_set') }}" hidden>
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="act" id="farm-world-act" value="">
+    <p class="farm-world-head"><b>Farm setting</b><span>Everyone on this Nevet sees the same farm.</span></p>
+    {% for key, emoji, name, line in [
+      ("classic", "🌳", "Green valley", "Meadows, apple trees and rolling hills"),
+      ("desert", "🌵", "Desert oasis", "Dunes, date palms, cacti and red mesas"),
+      ("seaside", "🌊", "Seaside", "A beach, the sea, a lighthouse and sailboats"),
+      ("forest", "🌲", "Deep forest", "Tall pines, ferns, mushrooms and deer")] %}
+    <button type="submit" name="world" value="{{ key }}" class="farm-world-opt{% if data.world == key %} active{% endif %}" {% if data.world == key %}aria-current="true"{% endif %}>
+      <span class="farm-world-emoji" aria-hidden="true">{{ emoji }}</span>
+      <span><b>{{ name }}</b><small>{{ line }}</small></span>
+    </button>
+    {% endfor %}
+  </form>
+
   {% if data.acidEngine %}
   <section class="farm-synth-dock" id="farm-synth-dock" aria-label="Party synth: TB-303 bass line and TR-909 drums" hidden></section>
   {% endif %}
@@ -67,6 +87,7 @@
     <button type="button" class="farm-chip" data-act="water" aria-pressed="false">💧 <span>Watering</span></button>
     <button type="button" class="farm-chip" data-act="plant" aria-pressed="false">🌱 <span>Planting</span></button>
     <button type="button" class="farm-chip" data-act="animals" aria-pressed="false">🐔 <span>Animals</span></button>
+    <button type="button" class="farm-chip" data-act="play" aria-pressed="false">⚽ <span>Play</span></button>
     <button type="button" class="farm-chip" data-act="campfire" aria-pressed="false">🔥 <span>Campfire</span></button>
     <button type="button" class="farm-chip" data-act="party" aria-pressed="false"><svg class="farm-note" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="farm-note-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5fa2"/><stop offset="1" stop-color="#8a5cff"/></linearGradient></defs><path fill="url(#farm-note-g)" d="M9 17.2V6.3c0-.5.4-1 .9-1.1l9-2.1c.6-.1 1.1.3 1.1.9v11.2a3 3 0 1 1-2-2.8V7.3l-7 1.6v8.3a3 3 0 1 1-2-2.8z"/></svg> <span>Party</span></button>
     <button type="button" class="farm-chip farm-auto" id="farm-auto" aria-pressed="true" title="Change activity every minute">
@@ -103,6 +124,20 @@
 <script src="{{ data.acidEngine }}"></script>
 <script src="{{ url_for('static', filename='js/party-synth.js') }}"></script>
 {% endif %}
+<script>
+  // the farm setting chooser: opens under its button, closes on a tap elsewhere or Esc
+  (function () {
+    var btn = document.getElementById('farm-world-btn'), box = document.getElementById('farm-world'), act = document.getElementById('farm-world-act');
+    if (!btn || !box) return;
+    function show(on) {
+      box.hidden = !on; btn.setAttribute('aria-expanded', on); btn.classList.toggle('active', on);
+      if (on) { var cur = document.querySelector('.farm-chip.active[data-act]'); if (act && cur) act.value = cur.dataset.act; var sel = box.querySelector('.active') || box.querySelector('button'); if (sel) sel.focus(); }
+    }
+    btn.addEventListener('click', function (e) { e.stopPropagation(); show(box.hidden); });
+    document.addEventListener('pointerdown', function (e) { if (!box.hidden && !box.contains(e.target) && !btn.contains(e.target)) show(false); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !box.hidden) { e.stopImmediatePropagation(); show(false); btn.focus(); } }, true);
+  })();
+</script>
 <script src="{{ url_for('static', filename='js/farm3d.js') }}"></script>
 </body>
 </html>

@@ -443,6 +443,16 @@ the gate and joins a group activity:
   (who come running to peck), throw bread to the ducks from the pond's shore
   (they swim over) and puff a smoker at the beehives on the garden map. Each
   hero goes on to a different animal next, so every animal gets visited.
+- **Play park** (⚽): out through the gate there's a play park. About 40% of
+  the heroes play football on a pitch with goals and nets, in two teams
+  (the Tomatoes in red and the Blueberries in blue: their name tags take the
+  team colour, and each team gets a keeper once it has three players); goals
+  go up on the scoreboard with a GOAL! banner and a little celebration. The
+  others take turns on the swings (pumping higher and higher), the slide
+  (three goes each, queueing at the ladder), the seesaw, the trampoline
+  (with a flip now and then) and in the sandbox, where a sandcastle grows
+  while they dig; whoever finds everything taken cheers on the touchline.
+  Two kites fly overhead.
 - **Party!**: a stage between the yard and the pond. The dance floor is
   always full size (about 8.4 × 7.4 m, the pond moved east to make room) with the dancers spread over all of it
   (up to 19 dancers plus the DJ) and changes its light show every 8 beats
@@ -504,7 +514,7 @@ let go. The beds show the garden's real plants (as their 3D models, at
 their stage) with name signs and the worm bins stand by the barn; only
 the heroes come, companion pets stay home; there's also a barn, windmill, greenhouse,
 pond with ducks, chickens, butterflies and fireflies. The camera button
-saves a picture. Keys 1-5 pick an activity, A toggles auto, Esc goes
+saves a picture. Keys 1-7 pick an activity, A toggles auto, Esc goes
 back. Heroes plan their routes around beds, buildings
 and each other, and keep their own spot while working. The farm is just for fun: nothing there changes the garden's
 records.
@@ -539,6 +549,30 @@ pinned there, spread out. They show up on the farm right away; without a
 garden map the farm's beds take two or three rows when there are many
 plants. Up to 200 plants at a time.
 
+### Farm settings: green valley, desert oasis, seaside, deep forest
+
+The globe button in the farm's top bar picks the land around the farm.
+The choice is saved for this Nevet, so everyone (and the live view) sees
+the same farm; `/farm?world=desert` previews one without saving it.
+
+- **Green valley** (the classic farm): meadows, wild flowers, round trees
+  with apples and rolling hills.
+- **Desert oasis**: sand and dunes, date palms around the pond, saguaro
+  cacti, desert shrubs, sandstone boulders, two camels resting by the oasis,
+  tumbleweeds rolling by and red flat-topped mesas on the horizon.
+- **Seaside**: the farm sits by a beach: the sea with waves rolling in,
+  a wooden pier, beach umbrellas and towels, a red and white lighthouse on a
+  rocky point (its beam sweeps round at night), sailboats out at sea, gulls
+  circling, palms and pines, and dune grass.
+- **Deep forest**: hundreds of tall pines and a few broad trees all round,
+  ferns, red toadstools, mossy rocks, fallen logs, two deer grazing at the
+  forest's edge, and a misty green light.
+
+The farm itself (beds, barn, pond, party stage, play park) stays the same in
+every setting, and the play park's border changes with it (a hedge, an adobe
+wall, a white picket fence or logs). More settings can be added in
+`farm3d.js` (`WORLDS` and the scenery builder).
+
 ## The farm as a live channel (24/7)
 
 The TV button in the farm's top bar (or `/farm?tv=1`) turns the farm into a
@@ -547,7 +581,7 @@ live channel to leave running on a TV, tablet or old laptop:
 - no buttons, just a **LIVE** badge with the farm's name, the activity and
   the clock;
 - activities change by themselves, following the real time of day: harvest,
-  watering, animal care and planting by day, campfire and party from 20:00
+  watering, animal care, the play park and planting by day, campfire and party from 20:00
   to 06:00;
 - the camera glides round the farm and every so often follows a busy hero
   for a while;

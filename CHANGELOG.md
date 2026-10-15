@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-15 (a wider farm with a play park, and farm settings)
+
+- **Farm settings**: a globe button on the farm picks the land around it:
+  the classic green valley, a **desert oasis** (dunes, palms, cacti, camels,
+  tumbleweeds, red mesas), the **seaside** (beach, waves, pier, lighthouse,
+  sailboats, gulls) or a **deep forest** (hundreds of pines, ferns,
+  toadstools, mossy rocks, deer). Saved for everyone on this Nevet;
+  `/farm?world=…` previews one.
+- **Play park** outside the gate, and a new activity **Play** (key 5):
+  football in two teams with goals, a scoreboard and GOAL! banners, swings,
+  a slide, a seesaw, a trampoline, a sandbox with a growing sandcastle, kites.
+  The farm's walkable area now reaches out through the gate into the park,
+  and the camera can zoom out further.
+
 ## 2026-10-15 (animal care, the farm as a live channel)
 
 - New farm activity **Animal care**: heroes feed the worm bins and worm beds,

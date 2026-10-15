@@ -1171,6 +1171,30 @@ FARM_FILL_SPECIES = ("tomato", "cherry_tomato", "bell_pepper", "lettuce", "basil
                      "apple", "lemon", "olive", "fig", "bees", "compost_worms")
 
 
+# the farm's setting (chosen on the farm page; the same for everyone on this Nevet)
+FARM_WORLDS = ("classic", "desert", "seaside", "forest")
+FARM_ACTS = ("harvest", "water", "plant", "animals", "play", "campfire", "party")
+
+
+def farm_world():
+    """?world=desert previews a setting; otherwise the one chosen for this Nevet."""
+    w = request.args.get("world")
+    if w not in FARM_WORLDS:
+        w = farm_db.get_setting("farm_world") or "classic"
+    return w if w in FARM_WORLDS else "classic"
+
+
+@app.route("/farm/world", methods=["POST"])
+def farm_world_set():
+    w = request.form.get("world")
+    if w not in FARM_WORLDS:
+        abort(400)
+    farm_db.set_setting("farm_world", w)
+    app.logger.info("%s set the farm to %s", g.user["name"], w)
+    act = request.form.get("act")
+    return redirect(url_for("farm_page", act=act if act in FARM_ACTS else None))
+
+
 @app.route("/farm")
 def farm_page():
     rows = farm_db.list_growers()
@@ -1198,7 +1222,8 @@ def farm_page():
         "gardenName": "Nevet Farm",
         "tv": request.args.get("tv") == "1",          # the live channel view (no buttons, runs by itself)
         "lastLog": (lambda c: (c.execute("SELECT COALESCE(MAX(id), 0) FROM logs").fetchone()[0], c.close())[0])(farm_db.get_conn()),
-        "start": request.args.get("act") if request.args.get("act") in ("harvest", "water", "plant", "animals", "campfire", "party") else None,
+        "start": request.args.get("act") if request.args.get("act") in FARM_ACTS else None,
+        "world": farm_world(),                    # classic, desert, seaside or deep forest
     }
     return render_template("farm.html", data=data)
 

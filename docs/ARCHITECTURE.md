@@ -166,6 +166,15 @@ A Flask app served by waitress on port 8000:
   builds the farm from toon shapes, places each hero with `hero3d.js` and runs the group activities on a
   simulation clock. Static props and each hero's rig parts are merged into
   a few meshes (`NevetHero.merge`) to keep draw calls low on phones.
+  The land around the farm is a setting (`WORLDS` in farm3d.js: classic,
+  desert, seaside, forest) stored as `app_settings.farm_world`, set by
+  `POST /farm/world` and passed as `data.world` (`?world=` previews one);
+  it picks the ground, sky, fog, ground cover and the scenery builder, and
+  little moving things register a step function in `WORLD_ANIM`. The
+  navigation grid covers the farm and the play park beyond the gate
+  (`PLAY`); the Play activity hands out stations (`PST`: football, swings,
+  slide, seesaw, trampoline, sandbox, touchline) and `stepFootball()` runs
+  the ball and both teams outside the path planner.
 - **Plant models** — `static/assets/plants/catalog.json` lists ~90
   species as a model archetype (fruiting, herb, leafy, root, vine, stalk,
   flower, berry, tree, succulent, mushroom, microgreens, worms, hive) plus
