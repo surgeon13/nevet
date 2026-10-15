@@ -13,7 +13,7 @@
 
 <div class="hub-tabs">
   <button class="hub-tab active" type="button">Dashboard</button>
-  <button class="hub-tab" type="button" onclick="return showComingSoon('Time')">Time</button>
+  <a class="hub-tab" href="{{ url_for('time_page') }}">Time</a>
   <button class="hub-tab" type="button" onclick="return showComingSoon('Resources')">Resources</button>
   <button class="hub-tab" type="button" onclick="return showComingSoon('XP')">XP</button>
 </div>

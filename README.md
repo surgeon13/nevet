@@ -35,6 +35,7 @@ webapp/                      Flask app: dashboard, heroes, garden map, gallery, 
   webapp/about.py              numbers, version and "what's new" for the About popup
   webapp/relations.py          relationship kinds (parent, spouse, sibling...) and group types
   webapp/bulk.py               "olive x 5" lists -> many plants at once, spread over a bed
+  webapp/timeline.py           the farm's story, day by day, for the Time page
   webapp/today.py              today's actions + to-dos for the dashboard
   webapp/plants.py             plant species catalog + "which plant is this?" from its name
   webapp/static/js/plants3d.js 3D models of every plant, at every growth stage
@@ -528,6 +529,26 @@ growing) and, if beds are drawn on the garden map, which bed: they are
 pinned there, spread out. They show up on the farm right away; without a
 garden map the farm's beds take two or three rows when there are many
 plants. Up to 200 plants at a time.
+
+## Our farm story (the Time tab)
+
+**Time** on the dashboard opens the farm's story as a 3D love story in green
+and pink: two vines, the green garden and the pink of its people, winding
+around each other from the first day to today through a soft pink sky.
+
+- Every day something happened is a **blossom** on the vine, bigger on
+  busier days.
+- Days with a big moment get a glowing **heart**: the very first day ("Once
+  upon a time…"), heroes joining, two heroes connecting (only once both
+  confirmed), groups forming, a plant planted for the first time, the first
+  harvest of each plant, big harvests. Love days get the brightest hearts.
+- A card tells each day's story: what happened, who took part, how much
+  was picked, photos taken.
+- Drag, scroll, use the slider or the ‹ › buttons to travel; tap a blossom
+  to jump to it; ▶ plays the story (it starts by itself the first time).
+
+The story is built by `webapp/timeline.py` (the most recent 240 days with
+something in them).
 
 ## Today at the farm
 

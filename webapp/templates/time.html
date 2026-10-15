@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffd9e8">
+<title>Nevet — Our farm story</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='time.css') }}">
+</head>
+<body class="time-body">
+<div class="time-wrap" id="time-wrap">
+  <canvas id="time-canvas" aria-label="The farm's story as a vine through time: drag or scroll to travel"></canvas>
+
+  <div class="time-top">
+    <a class="time-btn" href="{{ url_for('hub') }}" aria-label="Back to the dashboard">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <div class="time-title">
+      <b>Our farm story</b>
+      <span>{% if story.days %}{{ story.total_days }} day{{ 's' if story.total_days != 1 }} together since {{ story.first }}{% else %}waiting for its first chapter{% endif %}</span>
+    </div>
+    <button type="button" class="time-btn" id="time-play" aria-label="Play the story" title="Play the story">
+      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path class="i-play" d="M7 4.5v15l13-7.5z" fill="currentColor"/><g class="i-pause" fill="currentColor"><rect x="6" y="5" width="4.2" height="14" rx="1.2"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.2"/></g></svg>
+    </button>
+  </div>
+
+  <article class="time-card" id="time-card" aria-live="polite">
+    <header>
+      <span class="time-date" id="time-date"></span>
+      <span class="time-count" id="time-count"></span>
+    </header>
+    <h2 id="time-heading"></h2>
+    <ul id="time-lines"></ul>
+    <div class="time-chips" id="time-chips"></div>
+  </article>
+
+  <div class="time-scrub">
+    <button type="button" class="time-step" id="time-prev" aria-label="Previous day">‹</button>
+    <input type="range" id="time-range" min="0" max="0" step="0.01" value="0" aria-label="Travel through the story">
+    <button type="button" class="time-step" id="time-next" aria-label="Next day">›</button>
+  </div>
+  {% if not story.days %}
+  <p class="time-empty">The story starts with the first action you log. Plant something, water something, and come back.</p>
+  {% endif %}
+  <noscript><p class="time-empty">The story needs JavaScript and WebGL.</p></noscript>
+</div>
+<script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/nevet3d.js') }}"></script>
+<script>window.NEVET_STORY = {{ story | tojson }};</script>
+<script src="{{ url_for('static', filename='js/time3d.js') }}"></script>
+</body>
+</html>

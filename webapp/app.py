@@ -22,6 +22,7 @@ import netaccess
 import relations
 import heroes
 import plants
+import timeline
 import today
 import traffic
 
@@ -219,6 +220,12 @@ def hub():
         banner=banner,
         about=about.info(),
     )
+
+
+@app.route("/time")
+def time_page():
+    """The farm's story as a vine through time (static/js/time3d.js)."""
+    return render_template("time.html", story=timeline.story())
 
 
 @app.route("/gallery")

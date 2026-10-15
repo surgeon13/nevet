@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-15 (our farm story)
+
+- **Time** on the dashboard opens the farm's story as a green and pink 3D
+  love story: intertwined vines with a blossom for each day and hearts for
+  the big moments (first day, heroes joining, connections, groups, first
+  plantings and harvests), a story card per day, travel by drag, scroll or
+  slider, and a Play button.
+
 ## 2026-10-15 (more in the terminal)
 
 - `nevet` shows the **station** (model, CPU temperature and load, memory,
