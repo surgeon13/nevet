@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-15 (an even bigger dance floor)
+
+- The party floor is 8.4 × 7.4 m (was 6 × 7.4): the pond moved east to make room, the truss is wider, and the dancers spread out in up to 5 columns.
+
 ## 2026-10-15 (the 909 drum machine)
 
 - The party synth's 909 tab is a little drum machine: all six drums on one

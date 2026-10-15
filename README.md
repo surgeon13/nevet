@@ -439,7 +439,7 @@ the gate and joins a group activity:
 - **Campfire dance**: night falls, the fire is lit and everyone dances
   the same moves around it, the ring turning now and then.
 - **Party!**: a stage between the yard and the pond. The dance floor is
-  always full size (about 6 × 7.4 m) with the dancers spread over all of it
+  always full size (about 8.4 × 7.4 m, the pond moved east to make room) with the dancers spread over all of it
   (up to 19 dancers plus the DJ) and changes its light show every 8 beats
   (checkerboard, rippling diamonds, rolling stripes, a pinwheel, rings,
   sparkle); lit tiles pop on the kick. The DJ booth stands at the far end

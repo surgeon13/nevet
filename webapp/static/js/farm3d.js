@@ -199,6 +199,7 @@
 
   // ---------------------------------------------------------------- ground
   var FARM = { minX: -20, maxX: 20, minZ: -20, maxZ: 16 };
+  var POND = { x: 15.6, z: 10.5 };                    // out east, leaving room for the party stage
   function hillH(x, z) {
     var dx = Math.max(0, Math.abs(x) - 24), dz = Math.max(0, z < 0 ? -z - 24 : z - 20);
     var d = Math.sqrt(dx * dx + dz * dz);
@@ -246,8 +247,9 @@
         var x = rr(-34, 34), z = rr(-34, 30);
         var inYard = x > -9.8 && x < 17 && z > (MAPG ? -19.5 : -13.5) && z < 9;
         var onPath = Math.abs(x) < 2 && z > 5 && z < 18;
-        var onStage = x > 1.2 && x < 9.2 && z > 4.5 && z < 16;    // the party stage
-        if (!inYard && !onPath && !onStage) return [x, z];
+        var onStage = x > 1.2 && x < 11.2 && z > 4.5 && z < 16;   // the party stage
+        var inPond = Math.hypot(x - POND.x, z - POND.z) < 4.3;
+        if (!inYard && !onPath && !onStage && !inPond) return [x, z];
       }
       return [rr(22, 34), rr(-30, 30)];
     }
@@ -900,7 +902,7 @@
   // Pond with lily pads, reeds and ducks
   var ducks = [];
   (function () {
-    var cx = 12, cz = 8;
+    var cx = POND.x, cz = POND.z;
     var shore = mesh(new THREE.CircleGeometry(3.9, 36), '#d9c79a'); shore.rotation.x = -PI / 2; shore.position.set(cx, 0.013, cz); statics.add(shore);
     var water = mesh(new THREE.CircleGeometry(3.4, 36), new THREE.MeshToonMaterial({ color: 0x5fb3e0 })); water.rotation.x = -PI / 2; water.position.set(cx, 0.03, cz); statics.add(water);
     for (var i = 0; i < 6; i++) {
@@ -1038,11 +1040,11 @@
   // its north end under a truss with a neon NEVET sign: a backdrop for the
   // camera, with the dancers facing the DJ. String lights, a disco ball with beams, lasers,
   // two moving spotlights, fog, balloons and confetti (only in party mode).
-  var STAGE_SP = 1.4, STAGE_COLS = 4;
+  var STAGE_SP = 1.4, STAGE_COLS = 5;
   var STAGE_ROWS = Math.max(3, Math.min(5, Math.ceil(Math.max(1, (D.heroes || []).length - 1) / STAGE_COLS)));
-  var STAGE_HX = 3.0, STAGE_HZ = 3.7;                 // always the full floor: lots of room per dancer
+  var STAGE_HX = 4.2, STAGE_HZ = 3.7;                 // always the full floor (8.4 x 7.4 m): lots of room per dancer
   var STAGE_N = 7.6;                                  // the floor's north edge; the booth stands beyond it, clear of the campfire ring
-  var PARTY = { c: V(5.0, 0, STAGE_N + STAGE_HZ), hx: STAGE_HX, hz: STAGE_HZ, half: Math.max(STAGE_HX, STAGE_HZ),
+  var PARTY = { c: V(1.8 + STAGE_HX, 0, STAGE_N + STAGE_HZ), hx: STAGE_HX, hz: STAGE_HZ, half: Math.max(STAGE_HX, STAGE_HZ),
                 tiles: null, bulbs: null, beams: [], ball: null, confetti: null, notes: [], lasers: [], spots: [], fog: [],
                 balloons: [], speakers: [], decks: [], leds: null, neon: null, group: null };
   var DJ_SPOT = V(PARTY.c.x, 0, STAGE_N - 1.9);
@@ -1094,7 +1096,7 @@
       g.add(sp);
     });
     // a truss over the booth: two towers, a beam with chasing LEDs, and a neon NEVET sign
-    var trussZ = DJ_SPOT.z + 0.95, trussW = 2.6;
+    var trussZ = DJ_SPOT.z + 0.95, trussW = 3.4;
     [-trussW, trussW].forEach(function (x) {
       var tw2 = group([DJ_SPOT.x + x, 0, trussZ]);
       tw2.add(box(0.26, 4.2, 0.26, '#9aa0aa', [0, 2.1, 0]));
@@ -1452,7 +1454,7 @@
     obstacleRect(-15.5, -9.5, 3.2, 3.7);                     // barn
     obstacleRect(-15, 5.5, 1.75, 2.45);                      // greenhouse
     obstacleCircle(13.5, -17.5, 1.9);                        // windmill
-    obstacleCircle(12, 8, 3.55);                             // pond
+    obstacleCircle(POND.x, POND.z, 3.55);                    // pond
     if (MAPG) obstacleCircle(12.4, -14.3, 0.35); else obstacleCircle(0, -13.6, 0.35);   // scarecrow
     [[-11, -4.2], [-11.4, -2.8], [-11.2, -3.5]].forEach(function (b) { obstacleCircle(b[0], b[1], 0.75); });
     for (var i = 0; i < (BARN_BINS.length || (MAPG ? 0 : 1)); i++)
@@ -1461,7 +1463,7 @@
     var partyFrom = OBST.length;                       // the stage only gets in the way while the party is on
     obstacleRect(DJ_SPOT.x, DJ_SPOT.z + 0.95, 1.15, 0.5);                               // DJ booth
     [-1.8, 1.8].forEach(function (x) { obstacleRect(DJ_SPOT.x + x, DJ_SPOT.z + 0.9, 0.45, 0.45); });
-    [-2.6, 2.6].forEach(function (x) { obstacleCircle(DJ_SPOT.x + x, DJ_SPOT.z + 0.95, 0.25); });     // truss towers
+    [-3.4, 3.4].forEach(function (x) { obstacleCircle(DJ_SPOT.x + x, DJ_SPOT.z + 0.95, 0.25); });     // truss towers
     [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (k) { obstacleCircle(PARTY.c.x + k[0] * (PARTY.hx + 0.4), PARTY.c.z + k[1] * (PARTY.hz + 0.4), 0.12); });
     for (var po = partyFrom; po < OBST.length; po++) OBST[po].party = true;
     buildNav();
@@ -1731,7 +1733,7 @@
   function floorSlot(h, kk) {                         // dancers spread over the whole floor: 3 or 4 across, rows to the back
     var dancers = heroes.filter(function (o) { return o !== heroes[0]; }), n = Math.max(1, dancers.length);
     var k = kk !== undefined ? kk : h.floorK !== undefined ? h.floorK : Math.max(0, dancers.indexOf(h));
-    var cols = n <= 6 ? 3 : STAGE_COLS, rows = Math.max(2, Math.min(STAGE_ROWS, Math.ceil(n / cols)));
+    var cols = n <= 6 ? 3 : n <= 12 ? 4 : STAGE_COLS, rows = Math.max(2, Math.min(STAGE_ROWS, Math.ceil(n / cols)));
     var spX = (PARTY.hx * 2 - 1.8) / (cols - 1), spZ = Math.min(2.4, (PARTY.hz * 2 - 1.8) / (rows - 1));
     var per = cols * rows, i = k % cols, j = Math.floor(k / cols) % rows, extra = Math.floor(k / per) * 0.5;
     var stagger = rows > 1 && j % 2 ? spX * 0.25 : -spX * 0.25 * (rows > 1 ? 1 : 0);   // rows offset like a crowd, not a grid
@@ -2152,7 +2154,7 @@
   function formSlot(kind, k, n, now) {
     if (kind === 'conga') return congaPoint(form.theta - k * congaGap(n));
     if (kind === 'debka') {                            // lines of up to 5 facing the DJ, drifting side to side together
-      var perRow = Math.min(5, n), row = Math.floor(k / perRow), inRow = Math.min(perRow, n - row * perRow), j = k % perRow;
+      var perRow = Math.min(6, n), row = Math.floor(k / perRow), inRow = Math.min(perRow, n - row * perRow), j = k % perRow;
       var drift = form.moving ? Math.sin((now - form.t1) * PI / 4) * 0.35 : 0;
       return V(PARTY.c.x + (j - (inRow - 1) / 2) * 1.12 + drift, 0, PARTY.c.z - PARTY.hz + 1.0 + row * 1.35);
     }
@@ -2168,7 +2170,7 @@
     var line = heroes.filter(function (h) { return h.act === 'party'; });
     if (kind === 'debka') {                            // nearest the DJ make the front row; each row in the order they stand
       line.sort(function (a, b) { return a.root.position.z - b.root.position.z; });
-      var per = Math.min(5, line.length), rows = [];
+      var per = Math.min(6, line.length), rows = [];
       for (var r0 = 0; r0 < line.length; r0 += per) rows.push(line.slice(r0, r0 + per).sort(function (a, b) { return a.root.position.x - b.root.position.x; }));
       line = [].concat.apply([], rows);
     } else {                                           // in the order they stand around the floor, so nobody crosses
@@ -2203,7 +2205,7 @@
       taken[best.k] = true;
       best.h.floorK = best.k;
       best.h.act = 'formReady';
-      best.h.backAt = now + rank++ * 0.22;
+      best.h.backAt = now + rank++ * 0.4;          // one after another, so they don't bump on the big floor
       left.splice(left.indexOf(best.h), 1);
     }
   }
