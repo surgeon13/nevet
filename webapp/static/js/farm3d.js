@@ -47,13 +47,16 @@
   var userTouched = 0;
   controls.addEventListener('start', function () { controls.autoRotate = false; userTouched = clockNow(); });
 
+  var viewShift = 0;                                   // px the picture is lifted (the party synth is open below)
   function resize() {
     var w = wrap.clientWidth, h = wrap.clientHeight;
     if (!w || !h) return;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
+    if (viewShift) camera.setViewOffset(w, h, 0, viewShift * 0.5, w, h); else camera.clearViewOffset();
     camera.updateProjectionMatrix();
   }
+  function setViewShift(px) { viewShift = px; resize(); }
   window.addEventListener('resize', resize);
   resize();
 
@@ -1037,7 +1040,7 @@
   // two moving spotlights, fog, balloons and confetti (only in party mode).
   var STAGE_SP = 1.4, STAGE_COLS = 4;
   var STAGE_ROWS = Math.max(3, Math.min(5, Math.ceil(Math.max(1, (D.heroes || []).length - 1) / STAGE_COLS)));
-  var STAGE_HX = 3.0, STAGE_HZ = Math.max(3.0, Math.min(3.7, STAGE_ROWS * STAGE_SP / 2 + 0.9));
+  var STAGE_HX = 3.0, STAGE_HZ = 3.7;                 // always the full floor: lots of room per dancer
   var STAGE_N = 7.6;                                  // the floor's north edge; the booth stands beyond it, clear of the campfire ring
   var PARTY = { c: V(5.0, 0, STAGE_N + STAGE_HZ), hx: STAGE_HX, hz: STAGE_HZ, half: Math.max(STAGE_HX, STAGE_HZ),
                 tiles: null, bulbs: null, beams: [], ball: null, confetti: null, notes: [], lasers: [], spots: [], fog: [],
@@ -1714,7 +1717,7 @@
       name: 'Party!', tool: null, night: 1, centre: V(PARTY.c.x, 0.9, PARTY.c.z - 0.8),
       stat: function () {
         var who = heroes.filter(function (h) { return h.act === 'party' || h.act === 'form' || h.act === 'formReady'; }).length;
-        if (acid.playing) return dance.cur.name + ' · ' + who + ' dancing to the acid synth · ' + BPM + ' BPM';
+        if (acid.playing) return dance.cur.name + ' · ' + who + ' dancing to the 303 & 909 · ' + BPM + ' BPM';
         return dance.cur.name + ' · ' + who + ' dancing' + (heroes[0] && heroes[0].act === 'dj' ? ' · DJ ' + heroes[0].name : '');
       },
       next: function (h, now) {
@@ -1725,11 +1728,14 @@
       }
     }
   };
-  function floorSlot(h, kk) {                         // a grid on the dance floor: 4 across, rows towards the DJ
-    var dancers = heroes.filter(function (o) { return o !== heroes[0]; });
+  function floorSlot(h, kk) {                         // dancers spread over the whole floor: 3 or 4 across, rows to the back
+    var dancers = heroes.filter(function (o) { return o !== heroes[0]; }), n = Math.max(1, dancers.length);
     var k = kk !== undefined ? kk : h.floorK !== undefined ? h.floorK : Math.max(0, dancers.indexOf(h));
-    var per = STAGE_COLS * STAGE_ROWS, i = k % STAGE_COLS, j = Math.floor(k / STAGE_COLS) % STAGE_ROWS, extra = Math.floor(k / per) * 0.5;
-    return V(PARTY.c.x + (i - (STAGE_COLS - 1) / 2) * STAGE_SP + extra, 0, PARTY.c.z + (j - (STAGE_ROWS - 1) / 2) * STAGE_SP + extra * 0.5);
+    var cols = n <= 6 ? 3 : STAGE_COLS, rows = Math.max(2, Math.min(STAGE_ROWS, Math.ceil(n / cols)));
+    var spX = (PARTY.hx * 2 - 1.8) / (cols - 1), spZ = Math.min(2.4, (PARTY.hz * 2 - 1.8) / (rows - 1));
+    var per = cols * rows, i = k % cols, j = Math.floor(k / cols) % rows, extra = Math.floor(k / per) * 0.5;
+    var stagger = rows > 1 && j % 2 ? spX * 0.25 : -spX * 0.25 * (rows > 1 ? 1 : 0);   // rows offset like a crowd, not a grid
+    return V(PARTY.c.x + (i - (cols - 1) / 2) * spX * 0.92 + stagger * 0.5 + extra, 0, PARTY.c.z + 0.3 + (j - (rows - 1) / 2) * spZ + extra * 0.5);
   }
   var ORDER = ['harvest', 'water', 'plant', 'campfire', 'party'];
   var current = D.start && ACTS[D.start] ? D.start : 'harvest';
@@ -2398,11 +2404,10 @@
   })();
 
 
-  // ---------------------------------------------------------------- the acid synth (party mode, DJ booth)
-  // kg13-acid-space, kept up to date next to Nevet (config/extra_repos.conf)
-  // and served at D.acid. It runs in an iframe and tells us every step it
-  // plays (see its README, "Embed API"); the dancers, lights and the booth
-  // follow along, and the panel explains what you hear.
+  // ---------------------------------------------------------------- the party's synth (TB-303 + TR-909)
+  // While it plays, the beat clock takes its tempo, the speakers pump on the
+  // kick, the dancers hop on accents, the floor and beams follow the filter,
+  // and the notes float up from the booth.
   var acid = { playing: false, stoppedAt: -9, heardAt: -9, kickAt: -9, accentAt: -9, cut: 0.4, res: 0.3, step: 0, steps: 16 };
   function acidJump(h, u, now) {
     if (!acid.playing) return;
@@ -2429,83 +2434,51 @@
     sp.userData.t0 = now; sp.userData.side = acidNotes.indexOf(sp) % 2 ? 1 : -1;
     sp.visible = true;
   }
-  var ACID_TIPS = {
-    intro: 'Press PLAY in the synth. The dancers, lights and the DJ follow the beat.',
-    accent: 'Accent: a louder, brighter note. Watch the dancers jump on it.',
-    slide: 'Slide: the note glides into the next one instead of starting fresh.',
-    rest: 'A rest: no note on this step. Space makes the groove.',
-    kick: 'The kick drum is the beat the dancers step on (4 per bar).',
-    cutoff: 'FREQ (cutoff) opens the filter: brighter sound, brighter dance floor.',
-    reso: 'RESO (resonance) adds the squelchy "acid" peak. The beams glow with it.',
-    bpm: 'BPM is the tempo. Turn it and the whole party speeds up or slows down.',
-    bar: 'A bar is 16 steps here: 4 beats, each split in 4 sixteenth notes.',
-    gen: 'Stuck? 🎲 makes a new acid line and drum pattern to learn from.'
-  };
+  // The party's music engine: AcidEngine from kg13-acid-space (a TB-303 bass
+  // line and a TR-909 drum kit), with the little synth docked above the
+  // bottom bar (static/js/party-synth.js). The top bar's synth button opens
+  // it, the speaker button plays or stops it. Without the engine (the
+  // companion repo not downloaded yet) the speaker plays the simple built-in beat.
   var acidPanel = (function () {
-    var btn = document.getElementById('farm-synth'), panel = document.getElementById('farm-synth-panel');
-    var frame = document.getElementById('farm-synth-frame'), tip = document.getElementById('farm-synth-tip');
-    var dots = document.getElementById('farm-synth-steps'), now_ = document.getElementById('farm-synth-now');
-    var lastTip = 0, tipKey = '', cycle = ['bar', 'kick', 'cutoff', 'reso', 'bpm', 'gen'], cyc = 0, lastCut = null, lastRes = null, lastBpm = null;
-    if (!btn || !panel || !frame || !D.acid) return { leave: function () {}, show: function () {} };
-    btn.hidden = current !== 'party';
-    for (var i = 0; i < 16; i++) { var dd = document.createElement('i'); dots.appendChild(dd); }
-    function setTip(key, force) {
-      var t = performance.now();
-      if (!force && (key === tipKey || t - lastTip < 4500)) return;
-      tipKey = key; lastTip = t; tip.textContent = ACID_TIPS[key];
+    var btn = document.getElementById('farm-synth'), dock = document.getElementById('farm-synth-dock');
+    var none = { show: function () {}, leave: function () {}, engine: null };
+    if (!btn || !dock || !window.AcidEngine || !window.NevetSynth) { if (btn) btn.hidden = true; return none; }
+    var eng = AcidEngine.create({ bpm: 128 });
+    function heard(m) {                                 // every 16th as it is heard: the party follows
+      var t = clockNow();
+      if (t - acid.stoppedAt < 0.6) return;
+      if (!acid.playing) { acid.playing = true; music.stop(); updateUI(); }
+      acid.heardAt = t; acid.step = m.step; acid.steps = m.steps || 16;
+      if (m.bpm && m.bpm !== BPM) { setBPM(m.bpm, t); updateUI(); }
+      var want = (m.step % 4) / 4, have = beatsAt(t) % 1, d = ((want - have + 1.5) % 1) - 0.5;     // phase lock: step k is beat k/4
+      beatB0 += d * (Math.abs(d) > 0.3 ? 1 : 0.5);
+      if (m.kick) acid.kickAt = t;
+      if (m.accent && !m.mute.tb303) acid.accentAt = t;
+      acid.cut = Math.max(0, Math.min(1, Math.log((m.cutoff || 420) / 60) / Math.log(100)));
+      acid.res = Math.max(0, Math.min(1, (m.reso || 0) / 30));
+      if (!m.mute.tb303) acidNote(m.note, m.accent, t);
     }
-    function send(cmd, value) { try { frame.contentWindow.postMessage({ type: 'acid-machine:command', cmd: cmd, value: value }, location.origin); } catch (e) {} }
-    function open() {
-      if (!frame.getAttribute('src')) { frame.setAttribute('src', D.acid); setTip('intro', true); }
-      panel.hidden = false; btn.classList.add('active'); btn.setAttribute('aria-pressed', 'true');
-      music.stop();                                   // one beat at a time
+    function transport(tr) {
+      var t = clockNow();
+      acid.playing = tr.playing;
+      if (tr.playing) { music.stop(); acid.heardAt = t; setBPM(tr.bpm, t); }
+      else { acid.stoppedAt = t; setBPM(120, t); }
+      if (ui.sound) { ui.sound.classList.toggle('active', tr.playing); ui.sound.setAttribute('aria-pressed', tr.playing); }
+      btn.classList.toggle('playing', tr.playing);
+      updateUI();
     }
-    function hide() { panel.hidden = true; btn.setAttribute('aria-pressed', 'false'); btn.classList.toggle('active', acid.playing); }
-    btn.addEventListener('click', function () { if (panel.hidden) open(); else hide(); });
-    document.getElementById('farm-synth-min').addEventListener('click', hide);
-    document.getElementById('farm-synth-close').addEventListener('click', function () { send('stop'); acid.playing = false; acid.stoppedAt = clockNow(); hide(); btn.classList.remove('active'); });
-    document.getElementById('farm-synth-gen').addEventListener('click', function () { send('generate'); setTip('gen', true); });
-    window.addEventListener('message', function (e) {
-      if (e.source !== frame.contentWindow || !e.data || typeof e.data.type !== 'string') return;
-      var m = e.data, t = clockNow();
-      if (m.type === 'acid-machine:transport') {
-        acid.playing = !!m.playing;
-        if (m.bpm) setBPM(m.bpm, t);
-        if (acid.playing) { music.stop(); acid.heardAt = t; } else { acid.stoppedAt = t; now_.textContent = 'Stopped'; setBPM(120, t); }
-        btn.classList.toggle('active', acid.playing || !panel.hidden);
-        updateUI();
-      } else if (m.type === 'acid-machine:step') {
-        if (t - acid.stoppedAt < 0.6) return;              // a step still on its way after a stop
-        if (!acid.playing) { acid.playing = true; music.stop(); updateUI(); }
-        acid.heardAt = t; acid.step = m.step; acid.steps = m.steps || 16;
-        if (m.bpm && m.bpm !== BPM) { setBPM(m.bpm, t); updateUI(); }
-        // phase lock: step k of a bar is heard at beat k/4
-        var want = (m.step % 4) / 4, have = beatsAt(t) % 1, d = ((want - have + 1.5) % 1) - 0.5;
-        beatB0 += d * (Math.abs(d) > 0.3 ? 1 : 0.5);
-        if (m.kick) acid.kickAt = t;
-        if (m.accent) acid.accentAt = t;
-        acid.cut = Math.max(0, Math.min(1, Math.log((m.cutoff || 420) / 60) / Math.log(100)));
-        acid.res = Math.max(0, Math.min(1, (m.reso || 0) / 30));
-        acidNote(m.note, m.accent, t);
-        // the panel: which step, what plays on it
-        var kids = dots.children;
-        for (var k = 0; k < kids.length; k++) { kids[k].className = k === m.step ? 'on' : ''; kids[k].hidden = k >= acid.steps; }
-        now_.innerHTML = '<b>' + (m.note || 'rest') + '</b>' + (m.accent ? ' <em class="acc">accent</em>' : '') + (m.slide ? ' <em class="sld">slide</em>' : '') +
-          (m.kick ? ' <em>kick</em>' : '') + (m.clap ? ' <em>clap</em>' : '') + (m.hat ? ' <em>hat</em>' : '');
-        // a tip for what just happened, else the next general one
-        if (lastBpm !== null && m.bpm !== lastBpm) setTip('bpm', true);
-        else if (lastCut !== null && Math.abs(m.cutoff - lastCut) > 40) setTip('cutoff', true);
-        else if (lastRes !== null && Math.abs(m.reso - lastRes) > 1.5) setTip('reso', true);
-        else if (m.accent) setTip('accent');
-        else if (m.slide) setTip('slide');
-        else if (!m.note && m.step % 4 === 2) setTip('rest');
-        else if (performance.now() - lastTip > 9000) { setTip(cycle[cyc % cycle.length], true); cyc++; }
-        lastCut = m.cutoff; lastRes = m.reso; lastBpm = m.bpm;
-      }
-    });
+    function setOpen(on) {
+      dock.hidden = !on;
+      btn.classList.toggle('active', on); btn.setAttribute('aria-pressed', on);
+      setViewShift(on ? dock.offsetHeight + 12 : 0);    // lift the picture so the dance floor stays above the synth
+    }
+    NevetSynth.mount(dock, eng, { onStep: heard, onTransport: transport, onShow: setOpen });
+    btn.addEventListener('click', function () { setOpen(dock.hidden); });
     return {
-      show: function (on) { btn.hidden = !on; },
-      leave: function () { if (acid.playing) send('stop'); acid.playing = false; acid.stoppedAt = clockNow(); panel.hidden = true; btn.classList.remove('active'); btn.setAttribute('aria-pressed', 'false'); setBPM(120, clockNow()); }
+      engine: eng,
+      show: function (on) { btn.hidden = !on; if (!on) setOpen(false); },
+      leave: function () { eng.stop(); acid.playing = false; acid.stoppedAt = clockNow(); setOpen(false); },
+      toggleMusic: function () { return eng.toggle(); }
     };
   })();
 
@@ -2660,7 +2633,7 @@
     sound: document.getElementById('farm-sound')
   };
   if (ui.sound) ui.sound.addEventListener('click', function () {
-    if (acid.playing && acidPanel) acidPanel.leave();     // one beat at a time
+    if (acidPanel && acidPanel.engine) { acidPanel.toggleMusic(); return; }   // the 303/909 engine (its transport updates the button)
     var on = music.toggle();
     ui.sound.classList.toggle('active', on); ui.sound.setAttribute('aria-pressed', on);
   });
@@ -2749,7 +2722,8 @@
   window.NevetFarm = {
     scene: scene, heroes: heroes, camera: camera, controls: controls, renderer: renderer, stats: stats,
     setActivity: function (n) { setActivity(n, clockNow(), true); },
-    acid: function () { return { playing: acid.playing, bpm: BPM, step: acid.step, cut: acid.cut, beats: beatsAt(clockNow()) }; },
+    acid: function () { return { playing: acid.playing, bpm: BPM, step: acid.step, cut: acid.cut, beats: beatsAt(clockNow()), engine: !!(acidPanel && acidPanel.engine) }; },
+    synth: function () { return acidPanel && acidPanel.engine; },
     simulate: function (sec) { for (var t = 0; t < sec; t += 0.05) step(0.05); },
     closest: function () {
       var best = Infinity;

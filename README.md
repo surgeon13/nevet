@@ -391,8 +391,8 @@ the gate and joins a group activity:
 - **Campfire dance**: night falls, the fire is lit and everyone dances
   the same moves around it, the ring turning now and then.
 - **Party!**: a stage between the yard and the pond. The dance floor is
-  sized for the heroes who come (four across, up to five rows, so up to 19
-  dancers plus the DJ) and changes its light show every 8 beats
+  always full size (about 6 × 7.4 m) with the dancers spread over all of it
+  (up to 19 dancers plus the DJ) and changes its light show every 8 beats
   (checkerboard, rippling diamonds, rolling stripes, a pinwheel, rings,
   sparkle); lit tiles pop on the kick. The DJ booth stands at the far end
   under a truss with chasing LEDs and a neon NEVET sign, with lasers fanning
@@ -406,17 +406,25 @@ the gate and joins a group activity:
   Mayim, Debka (line) and the Conga line. The current dance is shown in
   the title. The speaker button plays a little synth beat (off until you
   tap it).
-- **DJ booth: the acid synth.** In party mode the synth button (top right)
-  opens the Acid Machine, a TB-303 style synth from
-  [kg13-acid-space](https://github.com/surgeon13/kg13-acid-space), as a
-  learning tool. Press PLAY and the party follows it: the beat clock takes
-  its tempo and locks to its steps, the speakers pump on the kick drum,
-  the dancers hop on accents, the floor gets brighter as the filter opens
-  (FREQ), the light beams glow with resonance, and the notes you play float
-  up from the booth. Above the synth a strip shows the 16 steps, what plays
-  on the current one (note, accent, slide, kick, clap, hat) and a tip that
-  explains what you just heard or changed. 🎲 makes a new pattern, ▾ hides
-  the synth and keeps it playing, ✕ stops it. Leaving party mode stops it.
+- **The party synth: TB-303 + TR-909.** The synth button in the top bar
+  opens a little synth docked above the bottom bar (the picture moves up so
+  the dance floor stays in view); the speaker button plays or stops it. Its
+  sound engine comes from
+  [kg13-acid-space](https://github.com/surgeon13/kg13-acid-space)
+  (`engine/acid-engine.js`, kept up to date with the companion repos): a
+  TB-303 bass line and a TR-909 drum kit on one 16-step pattern.
+  - **303 tab**: tap a step to cycle on → accent → slide → rest, drag it up
+    or down to pick the note; knobs for cutoff, resonance, envelope, decay,
+    accent and drive, plus saw/square.
+  - **909 tab**: pick a drum (kick, snare, clap, closed hat, open hat, rim)
+    and tap its steps; knobs for its level, tune and decay, plus swing.
+  - The dot on each tab mutes that engine; − / + set the tempo, 🎲 makes a
+    new pattern, ▾ hides the synth and keeps it playing. A tip line explains
+    whatever you touch. The pattern and knobs are remembered in your browser.
+  - The party follows the music: the tempo and beat, the kick, accents, the
+    filter and resonance, and the notes float up from the booth. Leaving
+    party mode stops it. Without the engine downloaded yet, the speaker
+    plays a simple built-in beat.
 
 **Your garden, on the farm.** Once areas are drawn on the garden map,
 the farm builds its garden from it, turned and scaled to fit behind the

@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-15 (the party synth: TB-303 + TR-909)
+
+- A little synth docked above the bottom bar in party mode, opened from the
+  top bar: a TB-303 bass line and a TR-909 drum kit (engine from
+  kg13-acid-space) with a step grid, knobs, tempo, mutes and a pattern
+  generator. It replaces the big Acid Machine panel; the speaker button now
+  plays it, and the whole party dances to it.
+- More dance floor per hero: the floor is always full size and the dancers
+  spread out over it.
+- Party mode has a new musical-note icon.
+
 ## 2026-10-15 (a bigger, funkier party stage)
 
 - The party stage is sized for the hero roster: a bigger dance floor (up to

@@ -203,7 +203,8 @@ for known failure modes and fixes.
 (run by `auto_update.sh` on every check) keeps a shallow read-only copy of each in
 `~/nevet-extras/<name>` and writes `~/camera_captures/.update/extras.json`. `webapp/extras.py`
 serves them at `/extras/<name>/` (configured names only, never `.git`, login required).
-The farm's party mode embeds `/extras/acid/` (kg13-acid-space) in an iframe and follows its
-embed API: `acid-machine:transport` and per-step `acid-machine:step` messages drive the farm's
-beat clock (`beatsAt()`, phase-locked to the synth's steps), lights and dancers;
-`acid-machine:command` messages (stop, bpm, generate) go back.
+The farm's party mode loads `/extras/acid/engine/acid-engine.js` (kg13-acid-space's
+UI-less TB-303 + TR-909 engine, `window.AcidEngine`) and `static/js/party-synth.js`
+(the docked synth interface, `window.NevetSynth`). The engine's per-step `onStep`
+callback drives the farm's beat clock (`beatsAt()`, phase-locked to the steps), lights
+and dancers; `setViewShift()` lifts the 3D view while the dock is open.

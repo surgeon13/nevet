@@ -1129,7 +1129,8 @@ def farm_page():
         "plants": [{"id": p["id"], "name": p["name"], "type": p["type"], "species": p["species"], "stage": p["model_stage"],
                     "dry": numbers["assets"].get(p["id"], {}).get("dry", 0),
                     "fed": numbers["assets"].get(p["id"], {}).get("fed", 0)} for p in growing],
-        "acid": url_for("extra_file", name="acid") if extras.available("acid") else None,   # the DJ booth's synth
+        # the party's music engine (TB-303 + TR-909) from kg13-acid-space, when it's downloaded
+        "acidEngine": url_for("extra_file", name="acid", filepath="engine/acid-engine.js") if extras.available("acid", "engine/acid-engine.js") else None,
         "map": garden_map.farm_layout(),          # the garden map in metres (None: nothing drawn yet)
         "week": numbers["week"],                  # for the chalkboard
         "monthFeedings": numbers["month_feedings"],
