@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-15 (the 909 drum machine)
+
+- The party synth's 909 tab is a little drum machine: all six drums on one
+  grid, tap or drag to paint, tap a drum's name to mute it, swing button.
+- Switching between 303 and 909 is a plain tap on the tab (it used to be
+  easy to hit the mute dot by mistake); tap the active tab again to mute it.
+
 ## 2026-10-15 (our farm story)
 
 - **Time** on the dashboard opens the farm's story as a green and pink 3D

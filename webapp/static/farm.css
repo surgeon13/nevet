@@ -66,7 +66,6 @@ html, body.farm-body { height: 100%; margin: 0; overflow: hidden; background: #6
 .ps-tab { display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 9px 0 7px; border-radius: 8px; background: transparent; font-weight: 800 !important; letter-spacing: 0.04em; color: #9fb07f !important; }
 .ps-tab.active { background: rgba(255, 255, 255, 0.1); color: #fff !important; }
 .ps-led { position: relative; width: 9px; height: 9px; border-radius: 50%; background: #c7ff2e; box-shadow: 0 0 6px #c7ff2e; }
-.ps-led::after { content: ""; position: absolute; inset: -8px; }   /* a bigger tap target */
 .ps-tab[data-tab="909"] .ps-led { background-color: #ff8a3d; box-shadow: 0 0 6px #ff8a3d; }
 .ps-tab.muted .ps-led { background-color: #3a4230 !important; box-shadow: none; }
 .ps-bpm { display: flex; align-items: center; gap: 2px; margin-left: auto; }
@@ -102,3 +101,19 @@ html, body.farm-body { height: 100%; margin: 0; overflow: hidden; background: #6
 .ps-drum.active { background: var(--dc) !important; color: #12160a !important; }
 .ps-tip { margin: 0; height: 15px; font-size: 11.5px; color: #b7c99a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 380px) { .ps-knob { width: 40px; } .ps-gen { display: none; } }
+
+/* the TR-909 view: a little drum machine */
+.ps-swing { width: auto !important; padding: 0 7px; font-size: 10.5px !important; letter-spacing: 0.03em; color: #9fb07f !important; display: none !important; }
+.ps-swing.on { color: #ff8a3d !important; }
+.ps[data-tab="909"] .ps-swing { display: grid !important; }
+.ps[data-tab="909"] .ps-steps, .ps[data-tab="909"] .ps-ctl { display: none; }
+.ps-dm { display: none; gap: 2px; touch-action: none; }
+.ps[data-tab="909"] .ps-dm { display: grid; }
+.ps-dm-row { display: grid; grid-template-columns: 30px repeat(16, 1fr); gap: 2px; height: 14px; }
+.ps-dm-lab { padding: 0 !important; border-radius: 4px !important; background: rgba(255, 255, 255, 0.06) !important; color: var(--dc) !important; font-size: 8.5px !important; font-weight: 800 !important; letter-spacing: 0.04em; line-height: 14px; }
+.ps-dm-lab.muted { color: #55604a !important; text-decoration: line-through; }
+.ps-dm-cell { border-radius: 3px; background: #2a3220; }
+.ps-dm-cell.beat { background: #343e27; }
+.ps-dm-cell.on { background: var(--dc); box-shadow: 0 0 5px color-mix(in srgb, var(--dc) 60%, transparent); }
+.ps-dm-cell.now { outline: 1.5px solid rgba(255, 255, 255, 0.85); outline-offset: -1.5px; filter: brightness(1.3); }
+.ps-dm-lab.muted ~ .ps-dm-cell.on { opacity: 0.35; }

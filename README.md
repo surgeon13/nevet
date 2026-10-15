@@ -464,11 +464,15 @@ the gate and joins a group activity:
   - **303 tab**: tap a step to cycle on → accent → slide → rest, drag it up
     or down to pick the note; knobs for cutoff, resonance, envelope, decay,
     accent and drive, plus saw/square.
-  - **909 tab**: pick a drum (kick, snare, clap, closed hat, open hat, rim)
-    and tap its steps; knobs for its level, tune and decay, plus swing.
-  - The dot on each tab mutes that engine; − / + set the tempo, 🎲 makes a
+  - **909 tab**: a little drum machine with every drum on its own row
+    (kick, snare, clap, closed hat, open hat, rim). Tap a square, or drag
+    along a row to paint several; tap a drum's name to mute it; **SW**
+    sets the swing (0, 15, 30, 45%).
+  - Tap **303** or **909** to switch; tap the one you're on again to mute or
+    unmute it (its dot goes dark when muted). − / + set the tempo, 🎲 makes a
     new pattern, ▾ hides the synth and keeps it playing. A tip line explains
-    whatever you touch. The pattern and knobs are remembered in your browser.
+    whatever you touch. The pattern and settings are remembered in your
+    browser.
   - The party follows the music: the tempo and beat, the kick, accents, the
     filter and resonance, and the notes float up from the booth. Leaving
     party mode stops it. Without the engine downloaded yet, the speaker

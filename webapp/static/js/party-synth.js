@@ -92,7 +92,7 @@
 
   function mount(root, eng, hooks) {
     hooks = hooks || {};
-    var tab = '303', drum = 'bd', knobs = [], cells = [];
+    var tab = '303', drum = 'bd', knobs = [], cells = [], drumMute = {};
     load();
 
     root.innerHTML = '';
@@ -102,27 +102,44 @@
     var play = el('button', 'ps-play', '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path class="ps-i-play" d="M7 4.5v15l13-7.5z"/><rect class="ps-i-stop" x="6" y="6" width="12" height="12" rx="2"/></svg>');
     play.type = 'button'; play.setAttribute('aria-label', 'Play');
     var tabs = el('div', 'ps-tabs');
-    var t303 = el('button', 'ps-tab', '<i class="ps-led" title="Mute or unmute"></i>303'), t909 = el('button', 'ps-tab', '<i class="ps-led" title="Mute or unmute"></i>909');
+    var t303 = el('button', 'ps-tab', '<i class="ps-led"></i>303'), t909 = el('button', 'ps-tab', '<i class="ps-led"></i>909');
     t303.type = t909.type = 'button'; t303.dataset.tab = '303'; t909.dataset.tab = '909';
     t303.setAttribute('aria-label', 'TB-303 bass line'); t909.setAttribute('aria-label', 'TR-909 drums');
     tabs.appendChild(t303); tabs.appendChild(t909);
     var bpm = el('div', 'ps-bpm'), minus = el('button', 'ps-mini', '−'), bval = el('span', 'ps-bval'), plus = el('button', 'ps-mini', '+');
     minus.type = plus.type = 'button'; minus.setAttribute('aria-label', 'Slower'); plus.setAttribute('aria-label', 'Faster');
     bpm.appendChild(minus); bpm.appendChild(bval); bpm.appendChild(plus);
+    var swing = el('button', 'ps-mini ps-swing', ''); swing.type = 'button'; swing.title = 'Swing'; swing.setAttribute('aria-label', 'Swing');
     var gen = el('button', 'ps-mini ps-gen', '🎲'); gen.type = 'button'; gen.title = 'New pattern'; gen.setAttribute('aria-label', 'New pattern');
     var hide = el('button', 'ps-mini ps-hide', '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>');
     hide.type = 'button'; hide.title = 'Hide (keeps playing)'; hide.setAttribute('aria-label', 'Hide the synth, keep playing');
-    [play, tabs, bpm, gen, hide].forEach(function (x) { top.appendChild(x); });
+    [play, tabs, bpm, swing, gen, hide].forEach(function (x) { top.appendChild(x); });
     // row 2: the steps
     var grid = el('div', 'ps-steps');
     for (var i = 0; i < 16; i++) { var c = el('button', 'ps-step'); c.type = 'button'; c.dataset.i = i; grid.appendChild(c); cells.push(c); }
     // row 3: knobs (rebuilt per tab), row 4: the tip
     var ctl = el('div', 'ps-ctl'), tip = el('p', 'ps-tip');
-    root.appendChild(top); root.appendChild(grid); root.appendChild(ctl); root.appendChild(tip);
+    // the TR-909 view: a little drum machine, every drum on its own row
+    var dm = el('div', 'ps-dm'), dmCells = {}, dmLabels = {};
+    AcidEngine.DRUMS.forEach(function (d) {
+      var rowEl = el('div', 'ps-dm-row'), lab = el('button', 'ps-dm-lab', d.toUpperCase());
+      lab.type = 'button'; lab.dataset.drum = d; lab.style.setProperty('--dc', DRUM_COLORS[d]);
+      lab.title = AcidEngine.DRUM_NAMES[d] + ': tap to mute'; lab.setAttribute('aria-label', AcidEngine.DRUM_NAMES[d] + ', tap to mute');
+      rowEl.appendChild(lab); dmLabels[d] = lab; dmCells[d] = [];
+      for (var j = 0; j < 16; j++) {
+        var c = el('span', 'ps-dm-cell' + (j % 4 === 0 ? ' beat' : '')); c.dataset.drum = d; c.dataset.i = j;
+        c.style.setProperty('--dc', DRUM_COLORS[d]); rowEl.appendChild(c); dmCells[d].push(c);
+      }
+      dm.appendChild(rowEl);
+    });
+    root.appendChild(top); root.appendChild(grid); root.appendChild(ctl); root.appendChild(dm); root.appendChild(tip);
 
     function say(t) { tip.textContent = t; }
     function save() {
-      try { localStorage.setItem(STORE, JSON.stringify({ bpm: eng.bpm, swing: eng.swing, acid: eng.acid, drums: eng.drums, p303: eng.p303, p909: eng.p909, mute: eng.mute })); } catch (e) {}
+      try {
+        var p909 = { level: Object.assign({}, eng.p909.level, typeof drumMute === 'undefined' ? {} : drumMute), tune: eng.p909.tune, decay: eng.p909.decay };   // a muted drum is saved at its real level
+        localStorage.setItem(STORE, JSON.stringify({ bpm: eng.bpm, swing: eng.swing, acid: eng.acid, drums: eng.drums, p303: eng.p303, p909: p909, mute: eng.mute }));
+      } catch (e) {}
     }
     function load() {
       try {
@@ -144,6 +161,8 @@
       t303.classList.toggle('active', tab === '303'); t909.classList.toggle('active', tab === '909');
       t303.classList.toggle('muted', eng.mute.tb303); t909.classList.toggle('muted', eng.mute.tr909);
       root.dataset.tab = tab;
+      swing.textContent = 'SW ' + Math.round(eng.swing * 100) + '%';
+      swing.classList.toggle('on', eng.swing > 0);
     }
     function drawSteps() {
       cells.forEach(function (c, i) {
@@ -190,7 +209,13 @@
         });
       }
     }
-    function drawAll() { drawTop(); drawSteps(); drawCtl(); }
+    function drawDrums() {
+      AcidEngine.DRUMS.forEach(function (d) {
+        dmLabels[d].classList.toggle('muted', !!drumMute[d]);
+        dmCells[d].forEach(function (c, i) { c.classList.toggle('on', !!eng.drums[d][i]); });
+      });
+    }
+    function drawAll() { drawTop(); drawSteps(); drawCtl(); drawDrums(); }
 
     // ---- steps: tap cycles, drag changes the note (303)
     var drag = null;
@@ -232,17 +257,50 @@
     // ---- top row
     play.addEventListener('click', function () { eng.toggle(); });
     [t303, t909].forEach(function (t) {
-      t.addEventListener('click', function (e) {
-        var which = t.dataset.tab === '303' ? 'tb303' : 'tr909';
-        if (e.target.classList.contains('ps-led')) {              // the dot mutes / unmutes that engine
+      t.addEventListener('click', function () {
+        var which = t.dataset.tab === '303' ? 'tb303' : 'tr909', name = t.dataset.tab === '303' ? 'TB-303 bass line' : 'TR-909 drums';
+        if (tab !== t.dataset.tab) {                                // a tap switches to that machine...
+          tab = t.dataset.tab; drawSteps(); drawCtl(); drawDrums();
+          if (eng.mute[which]) say(name + ' is muted: tap ' + t.dataset.tab + ' again to hear it.');
+          else say(tab === '303' ? 'TB-303: the squelchy bass line. Tap steps, drag for notes. Tap 303 again to mute it.'
+                                 : 'TR-909: the drum machine. Tap or drag across the grid. Tap a drum\'s name to mute it, 909 to mute all.');
+        } else {                                                     // ...a tap on the one you're on mutes / unmutes it
           eng.setMute(which, !eng.mute[which]);
-          say((t.dataset.tab === '303' ? 'TB-303 bass line ' : 'TR-909 drums ') + (eng.mute[which] ? 'muted.' : 'back on.'));
-        } else if (tab !== t.dataset.tab) {
-          tab = t.dataset.tab; drawSteps(); drawCtl();
-          say(tab === '303' ? 'TB-303: the squelchy bass line. Tap steps, drag for notes. Its dot mutes it.' : 'TR-909: the drum machine. Pick a drum, tap its steps. Its dot mutes it.');
+          say(name + (eng.mute[which] ? ' muted. Tap ' + t.dataset.tab + ' again to bring it back.' : ' back on.'));
         }
         drawTop(); save();
       });
+    });
+    // the drum machine: tap a cell, or drag across a row to paint; tap a drum's name to mute it
+    var paint = null;
+    function cellAt(e) { var el2 = document.elementFromPoint(e.clientX, e.clientY); return el2 && el2.classList.contains('ps-dm-cell') ? el2 : null; }
+    dm.addEventListener('pointerdown', function (e) {
+      var lab = e.target.closest('.ps-dm-lab');
+      if (lab) {
+        var d = lab.dataset.drum;
+        if (drumMute[d] !== undefined) { eng.p909.level[d] = drumMute[d]; delete drumMute[d]; say(AcidEngine.DRUM_NAMES[d] + ' back on.'); }
+        else { drumMute[d] = eng.p909.level[d] || 0.8; eng.p909.level[d] = 0; say(AcidEngine.DRUM_NAMES[d] + ' muted. Tap ' + d.toUpperCase() + ' again to bring it back.'); }
+        drawDrums(); return;
+      }
+      var c = cellAt(e); if (!c) return;
+      e.preventDefault();
+      var d2 = c.dataset.drum, i2 = +c.dataset.i;
+      paint = { drum: d2, value: !eng.drums[d2][i2] };
+      eng.drums[d2][i2] = paint.value; drawDrums();
+      say(DRUM_TIPS[d2]);
+    });
+    dm.addEventListener('pointermove', function (e) {
+      if (!paint) return;
+      var c = cellAt(e); if (!c || c.dataset.drum !== paint.drum) return;   // paint along the row you started on
+      var i3 = +c.dataset.i;
+      if (eng.drums[paint.drum][i3] !== paint.value) { eng.drums[paint.drum][i3] = paint.value; drawDrums(); }
+    });
+    function endPaint() { if (paint) { paint = null; save(); } }
+    dm.addEventListener('pointerup', endPaint); dm.addEventListener('pointercancel', endPaint); dm.addEventListener('pointerleave', endPaint);
+    swing.addEventListener('click', function () {
+      var steps = [0, 0.15, 0.3, 0.45], k2 = (steps.indexOf(Math.round(eng.swing * 100) / 100) + 1) % steps.length;
+      eng.swing = steps[k2]; drawTop(); save();
+      say(eng.swing ? 'Swing ' + Math.round(eng.swing * 100) + '%: every second 16th comes a little late, for a shuffle.' : 'No swing: straight 16ths.');
     });
     function nudge(d) { eng.setBpm(eng.bpm + d); drawTop(); say('BPM ' + eng.bpm + ': the tempo. The whole party follows it.'); save(); }
     var rep = null;
@@ -252,21 +310,22 @@
     });
     gen.addEventListener('click', function () {
       var st = eng.generate();
-      drawSteps(); save();
+      drawSteps(); drawDrums(); save();
       say('New "' + st + '" pattern. Tweak it, or roll again.');
     });
     hide.addEventListener('click', function () { if (hooks.onShow) hooks.onShow(false); });
 
     // ---- the engine tells us what plays
     var lastLit = -1;
+    function lightCol(i, on) { cells[i].classList.toggle('now', on); AcidEngine.DRUMS.forEach(function (d) { dmCells[d][i].classList.toggle('now', on); }); }
     eng.onStep = function (info) {
-      if (lastLit >= 0) cells[lastLit].classList.remove('now');
-      cells[info.step].classList.add('now'); lastLit = info.step;
+      if (lastLit >= 0) lightCol(lastLit, false);
+      lightCol(info.step, true); lastLit = info.step;
       if (hooks.onStep) hooks.onStep(info);
     };
     eng.onTransport = function (t) {
       drawTop();
-      if (!t.playing && lastLit >= 0) { cells[lastLit].classList.remove('now'); lastLit = -1; }
+      if (!t.playing && lastLit >= 0) { lightCol(lastLit, false); lastLit = -1; }
       if (hooks.onTransport) hooks.onTransport(t);
     };
 
