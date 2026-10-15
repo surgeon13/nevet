@@ -1137,6 +1137,19 @@ def map_export():
                               headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
+@app.route("/api/farm/live")
+def api_farm_live():
+    """New actions since a log id, for the farm's live (TV) view to play out."""
+    since = request.args.get("since", 0, type=int)
+    rows = farm_db.recent_activity(limit=20)
+    events = [{"id": r["id"], "type": r["log_type"], "who": r["grower_name"] or "Someone",
+               "verb": (farm_db.ACTION_BY_ID.get(r["log_type"]) or {}).get("verb", r["log_type"].replace("_", " ")),
+               "what": r["asset_name"] or "the whole garden", "time": r["timestamp"]}
+              for r in rows if r["id"] > since]
+    latest = max([since] + [e["id"] for e in events])
+    return jsonify({"latest": latest, "events": list(reversed(events))})
+
+
 @app.route("/api/map.geojson")
 def api_map_geojson():
     """Read-only garden map for other programs (e.g. other Nevet gardens):
@@ -1183,7 +1196,9 @@ def farm_page():
         "plantCatalog": plants.subset({p["species"] for p in growing} | set(FARM_FILL_SPECIES)),
         "catalog": heroes.catalog(),
         "gardenName": "Nevet Farm",
-        "start": request.args.get("act") if request.args.get("act") in ("harvest", "water", "plant", "campfire", "party") else None,
+        "tv": request.args.get("tv") == "1",          # the live channel view (no buttons, runs by itself)
+        "lastLog": (lambda c: (c.execute("SELECT COALESCE(MAX(id), 0) FROM logs").fetchone()[0], c.close())[0])(farm_db.get_conn()),
+        "start": request.args.get("act") if request.args.get("act") in ("harvest", "water", "plant", "animals", "campfire", "party") else None,
     }
     return render_template("farm.html", data=data)
 

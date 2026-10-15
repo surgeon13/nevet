@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-15 (animal care, the farm as a live channel)
+
+- New farm activity **Animal care**: heroes feed the worm bins and worm beds,
+  scatter grain for the chickens, throw bread to the ducks and smoke the
+  beehives, visiting every animal in turn.
+- **Live view** (TV button, `/farm?tv=1`): the farm as a 24/7 channel with
+  a LIVE badge and clock, activities by the real time of day, a camera that
+  follows heroes, and real actions popping up on screen as they're logged.
+
 ## 2026-10-15 (an even bigger dance floor)
 
 - The party floor is 8.4 × 7.4 m (was 6 × 7.4): the pond moved east to make room, the truss is wider, and the dancers spread out in up to 5 columns.

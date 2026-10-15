@@ -438,6 +438,11 @@ the gate and joins a group activity:
   plants; a full field is harvested and sown again.
 - **Campfire dance**: night falls, the fire is lit and everyone dances
   the same moves around it, the ring turning now and then.
+- **Animal care**: everyone looks after the animals. Heroes kneel at the
+  worm bins and worm beds to drop in scraps, scatter grain for the chickens
+  (who come running to peck), throw bread to the ducks from the pond's shore
+  (they swim over) and puff a smoker at the beehives on the garden map. Each
+  hero goes on to a different animal next, so every animal gets visited.
 - **Party!**: a stage between the yard and the pond. The dance floor is
   always full size (about 8.4 × 7.4 m, the pond moved east to make room) with the dancers spread over all of it
   (up to 19 dancers plus the DJ) and changes its light show every 8 beats
@@ -533,6 +538,30 @@ growing) and, if beds are drawn on the garden map, which bed: they are
 pinned there, spread out. They show up on the farm right away; without a
 garden map the farm's beds take two or three rows when there are many
 plants. Up to 200 plants at a time.
+
+## The farm as a live channel (24/7)
+
+The TV button in the farm's top bar (or `/farm?tv=1`) turns the farm into a
+live channel to leave running on a TV, tablet or old laptop:
+
+- no buttons, just a **LIVE** badge with the farm's name, the activity and
+  the clock;
+- activities change by themselves, following the real time of day: harvest,
+  watering, animal care and planting by day, campfire and party from 20:00
+  to 06:00;
+- the camera glides round the farm and every so often follows a busy hero
+  for a while;
+- when someone logs an action on Nevet, it pops up on screen within 30
+  seconds ("Dana harvested Cherry tomato") and the heroes act it out;
+- it keeps the screen awake, draws at most 30 frames a second, and reloads
+  every 6 hours to pick up new plants and heroes. Tap the screen for the
+  exit button.
+
+The 3D runs on the device showing it, not on the Pi; the Pi only sends the
+page and the new actions. Log in once on the TV device (logins last 30 days).
+To stream it to YouTube or Twitch, open the live view on a computer running
+OBS (as a browser source or a captured window) and stream from there; the
+Pi 3B can't render and encode video itself.
 
 ## Our farm story (the Time tab)
 

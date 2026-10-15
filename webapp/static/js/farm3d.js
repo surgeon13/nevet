@@ -200,6 +200,7 @@
   // ---------------------------------------------------------------- ground
   var FARM = { minX: -20, maxX: 20, minZ: -20, maxZ: 16 };
   var POND = { x: 15.6, z: 10.5 };                    // out east, leaving room for the party stage
+  var ANIMALS = [];                                   // worm bins & beds, hives, the chickens, the ducks: 'Animal care' visits them all
   function hillH(x, z) {
     var dx = Math.max(0, Math.abs(x) - 24), dz = Math.max(0, z < 0 ? -z - 24 : z - 20);
     var d = Math.sqrt(dx * dx + dz * dz);
@@ -519,6 +520,7 @@
     MAP_OBST.push(['c', x, z, 0.35 * k]);
   }
   function wormBinAt(x, z, info) {
+    ANIMALS.push({ kind: 'worms', pos: V(x, 0, z), name: info.name || 'Worm bin', r: 1.2 });
     var bg = group([x, 0, z]);
     bg.add(box(1.2, 0.8, 1.0, '#9c6b3c', [0, 0.4, 0]));
     bg.add(box(1.3, 0.1, 1.1, '#7a5233', [0, 0.85, 0]));
@@ -564,6 +566,7 @@
           break;
         }
         case 'worm_bed': {                              // a long worm trough: the more feedings this month, the busier
+          (function () { var cc = polyCentre(pts); ANIMALS.push({ kind: 'worms', pos: V(cc[0], 0, cc[1]), name: f.name || 'Worm bed', r: 1.0, around: pts }); })();
           slabPoly(pts, 0.36, '#3b2a1e');
           polyEdges(pts, 0.44, 0.16, '#8a5f3a');
           var nw = Math.min(28, 6 + 2 * (D.monthFeedings || 0));
@@ -705,6 +708,7 @@
           MAP_OBST.push(['r', x, z, 0.7, 0.25, 0]);
           break;
         case 'hive':
+          ANIMALS.push({ kind: 'bees', pos: V(x, 0, z), name: f.name || 'Beehive', r: 1.5 });
           if (NP) { var hv = NP.build('bees', 'mature'); hv.scale.setScalar(1.8); g.add(hv); }
           else g.add(box(0.7, 0.9, 0.6, '#f2c94c', [0, 0.45, 0]));
           for (var b = 0; b < 5; b++) { var bee = sphere(0.05, '#f2c230', [0, 0, 0], [1.4, 1, 1], 6); bee.userData = { c: V(x, 0.9, z), ph: b * 1.3, r: 0.5 + b * 0.12 }; scene.add(bee); mapBees.push(bee); }
@@ -1002,6 +1006,7 @@
     if (!bins.length && !MAPG) bins = [{ name: 'Compost' }];
     bins.slice(0, 4).forEach(function (b, i) {
       var bg = group([-11.2 + (i % 2) * 1.6, 0, 1.2 + Math.floor(i / 2) * 1.6]);
+      ANIMALS.push({ kind: 'worms', pos: bg.position.clone(), name: b.name || 'Worm bin', r: 1.15 });
       bg.add(box(1.2, 0.8, 1.0, '#9c6b3c', [0, 0.4, 0]));
       bg.add(box(1.3, 0.1, 1.1, '#7a5233', [0, 0.85, 0]));
       bg.add(box(1.1, 0.06, 0.06, '#7a5233', [0, 0.5, 0.52]));
@@ -1237,6 +1242,9 @@
       scene.add(c.userData.shadow = blobShadow(0.3));
     }
   })();
+
+  ANIMALS.push({ kind: 'chickens', pos: V(-10.6, 0, -3.9), name: 'Chickens', r: 1.9 });
+  ANIMALS.push({ kind: 'ducks', pos: V(POND.x, 0, POND.z), name: 'Ducks', r: 4.25, arc: [PI * 0.75, PI * 1.6] });   // stand on the west and north shore
 
   // Butterflies (day) and fireflies (night)
   var butterflies = [];
@@ -1483,6 +1491,8 @@
   var drops = [];
   var DROP_GEO = new THREE.SphereGeometry(0.045, 6, 4), DROP_MAT = new THREE.MeshBasicMaterial({ color: 0x6fc3ff });
   var DIRT_MAT = new THREE.MeshBasicMaterial({ color: 0x8a5f3a }), SPARK_MAT = new THREE.MeshBasicMaterial({ color: 0xfff2a8 });
+  var GRAIN_MAT = new THREE.MeshBasicMaterial({ color: 0xf2d16b }), SCRAP_MAT = new THREE.MeshBasicMaterial({ color: 0x8bc34a }),
+      CRUMB_MAT = new THREE.MeshBasicMaterial({ color: 0xf5e6c8 }), SMOKE_MAT = new THREE.MeshBasicMaterial({ color: 0xdedede, transparent: true, opacity: 0.6 });
   function emit(pos, vel, matl, life) {
     var m = drops.length > 160 ? drops.shift().m : new THREE.Mesh(DROP_GEO, matl);
     m.material = matl;
@@ -1628,7 +1638,28 @@
   function dropCarry(h) { if (h.carry) { h.carry.parent && h.carry.parent.remove(h.carry); h.carry = null; } }
 
   // ---------------------------------------------------------------- activities
-  var stats = { harvest: 0, water: 0, plant: 0 };
+  var stats = { harvest: 0, water: 0, plant: 0, animals: 0 };
+  function animalStands(a) {                          // where heroes stand to care for these animals
+    if (a.stands) return a.stands;
+    var out = [];
+    if (a.around) {                                    // a worm bed: along its sides
+      var cc = polyCentre(a.around);
+      for (var e = 0; e < a.around.length; e++) {
+        var p = a.around[e], q = a.around[(e + 1) % a.around.length], mx = (p[0] + q[0]) / 2, mz = (p[1] + q[1]) / 2;
+        var dx = mx - cc[0], dz = mz - cc[1], d = Math.hypot(dx, dz) || 1;
+        out.push(V(mx + dx / d * 0.8, 0, mz + dz / d * 0.8));
+      }
+    } else {
+      var lo = a.arc ? a.arc[0] : 0, hi = a.arc ? a.arc[1] : TAU, n = a.arc ? 6 : 8;
+      for (var k = 0; k < n; k++) { var ang = lo + (hi - lo) * (a.arc ? k / (n - 1) : k / n); out.push(V(a.pos.x + Math.cos(ang) * a.r, 0, a.pos.z + Math.sin(ang) * a.r)); }
+    }
+    return (a.stands = out.filter(function (p) { return spotOk(p); }));
+  }
+  function nearestChicken(p) {
+    var best = null, bd = Infinity;
+    chickens.forEach(function (c) { var d = c.position.distanceToSquared(p); if (d < bd) { bd = d; best = c; } });
+    return best ? best.position.clone() : V(-10.6, 0, -3.9);
+  }
   ACTS = {
     harvest: {
       name: 'Harvest festival', tool: 'none', night: 0, centre: GARDEN_CENTRE,
@@ -1707,6 +1738,32 @@
         });
       }
     },
+    animals: {
+      name: 'Animal care', tool: 'basket', night: 0, centre: V(-3, 0.6, 0),
+      stat: function () { return stats.animals + ' fed · ' + ANIMALS.length + ' animal spots'; },
+      next: function animalNext(h, now) {
+        // go to the animals that had the fewest visits (not the ones you just fed), so every animal gets cared for
+        var options = ANIMALS.filter(function (a) { return a !== h.lastAnimal && (a.busy || 0) < (a.kind === 'ducks' || a.kind === 'chickens' ? 4 : 2); });
+        if (!options.length) options = ANIMALS.filter(function (a) { return (a.busy || 0) < 4; });
+        if (!options.length) return wanderNear(h, V(-6, 0, 0), 4, now, function () { animalNext(h, clockNow()); });
+        var hp = h.root.position;
+        options.sort(function (a, b) { return ((a.visits || 0) + a.pos.distanceTo(hp) * 0.04 + R() * 0.6) - ((b.visits || 0) + b.pos.distanceTo(hp) * 0.04 + R() * 0.6); });
+        var a = null, at = null;
+        for (var i = 0; i < options.length && !at; i++) { a = options[i]; at = pickSpot(h, animalStands(a)); }
+        if (!at) return wanderNear(h, options[0].pos, 3, now, function () { animalNext(h, clockNow()); });
+        a.busy = (a.busy || 0) + 1;
+        goTo(h, at, function () {
+          var look = a.kind === 'ducks' ? V(POND.x, 0, POND.z) : a.kind === 'chickens' ? nearestChicken(h.root.position) : a.pos;
+          face(h, look);
+          h.animal = a;
+          doAct(h, { worms: 'feedworms', chickens: 'scatter', ducks: 'bread', bees: 'smoke' }[a.kind], a.kind === 'bees' ? 3.6 : 3.2, function () {
+            a.busy = Math.max(0, (a.busy || 1) - 1); a.visits = (a.visits || 0) + 1;
+            stats.animals++; h.lastAnimal = a; h.animal = null;
+            animalNext(h, clockNow());
+          }, clockNow());
+        });
+      }
+    },
     campfire: {
       name: 'Campfire dance', tool: null, night: 1, centre: V(FIRE.x, 0.8, FIRE.z), ring: true, ringCentre: FIRE,
       stat: function () { return heroes.length + ' dancing'; },
@@ -1739,7 +1796,7 @@
     var stagger = rows > 1 && j % 2 ? spX * 0.25 : -spX * 0.25 * (rows > 1 ? 1 : 0);   // rows offset like a crowd, not a grid
     return V(PARTY.c.x + (i - (cols - 1) / 2) * spX * 0.92 + stagger * 0.5 + extra, 0, PARTY.c.z + 0.3 + (j - (rows - 1) / 2) * spZ + extra * 0.5);
   }
-  var ORDER = ['harvest', 'water', 'plant', 'campfire', 'party'];
+  var ORDER = ['harvest', 'water', 'plant', 'animals', 'campfire', 'party'];
   var current = D.start && ACTS[D.start] ? D.start : 'harvest';
   var ringTurn = 0;
   function ringRadius() { return Math.max(2.9, heroes.length * 1.5 / TAU); }   // about 1.5 units between neighbours
@@ -1807,7 +1864,7 @@
   }
 
   // ---------------------------------------------------------------- switching
-  var auto = !D.start, actStarted = 0, AUTO_DUR = { harvest: 50, water: 45, plant: 45, campfire: 40, party: 75 };
+  var auto = !D.start, actStarted = 0, AUTO_DUR = { harvest: 50, water: 45, plant: 45, animals: 45, campfire: 40, party: 75 };
   var nightTarget = 0, night = 0;
   function setActivity(name, now, byUser) {
     if (!ACTS[name]) return;
@@ -1916,6 +1973,24 @@
         if (arms[1]) arms[1].rotation.x = -0.6 + Math.sin(p * 8) * 0.5;
         if (PUMP_HANDLE && !(h.refillAt && h.refillAt !== PUMP)) PUMP_HANDLE.rotation.z = Math.sin(p * 8) * 0.3;
         if (Math.random() < dt * 12) emit(h.refillAt && h.refillAt !== PUMP ? h.refillAt.clone().add(V(0, 0.8, 0.2)) : PUMP.clone().add(V(0, 1.1, 0.5)), V(rr(-0.1, 0.1), -0.5, 0.3), DROP_MAT, 0.5);
+        break;
+      case 'feedworms':                                // kneel at the bin and drop in kitchen scraps
+        u.hero.position.y -= 0.22; u.hero.rotation.x = 0.45;
+        [1, -1].forEach(function (s) { if (arms[s]) arms[s].rotation.x = -1.25 + Math.abs(Math.sin(p * 4 + s * 1.6)) * 0.5; });
+        if (Math.random() < dt * 6 && h.animal) emit(root.position.clone().add(V(Math.sin(root.rotation.y) * 0.5, 0.75, Math.cos(root.rotation.y) * 0.5)), V(rr(-0.3, 0.3), 0.4, rr(-0.3, 0.3)).add(V(Math.sin(root.rotation.y) * 0.8, 0, Math.cos(root.rotation.y) * 0.8)), Math.random() < 0.5 ? SCRAP_MAT : DIRT_MAT, 0.7);
+        break;
+      case 'scatter':                                  // throw grain in wide swings: the chickens come running
+        if (arms[1]) { arms[1].rotation.x = -0.7 - Math.max(0, Math.sin(p * 4)) * 0.8; arms[1].rotation.z = arms[1].userData.rest - Math.sin(p * 4) * 0.5; }
+        if (Math.random() < dt * 14) { var fw = root.rotation.y + rr(-0.6, 0.6); emit(root.position.clone().add(V(0, 0.9, 0)), V(Math.sin(fw) * rr(1.5, 2.6), rr(0.6, 1.4), Math.cos(fw) * rr(1.5, 2.6)), GRAIN_MAT, 0.9); }
+        break;
+      case 'bread':                                    // overhand throws of bread crumbs onto the water
+        if (arms[1]) arms[1].rotation.x = -2.6 + ((p * 1.2) % 1) * 2.2;
+        if (((p * 1.2) % 1) > 0.55 && ((p * 1.2) % 1) < 0.6) for (var bc = 0; bc < 4; bc++) emit(root.position.clone().add(V(0, 1.3, 0)), V(Math.sin(root.rotation.y + rr(-0.25, 0.25)) * rr(2.6, 3.6), rr(1.2, 2.0), Math.cos(root.rotation.y + rr(-0.25, 0.25)) * rr(2.6, 3.6)), CRUMB_MAT, 1.2);
+        break;
+      case 'smoke':                                    // a gentle puff of smoke so the bees stay calm
+        if (arms[1]) { arms[1].rotation.x = -1.0 + Math.sin(p * 2) * 0.12; }
+        if (arms[-1]) arms[-1].rotation.x = -0.5 + Math.abs(Math.sin(p * 5)) * 0.4;
+        if (Math.random() < dt * 9) emit(root.position.clone().add(V(Math.sin(root.rotation.y) * 0.55, 1.0, Math.cos(root.rotation.y) * 0.55)), V(rr(-0.2, 0.2), 3.2, rr(-0.2, 0.2)), SMOKE_MAT, 1.1);
         break;
       case 'plant':
         u.hero.position.y -= 0.18; u.hero.rotation.x = 0.4;
@@ -2557,8 +2632,13 @@
     // things that move
     if (sails) sails.rotation.z = -now * 0.6;
     clouds.forEach(function (c) { c.position.x += c.userData.speed * dt; if (c.position.x > 150) c.position.x = -150; });
+    var thrower = heroes.filter(function (h) { return h.act === 'bread'; })[0];
     ducks.forEach(function (d) {
       var u = d.userData, a = now * u.speed + u.ph;
+      if (u.cx0 === undefined) { u.cx0 = u.cx; u.cz0 = u.cz; u.r0 = u.r; }
+      var gx = u.cx0, gz = u.cz0, gr = u.r0;                // swim over to whoever throws bread
+      if (thrower) { var tp = thrower.root.position, dx2 = tp.x - POND.x, dz2 = tp.z - POND.z, dl = Math.hypot(dx2, dz2) || 1; gx = POND.x + dx2 / dl * 2.2; gz = POND.z + dz2 / dl * 2.2; gr = 0.7; }
+      u.cx += (gx - u.cx) * Math.min(1, dt * 0.6); u.cz += (gz - u.cz) * Math.min(1, dt * 0.6); u.r += (gr - u.r) * Math.min(1, dt * 0.6);
       d.position.set(u.cx + Math.cos(a) * u.r, 0.02 + Math.sin(now * 2 + u.ph) * 0.02, u.cz + Math.sin(a) * u.r);
       d.rotation.y = -a;
     });
@@ -2572,7 +2652,13 @@
     });
     chickens.forEach(function (c) {
       var u = c.userData;
-      if (now > u.next) { u.target.set(rr(-13, -8.2), 0, rr(-7.2, -0.6)); u.next = now + rr(3, 7); u.peck = now + rr(0.5, 2); }
+      var feeder = null, fd = 40;                      // someone scattering grain nearby? run over and peck
+      heroes.forEach(function (h) { if (h.act === 'scatter') { var dd = h.root.position.distanceToSquared(c.position); if (dd < fd) { fd = dd; feeder = h; } } });
+      if (feeder && now > (u.fedNext || 0)) {
+        var fr = feeder.root, ang = fr.rotation.y + rr(-0.7, 0.7), dist = rr(0.9, 1.9);
+        u.target.set(fr.position.x + Math.sin(ang) * dist, 0, fr.position.z + Math.cos(ang) * dist);
+        u.fedNext = now + rr(1, 2); u.next = now + 3; u.peck = now + rr(0.2, 0.8);
+      } else if (now > u.next) { u.target.set(rr(-13, -8.2), 0, rr(-7.2, -0.6)); u.next = now + rr(3, 7); u.peck = now + rr(0.5, 2); }
       tmp.subVectors(u.target, c.position); tmp.y = 0;
       var d = tmp.length();
       if (d > 0.1) { c.position.addScaledVector(tmp, Math.min(1, 0.9 * dt / d)); c.rotation.y = Math.atan2(tmp.x, tmp.z); c.position.y = Math.abs(Math.sin(now * 12)) * 0.04; }
@@ -2670,7 +2756,7 @@
   // keyboard / USB button boxes: 1-4 pick an activity, A toggles auto, Esc goes back
   document.addEventListener('keydown', function (e) {
     var k = e.key;
-    if (k >= '1' && k <= '5') setActivity(ORDER[+k - 1], clockNow(), true);
+    if (k >= '1' && k <= '6') setActivity(ORDER[+k - 1], clockNow(), true);
     else if (k === 'a' || k === 'A') { auto = !auto; if (auto) actStarted = clockNow(); updateUI(); }
     else if (k === 'Escape') { var back = document.querySelector('.farm-close'); if (back) location.href = back.href; }
   });
@@ -2683,14 +2769,72 @@
     setFollow(hit ? heroes.filter(function (h) { return h.root === hit; })[0] || null : null);
   });
 
+  // ---------------------------------------------------------------- the live channel (TV) view: /farm?tv=1
+  // No buttons; activities change by themselves (by the real time of day), the camera glides round and now
+  // and then follows a hero, and real actions logged on Nevet appear on screen as they happen.
+  var TV = !!D.tv, tvFollowAt = 18, tvFollowEnd = 0, tvLast = D.lastLog || 0, tvNewsUntil = 0, tvClockAt = 0;
+  var tvEl = { act: document.getElementById('tv-act'), clock: document.getElementById('tv-clock'), news: document.getElementById('tv-news'), exit: document.getElementById('tv-exit') };
+  var TV_ACT = { watering: 'water', harvest: 'harvest', planting: 'plant', seeding: 'plant', germination: 'plant', transplant: 'plant',
+                 feeding: 'animals', delivery: 'harvest', pruning: 'harvest', weeding: 'water', fertilizing: 'water' };
+  function stepTV(now) {
+    if (now > tvClockAt) {
+      tvClockAt = now + 1;
+      var d = new Date();
+      if (tvEl.clock) tvEl.clock.textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (tvEl.act) tvEl.act.textContent = ACTS[current].name + (follow ? ' · ' + follow.name : '');
+    }
+    if (!follow && now > tvFollowAt) {                 // the camera finds someone busy and stays with them a while
+      var busy = heroes.filter(function (h) { return h.act && h.act !== 'idle'; });
+      if (busy.length) { setFollow(busy[Math.floor(R() * busy.length)]); tvFollowEnd = now + rr(12, 18); }
+      else tvFollowAt = now + 5;
+    } else if (follow && now > tvFollowEnd) {
+      setFollow(null); userTouched = -99; controls.autoRotate = true; tvFollowAt = now + rr(25, 40);
+      focusTarget = ACTS[current].centre.clone(); focusUntil = now + 3;
+    }
+    if (tvEl.news && !tvEl.news.hidden && now > tvNewsUntil) tvEl.news.hidden = true;
+  }
+  function tvPoll() {
+    fetch('/api/farm/live?since=' + tvLast, { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      if (!j) return;
+      tvLast = j.latest;
+      var ev = j.events[j.events.length - 1];
+      if (!ev) return;
+      tvEl.news.innerHTML = '<small>Just now on the farm</small>';
+      tvEl.news.appendChild(document.createTextNode(ev.who + ' ' + ev.verb + ' ' + ev.what + (j.events.length > 1 ? ' (+' + (j.events.length - 1) + ' more)' : '')));
+      tvEl.news.hidden = false; tvNewsUntil = clockNow() + 12;
+      var act = TV_ACT[ev.type];
+      if (act && act !== current) setActivity(act, clockNow(), false);   // the heroes act it out
+      actStarted = clockNow();
+    }).catch(function (e) { if (window.console) console.warn('live view:', e); });
+  }
+  if (TV) {
+    auto = true; actStarted = 0;
+    controls.autoRotateSpeed = 0.22;
+    setInterval(tvPoll, 30000);
+    setTimeout(function () { location.reload(); }, 6 * 3600 * 1000);   // fresh plants, heroes and memory every 6 hours
+    var wake = function () { if (navigator.wakeLock) navigator.wakeLock.request('screen').catch(function () {}); };
+    wake(); document.addEventListener('visibilitychange', function () { if (!document.hidden) wake(); });
+    var exitT = null;
+    document.addEventListener('pointerdown', function () { if (!tvEl.exit) return; tvEl.exit.hidden = false; clearTimeout(exitT); exitT = setTimeout(function () { tvEl.exit.hidden = true; }, 4000); });
+    var hr0 = new Date().getHours();
+    if (!D.start) setActivity(hr0 >= 20 || hr0 < 6 ? 'campfire' : 'harvest', clockNow(), false);
+  }
+
   // ---------------------------------------------------------------- loop
   var clock = new THREE.Clock(), last = 0, nextSpawn = 0.4, running = true;
   document.addEventListener('visibilitychange', function () { running = !document.hidden; if (running) { last = clock.getElapsedTime(); loop(); } });
+  // the next activity when it changes by itself; the live (TV) view follows the real clock: work by day, campfire and party at night
+  function nextAuto() {
+    var list = ORDER;
+    if (TV) { var hr = new Date().getHours(); list = hr >= 20 || hr < 6 ? ['campfire', 'party'] : ['harvest', 'water', 'animals', 'plant']; }
+    var i = list.indexOf(current);
+    return list[(i + 1) % list.length];
+  }
   function step(dt) {
     simNow += dt;
     var now = simNow;
     if (arrivals.length && now >= nextSpawn) { spawnNext(now); nextSpawn = now + 0.7; }
-    if (auto && now - actStarted > AUTO_DUR[current] && !arrivals.length) setActivity(ORDER[(ORDER.indexOf(current) + 1) % ORDER.length], now, false);
+    if (auto && now - actStarted > AUTO_DUR[current] && !arrivals.length) setActivity(nextAuto(), now, false);
     heroes.forEach(function (h) { stepHero(h, now, dt); });
     separate();
     stepDance(now);
@@ -2708,11 +2852,16 @@
     camera.position.copy(controls.target).addScaledVector(dir, viewDistance() * 1.1);
     focusTarget = c.clone(); focusUntil = 6;
   })();
+  var lastDraw = 0;
   function loop() {
     if (!running) return;
     requestAnimationFrame(loop);
-    var real = clock.getElapsedTime(), dt = Math.min(0.05, real - last);
+    var real = clock.getElapsedTime();
+    if (TV && real - lastDraw < 1 / 30) return;        // live view: 30 frames a second is plenty and keeps the device cool
+    lastDraw = real;
+    var dt = Math.min(0.05, real - last);
     last = real;
+    if (TV) stepTV(simNow);
     step(dt);
     if (ui.stat) ui.stat.textContent = ACTS[current].stat();
     stepCamera(simNow, dt);
@@ -2724,6 +2873,8 @@
   window.NevetFarm = {
     scene: scene, heroes: heroes, camera: camera, controls: controls, renderer: renderer, stats: stats,
     setActivity: function (n) { setActivity(n, clockNow(), true); },
+    tv: function () { return { on: TV, following: follow && follow.name, current: current, last: tvLast }; },
+    tvPoll: function () { tvPoll(); },
     acid: function () { return { playing: acid.playing, bpm: BPM, step: acid.step, cut: acid.cut, beats: beatsAt(clockNow()), engine: !!(acidPanel && acidPanel.engine) }; },
     synth: function () { return acidPanel && acidPanel.engine; },
     simulate: function (sec) { for (var t = 0; t < sec; t += 0.05) step(0.05); },

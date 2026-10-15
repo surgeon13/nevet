@@ -11,7 +11,7 @@
   (function () { try { if (localStorage.getItem('nevet-theme') === 'dark') document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem('nevet-farm-visited', '1'); } catch (e) {} })();
 </script>
 </head>
-<body class="farm-body">
+<body class="farm-body{% if data.tv %} farm-tv{% endif %}">
 <div class="farm-wrap" id="farm-wrap">
   <canvas id="farm-canvas" aria-label="The farm: all heroes together, drag to look around"></canvas>
 
@@ -46,6 +46,9 @@
         <span class="sr-only">Synth</span>
       </button>
       {% endif %}
+      <a class="farm-btn farm-icon" href="{{ url_for('farm_page', tv=1) }}" title="Live view: the farm as a 24/7 channel" aria-label="Live view">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M8 21h8M9 2.5l3 3.5 3-3.5"/></svg>
+      </a>
       <button type="button" class="farm-btn farm-icon" id="farm-photo" title="Save a photo">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
         <span class="sr-only">Photo</span>
@@ -63,6 +66,7 @@
     <button type="button" class="farm-chip" data-act="harvest" aria-pressed="false">🍅 <span>Harvest</span></button>
     <button type="button" class="farm-chip" data-act="water" aria-pressed="false">💧 <span>Watering</span></button>
     <button type="button" class="farm-chip" data-act="plant" aria-pressed="false">🌱 <span>Planting</span></button>
+    <button type="button" class="farm-chip" data-act="animals" aria-pressed="false">🐔 <span>Animals</span></button>
     <button type="button" class="farm-chip" data-act="campfire" aria-pressed="false">🔥 <span>Campfire</span></button>
     <button type="button" class="farm-chip" data-act="party" aria-pressed="false"><svg class="farm-note" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="farm-note-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5fa2"/><stop offset="1" stop-color="#8a5cff"/></linearGradient></defs><path fill="url(#farm-note-g)" d="M9 17.2V6.3c0-.5.4-1 .9-1.1l9-2.1c.6-.1 1.1.3 1.1.9v11.2a3 3 0 1 1-2-2.8V7.3l-7 1.6v8.3a3 3 0 1 1-2-2.8z"/></svg> <span>Party</span></button>
     <button type="button" class="farm-chip farm-auto" id="farm-auto" aria-pressed="true" title="Change activity every minute">
@@ -71,6 +75,16 @@
     </button>
   </div>
   {% if data.more %}<p class="farm-more">+{{ data.more }} more hero{{ 'es' if data.more != 1 }} resting in the barn</p>{% endif %}
+  {% if data.tv %}
+  <div class="tv-hud" aria-live="polite">
+    <span class="tv-live"><i></i>LIVE</span>
+    <b class="tv-name">{{ data.gardenName }}</b>
+    <span class="tv-act" id="tv-act"></span>
+    <span class="tv-clock" id="tv-clock"></span>
+  </div>
+  <div class="tv-news" id="tv-news" hidden></div>
+  <a class="tv-exit" id="tv-exit" href="{{ url_for('farm_page') }}" hidden>Exit live view</a>
+  {% endif %}
   <noscript><p class="farm-loading">The farm needs JavaScript and WebGL.</p></noscript>
 </div>
 
