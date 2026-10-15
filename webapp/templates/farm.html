@@ -70,7 +70,12 @@
       ("classic", "🌳", "Green valley", "Meadows, apple trees and rolling hills"),
       ("desert", "🌵", "Desert oasis", "Dunes, date palms, cacti and red mesas"),
       ("seaside", "🌊", "Seaside", "A beach, the sea, a lighthouse and sailboats"),
-      ("forest", "🌲", "Deep forest", "Tall pines, ferns, mushrooms and deer")] %}
+      ("forest", "🌲", "Deep forest", "Tall pines, ferns, mushrooms and deer"),
+      ("snow", "🏔️", "Snowy mountains", "Snowy pines, snowmen, a log cabin and falling snow"),
+      ("jungle", "🦜", "Jungle", "Giant trees with vines, a waterfall, ruins and parrots"),
+      ("savanna", "🦒", "African bushland", "Acacias, baobabs, giraffes, elephants and zebras"),
+      ("island", "🏝️", "Island lagoon", "A turquoise lagoon, the reef, huts on stilts and dolphins"),
+      ("city", "🏙️", "City farm", "Streets and cars, buildings with rooftop gardens")] %}
     <button type="submit" name="world" value="{{ key }}" class="farm-world-opt{% if data.world == key %} active{% endif %}" {% if data.world == key %}aria-current="true"{% endif %}>
       <span class="farm-world-emoji" aria-hidden="true">{{ emoji }}</span>
       <span><b>{{ name }}</b><small>{{ line }}</small></span>
@@ -138,6 +143,7 @@
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !box.hidden) { e.stopImmediatePropagation(); show(false); btn.focus(); } }, true);
   })();
 </script>
+<script src="{{ url_for('static', filename='js/farm-worlds.js') }}"></script>
 <script src="{{ url_for('static', filename='js/farm3d.js') }}"></script>
 </body>
 </html>

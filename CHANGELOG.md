@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-15 (five more farm settings)
+
+- New farm settings: **snowy mountains** (snowy pines, snowmen, a log
+  cabin, peaks, falling snow), **jungle** (giant trees with vines, a
+  waterfall, temple ruins, parrots), **African bushland** (acacias, baobabs,
+  termite mounds, giraffes, elephants, zebras, Kilimanjaro), **island
+  lagoon** (beach, turquoise lagoon, reef surf, huts on stilts, canoe,
+  dolphins, volcano, tiki torches) and **city farm** (sidewalks, a ring road
+  with cars, buildings with lit windows at night, rooftop gardens).
+- The settings now live in their own file, `static/js/farm-worlds.js`.
+- Fixed heroes sometimes getting stuck in a crowd at the gate on arrival
+  (during Play they now start in the park).
+
 ## 2026-10-15 (a wider farm with a play park, and farm settings)
 
 - **Farm settings**: a globe button on the farm picks the land around it:

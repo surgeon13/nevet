@@ -22,20 +22,10 @@
   // The farm's setting, chosen on the farm page (the same for everyone on this Nevet): the classic green
   // valley, a desert oasis, the seaside or a deep forest. It changes the ground, the sky, the trees and
   // what lies around the farm; the farm itself (beds, barn, pond, stage, play park) stays where it is.
-  var WORLDS = {
-    classic: { ground: ['#8cc76a', '#79b85a', '#a3d27a'], sky: ['#6fb8ec', '#e4f4ff'], hemi: 0x6f8a5a, fog: [85, 260],
-               tuft: '#5f9e46', petals: ['#ffffff', '#f6d743', '#f29bc0', '#c9a7f2', '#ff8a65', '#ffffff'],
-               yard: '#d8c497', path: '#d2bb8c', pitch: '#7cc25c', border: '#4f9a3e' },
-    desert:  { ground: ['#ecd29a', '#e2c286', '#f4e0b2'], sky: ['#58ace6', '#fbe5bd'], hemi: 0xc9a46a, fog: [95, 290],
-               tuft: '#9aa356', petals: ['#e98ab6', '#f3cf5b', '#ffffff', '#e9845b'],
-               yard: '#e7cd98', path: '#dcbb82', pitch: '#e9d29c', border: '#d39a64' },
-    seaside: { ground: ['#a2cc74', '#8fbe64', '#b6d888'], sky: ['#4eaef0', '#e0f5ff'], hemi: 0x8aa66a, fog: [95, 300],
-               tuft: '#86ab52', petals: ['#ffffff', '#f6d743', '#9fd0f2', '#f29bc0'],
-               yard: '#e2d1a0', path: '#e8d6a8', pitch: '#86c768', border: '#f6f1e4' },
-    forest:  { ground: ['#6aa452', '#5a9446', '#7cb461'], sky: ['#6aa6c9', '#d6eadf'], hemi: 0x4f6e3f, fog: [45, 175],
-               tuft: '#3d7c35', petals: ['#e2463a', '#e2463a', '#f1e4c6', '#c98b4a'],
-               yard: '#cdb78a', path: '#c4ab7b', pitch: '#76b45a', border: '#7a5233' }
-  };
+  var WORLDS = window.NevetWorlds ? NevetWorlds.CONFIG : {
+    classic: { ground: ['#8cc76a', '#79b85a', '#a3d27a'], sky: ['#6fb8ec', '#e4f4ff'], hemi: 0x6f8a5a, fog: [85, 260], tuft: '#5f9e46',
+               petals: ['#ffffff', '#f6d743', '#f29bc0'], yard: '#d8c497', path: '#d2bb8c', pitch: '#7cc25c', border: '#4f9a3e', borderStyle: 'hedge' }
+  };                                                   // (the settings live in farm-worlds.js)
   var WORLD = WORLDS[D.world] ? D.world : 'classic', WD = WORLDS[WORLD];
   // the play park outside the gate: football, swings, a slide, a seesaw, a trampoline and a sandbox
   var PLAY = { minX: -19.6, maxX: 19.6, minZ: 16, maxZ: 34.4 };
@@ -221,14 +211,24 @@
   var FARM = { minX: -20, maxX: 20, minZ: -20, maxZ: 16 };
   var POND = { x: 15.6, z: 10.5 };                    // out east, leaving room for the party stage
   var ANIMALS = [];                                   // worm bins & beds, hives, the chickens, the ducks: 'Animal care' visits them all
-  var SEA_Y = -0.38;                                  // the seaside: the water's level (the beach slopes down to it)
+  var SEA_Y = -0.38;                                  // the sea's level (the seaside's beach and the island's lagoon)
+  function boxDist(x, z, m) {                          // how far beyond the farm and the play park (plus a margin m)
+    var dx = Math.max(0, Math.abs(x) - 21 - m), dz = Math.max(0, z < 0 ? -z - 21 - m : z - PLAY.maxZ - 1.2 - m);
+    return Math.sqrt(dx * dx + dz * dz);
+  }
   function hillH(x, z) {
+    if (WORLD === 'city') return 0;
+    if (WORLD === 'island') {                          // a beach, the shallow lagoon, the reef just under the surface, then the deep
+      var bd = boxDist(x, z, 0.5);
+      return -Math.min(1.8, Math.max(0, bd - 3.5) * 0.09) + 1.3 * Math.exp(-Math.pow((bd - 43) / 3.2, 2)) - Math.min(12, Math.max(0, bd - 47) * 0.35);
+    }
     var dx = Math.max(0, Math.abs(x) - 26), dz = Math.max(0, z < 0 ? -z - 26 : z - PLAY.maxZ - 4);
     var d = Math.sqrt(dx * dx + dz * dz), h = 0;
     if (d > 0) {
       var k = Math.min(1, d / 30);
       if (WORLD === 'desert') h = Math.min(1, d / 22) * (2.6 + Math.sin(x * 0.12 + z * 0.05) * 2.2 + Math.sin(z * 0.1 - x * 0.04 + 1) * 1.7) * (0.7 + k);   // dunes
-      else h = k * k * (6 + Math.sin(x * 0.07) * 4 + Math.cos(z * 0.06 + 1) * 4) * (WORLD === 'forest' ? 1.25 : 1);
+      else h = k * k * (6 + Math.sin(x * 0.07) * 4 + Math.cos(z * 0.06 + 1) * 4) * (WORLD === 'forest' ? 1.25 : WD.hills || 1)
+             + (WORLD === 'snow' ? k * k * k * Math.max(0, Math.sin(x * 0.11 + 2) * Math.cos(z * 0.09)) * 9 : 0);
     }
     if (WORLD === 'seaside' && z < -23) { var b = Math.min(1, (-23 - z) / 4); h = h * (1 - b) - Math.min(3.2, (-23 - z) * 0.075); }
     return h;
@@ -238,7 +238,8 @@
     geo.rotateX(-PI / 2);
     var pos = geo.attributes.position, cols = [], c = new THREE.Color();
     var g1 = new THREE.Color(WD.ground[0]), g2 = new THREE.Color(WD.ground[1]), g3 = new THREE.Color(WD.ground[2]);
-    var sand = new THREE.Color('#f0dcaa'), wet = new THREE.Color('#c9ad78'), dune = new THREE.Color('#e6b878');
+    var sand = new THREE.Color('#f0dcaa'), wet = new THREE.Color('#c9ad78'), dune = new THREE.Color('#e6b878'), sea1 = new THREE.Color('#e9dcae'),
+        sea2 = new THREE.Color('#2a6d96'), soil = new THREE.Color('#c98f5a'), rockC = new THREE.Color('#8d97a3');
     for (var i = 0; i < pos.count; i++) {
       var x = pos.getX(i), z = pos.getZ(i), y = hillH(x, z);
       pos.setY(i, y - 0.02);
@@ -246,6 +247,15 @@
       c.copy(g1).lerp(n > 0.5 ? g3 : g2, Math.abs(n - 0.5) * 1.2);
       if (WORLD === 'seaside' && z < -20) { c.lerp(sand, Math.min(1, (-20 - z) / 2.5)); if (y < SEA_Y + 0.2) c.lerp(wet, 0.7); }
       if (WORLD === 'desert' && y > 1) c.lerp(dune, Math.min(0.55, (y - 1) / 9));
+      if (WORLD === 'island') {
+        var bd = boxDist(x, z, 0.5);
+        if (bd > 0.4) c.lerp(sand, Math.min(1, (bd - 0.4) / 1.6));
+        if (y < SEA_Y + 0.15) c.lerp(sea1, 0.5);
+        if (y < -2.2) c.lerp(sea2, Math.min(1, (-2.2 - y) / 5));
+      }
+      if (WORLD === 'city' && boxDist(x, z, 0.3) > 0) c.set('#b9b5ad');
+      if (WORLD === 'savanna') c.lerp(soil, Math.max(0, Math.sin(x * 0.13 + 1) * Math.sin(z * 0.11) - 0.4) * 0.8);
+      if (WORLD === 'snow' && y > 4) c.lerp(rockC, Math.min(0.35, (y - 4) / 20) * (Math.sin(x * 0.3) * Math.cos(z * 0.27) > 0.2 ? 1 : 0));
       cols.push(c.r, c.g, c.b);
     }
     geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
@@ -273,17 +283,22 @@
     return (x > -19 && x < -2 && z > 20.4 && z < 31) || (x > 2.6 && x < 19 && z > 17.6 && z < 33.6) || Math.abs(x) < 2;
   }
   (function () {
-    var tuftGeo, tuftN = 420, flowerN = 260;
-    if (WORLD === 'desert') { tuftGeo = new THREE.SphereGeometry(0.22, 7, 5); tuftGeo.scale(1, 0.55, 1); tuftGeo.translate(0, 0.07, 0); tuftN = 170; flowerN = 70; }
+    var tuftGeo, tuftN = 420, flowerN = 260, cover = WD.cover || 'tuft';
+    if (cover === 'snow') { tuftGeo = new THREE.SphereGeometry(0.3, 8, 5); tuftGeo.scale(1, 0.35, 1); tuftN = 260; flowerN = 0; }
+    else if (cover === 'leaf') { tuftGeo = new THREE.ConeGeometry(0.42, 0.6, 5); tuftGeo.translate(0, 0.3, 0); tuftN = 620; flowerN = 220; }
+    else if (cover === 'tallgrass') { tuftGeo = new THREE.ConeGeometry(0.08, 0.95, 4); tuftGeo.translate(0, 0.47, 0); tuftN = 760; flowerN = 60; }
+    else if (WORLD === 'desert') { tuftGeo = new THREE.SphereGeometry(0.22, 7, 5); tuftGeo.scale(1, 0.55, 1); tuftGeo.translate(0, 0.07, 0); tuftN = 170; flowerN = 70; }
     else if (WORLD === 'forest') { tuftGeo = new THREE.ConeGeometry(0.3, 0.45, 6); tuftGeo.translate(0, 0.22, 0); tuftN = 560; flowerN = 150; }
     else if (WORLD === 'seaside') { tuftGeo = new THREE.ConeGeometry(0.055, 0.6, 4); tuftGeo.translate(0, 0.3, 0); tuftN = 520; }
     else { tuftGeo = new THREE.ConeGeometry(0.09, 0.32, 5); tuftGeo.translate(0, 0.16, 0); }
+    if (WD.sparse) { tuftN = 160; flowerN = 90; }
+    if (WD.flowers === false) flowerN = 0;
     var tufts = new THREE.InstancedMesh(tuftGeo, mat(WD.tuft), tuftN);
     var shroom = WORLD === 'forest';
     var flowerGeo = shroom ? new THREE.SphereGeometry(0.14, 9, 5, 0, TAU, 0, PI / 2) : new THREE.SphereGeometry(0.11, 8, 6);
     if (shroom) flowerGeo.translate(0, 0.17, 0);
-    var flowers = new THREE.InstancedMesh(flowerGeo, new THREE.MeshToonMaterial({ color: 0xffffff }), flowerN);
-    var stems = shroom ? new THREE.InstancedMesh((function () { var g = new THREE.CylinderGeometry(0.04, 0.055, 0.19, 6); g.translate(0, 0.09, 0); return g; })(), mat('#f4ecd8'), flowerN) : null;
+    var flowers = new THREE.InstancedMesh(flowerGeo, new THREE.MeshToonMaterial({ color: 0xffffff }), Math.max(1, flowerN));
+    var stems = shroom ? new THREE.InstancedMesh((function () { var g = new THREE.CylinderGeometry(0.04, 0.055, 0.19, 6); g.translate(0, 0.09, 0); return g; })(), mat('#f4ecd8'), Math.max(1, flowerN)) : null;
     var m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), col = new THREE.Color();
     var PETALS = WD.petals;
     function freeSpot() {
@@ -293,10 +308,10 @@
         var onPath = Math.abs(x) < 2 && z > 5 && z < 18;
         var onStage = x > 1.2 && x < 11.2 && z > 4.5 && z < 16;   // the party stage
         var inPond = Math.hypot(x - POND.x, z - POND.z) < 4.3;
-        var wet = WORLD === 'seaside' && z < -21.5;
+        var wet = (WORLD === 'seaside' && z < -21.5) || (WORLD === 'island' && hillH(x, z) < 0.02) || (WORLD === 'city' && boxDist(x, z, 0) > 0);
         if (!inYard && !onPath && !onStage && !inPond && !wet && !parkBusy(x, z)) return [x, z];
       }
-      return [rr(24, 40), rr(-18, 30)];
+      return WORLD === 'city' || WORLD === 'island' ? [rr(-18, 18), rr(-19, -14)] : [rr(24, 40), rr(-18, 30)];
     }
     for (var i = 0; i < tuftN; i++) {
       var f = freeSpot();
@@ -310,7 +325,7 @@
       if (stems) stems.setMatrixAt(j, m);
       flowers.setColorAt(j, col.set(PETALS[j % PETALS.length]));
     }
-    scene.add(tufts); scene.add(flowers);
+    scene.add(tufts); if (flowerN) scene.add(flowers);
     if (stems) scene.add(stems);
   })();
 
@@ -987,216 +1002,11 @@
   var WORLD_ANIM = [];                                 // little things that move (boats, gulls, tumbleweeds, the lighthouse...)
   var INNER_TREES = [[17, -2], [-18, -16]];            // the two trees inside the fence (heroes walk round them)
   var EXTRA_OBST = [];                                 // more things heroes walk round (the oasis palms)
-  function roundTree(x, z, apple, k) {
-    var t = group([x, hillH(x, z), z]);
-    var hgt = rr(1.6, 2.4);
-    t.add(cyl(0.22, 0.32, hgt, '#7a5233', [0, hgt / 2, 0], 8));
-    var cols = WORLD === 'forest' ? ['#3f8a34', '#4c9a3c', '#357a2e'] : ['#4f9a3e', '#5fae48', '#3f8a34'];
-    [[0, hgt + 1.1, 0, 1.45], [0.8, hgt + 0.6, 0.2, 1.0], [-0.7, hgt + 0.7, -0.3, 1.05], [0.1, hgt + 1.8, 0.1, 0.95]].forEach(function (c, i) {
-      t.add(sphere(c[3], cols[i % 3], [c[0], c[1], c[2]], null, 12));
-    });
-    if (apple) for (var a = 0; a < 7; a++) { var an = a / 7 * TAU; t.add(sphere(0.12, '#e0402f', [Math.cos(an) * 1.3, hgt + 0.9 + Math.sin(a * 2) * 0.4, Math.sin(an) * 1.3], null, 8)); }
-    t.scale.setScalar(k || rr(0.9, 1.35));
-    statics.add(outline(t, 1.025));
-    statics.add(blobShadow(1.8, x, z, hillH(x, z)));
-  }
-  function palmTree(x, z, k, lean) {
-    var t = group([x, hillH(x, z), z], R() * TAU), trunk = group(), hgt = rr(3.8, 4.8), segs = 7;
-    lean = lean === undefined ? rr(0.4, 1.2) : lean;
-    for (var i = 0; i < segs; i++) {
-      var f = i / segs;
-      trunk.add(cyl(0.16 - f * 0.05, 0.2 - f * 0.05, hgt / segs + 0.04, i % 2 ? '#a07f55' : '#8d6c45', [f * f * lean, (i + 0.5) * hgt / segs, 0], 7));
-    }
-    t.add(outline(trunk, 1.04));
-    var top = [lean, hgt, 0];
-    for (var l = 0; l < 9; l++) {
-      var leaf = group(top, 0);
-      leaf.rotation.order = 'YXZ'; leaf.rotation.y = l / 9 * TAU + rr(-0.15, 0.15); leaf.rotation.x = rr(0.15, 0.4);
-      var c1 = l % 2 ? '#4f9a3e' : '#5fae48';
-      leaf.add(box(0.5, 0.05, 1.3, c1, [0, 0, 0.65]));
-      var tip = group([0, 0, 1.25]); tip.rotation.x = 0.6;
-      tip.add(box(0.36, 0.05, 1.1, c1, [0, 0, 0.5]));
-      leaf.add(tip);
-      t.add(leaf);
-    }
-    for (var n = 0; n < 3; n++) t.add(sphere(0.15, '#7a5233', [lean + Math.cos(n * 2.1) * 0.22, hgt - 0.18, Math.sin(n * 2.1) * 0.22], null, 8));
-    t.scale.setScalar(k || rr(0.85, 1.15));
-    statics.add(t);
-    statics.add(blobShadow(1.4, x + lean, z, hillH(x, z)));
-  }
-  function cactus(x, z, k) {
-    var t = group([x, hillH(x, z), z], R() * TAU), C = '#5f9a4a', hgt = rr(1.8, 2.8);
-    t.add(cyl(0.26, 0.3, hgt, C, [0, hgt / 2, 0], 10)); t.add(sphere(0.26, C, [0, hgt, 0], null, 10));
-    [[1, rr(0.8, 1.3), rr(0.5, 0.9)], [-1, rr(1.0, 1.6), rr(0.4, 0.8)]].forEach(function (a, i) {
-      if (i && R() < 0.35) return;
-      t.add(rot(cyl(0.15, 0.15, 0.55, C, [a[0] * 0.45, a[1], 0], 8), 0, 0, PI / 2));
-      t.add(cyl(0.15, 0.15, a[2], C, [a[0] * 0.7, a[1] + a[2] / 2, 0], 8));
-      t.add(sphere(0.15, C, [a[0] * 0.7, a[1] + a[2], 0], null, 8));
-    });
-    if (R() < 0.4) t.add(sphere(0.1, '#f29bc0', [0, hgt + 0.25, 0], [1, 0.6, 1], 8));
-    t.scale.setScalar(k || rr(0.8, 1.2));
-    statics.add(outline(t, 1.04));
-    statics.add(blobShadow(0.7, x, z, hillH(x, z)));
-  }
-  function pine(x, z, k, ink) {
-    var t = group([x, hillH(x, z), z], R() * TAU), cols = ['#2f6b3a', '#3a7a40', '#2a5f35'];
-    t.add(cyl(0.16, 0.24, 1.3, '#6b4a2b', [0, 0.65, 0], 7));
-    [[1.55, 2.1, 1.7], [1.2, 1.8, 2.75], [0.82, 1.5, 3.7]].forEach(function (c, i) { t.add(cone(c[0], c[1], cols[i], [0, c[2], 0], 9)); });
-    t.scale.set(1, rr(1.0, 1.5), 1).multiplyScalar(k || rr(0.9, 1.5));
-    statics.add(ink ? outline(t, 1.03) : t);
-    statics.add(blobShadow(1.5, x, z, hillH(x, z)));
-  }
-  function rock(x, z, k, color, moss) {
-    var r = mesh(new THREE.DodecahedronGeometry(1, 0), mat(color || '#9a968c'), [x, hillH(x, z) + 0.25 * k, z]);
-    r.scale.set(k * rr(0.9, 1.4), k * rr(0.5, 0.8), k * rr(0.9, 1.3)); r.rotation.y = R() * TAU;
-    statics.add(r);
-    if (moss) statics.add(sphere(k * 0.75, '#5f9a43', [x, hillH(x, z) + k * 0.55, z], [1.1, 0.35, 1], 8));
-  }
-  // spots outside the farm and the play park, at least `gap` apart: `from`..`to` metres beyond them
-  function outsideSpots(n, from, to, gap, seed, ok) {
-    var out = [], r2 = rng(seed);
-    for (var t = 0; t < n * 30 && out.length < n; t++) {
-      var x = (r2() * 2 - 1) * (to + 22), z = (r2() * 2 - 1) * (to + 22) + 6;
-      var beyond = Math.max(Math.abs(x) - 21, -z - 21, z - PLAY.maxZ - 1.2);
-      if (beyond < from || beyond > to || (ok && !ok(x, z))) continue;
-      if (out.some(function (p) { return (p[0] - x) * (p[0] - x) + (p[1] - z) * (p[1] - z) < gap * gap; })) continue;
-      out.push([x, z, beyond]);
-    }
-    return out;
-  }
-  function animal(kind, x, z, rotY) {                  // camels resting by the oasis, deer at the forest's edge
-    var g = group([x, hillH(x, z), z], rotY), c = kind === 'camel' ? '#c9a06a' : '#a8703f', legH = kind === 'camel' ? 1.1 : 0.75;
-    var bodyL = kind === 'camel' ? 1.5 : 1.0;
-    g.add(sphere(0.5, c, [0, legH + 0.35, 0], [0.8, 0.75, bodyL]));
-    if (kind === 'camel') g.add(sphere(0.38, c, [0, legH + 0.82, -0.05], [0.8, 0.9, 1]));
-    var neck = cyl(0.12, 0.16, kind === 'camel' ? 1.0 : 0.65, c, [0, legH + 0.75, bodyL * 0.42], 8); neck.rotation.x = 0.6; g.add(neck);
-    var head = group([0, legH + (kind === 'camel' ? 1.15 : 1.0), bodyL * 0.42 + 0.4]); g.add(head);
-    head.add(sphere(0.18, c, [0, 0, 0.08], [0.8, 0.8, 1.5]));
-    head.add(sphere(0.04, '#1f2522', [0.11, 0.06, 0.12], null, 6)); head.add(sphere(0.04, '#1f2522', [-0.11, 0.06, 0.12], null, 6));
-    if (kind === 'deer') {
-      [-1, 1].forEach(function (s2) {
-        head.add(rot(cone(0.06, 0.2, c, [s2 * 0.15, 0.17, -0.05], 5), 0, 0, -s2 * 0.6));
-        var ant = group([s2 * 0.08, 0.16, -0.05]); ant.rotation.z = -s2 * 0.35;
-        ant.add(cyl(0.02, 0.025, 0.42, '#e6d6b8', [0, 0.21, 0], 5)); ant.add(rot(cyl(0.018, 0.018, 0.2, '#e6d6b8', [s2 * 0.05, 0.3, 0.05], 5), 0.6, 0, -s2 * 0.5));
-        head.add(ant);
-      });
-      g.add(sphere(0.1, '#f4efe4', [0, legH + 0.45, -bodyL * 0.5], null, 6));
-    }
-    [[0.22, 0.6], [-0.22, 0.6], [0.22, -0.55], [-0.22, -0.55]].forEach(function (l) { g.add(cyl(0.07, 0.06, legH, c, [l[0], legH / 2, l[1] * bodyL * 0.75], 6)); });
-    statics.add(outline(g, 1.04));
-    statics.add(blobShadow(0.9, x, z, hillH(x, z)));
-    return head;
-  }
-  (function () {
-    if (WORLD === 'classic') {
-      INNER_TREES.forEach(function (t, i) { roundTree(t[0], t[1], i === 0); });
-      outsideSpots(32, 3.5, 30, 5, 21).forEach(function (s2, i) { roundTree(s2[0], s2[1], i % 4 === 0); });
-    } else if (WORLD === 'desert') {
-      palmTree(17, -2, 1, 0.7); cactus(-18, -16, 1.1);
-      [[19.1, 7.0], [19.2, 14.1]].forEach(function (p) { palmTree(p[0], p[1], 1.05); EXTRA_OBST.push(p); });   // the oasis
-      outsideSpots(14, 1.5, 12, 3.5, 31).forEach(function (s2) { palmTree(s2[0], s2[1]); });
-      outsideSpots(26, 2, 40, 4, 32).forEach(function (s2) { cactus(s2[0], s2[1]); });
-      outsideSpots(14, 3, 45, 5, 33).forEach(function (s2) { rock(s2[0], s2[1], rr(0.5, 1.4), '#c98c5c'); });
-      // red mesas far away, flat-topped and banded
-      for (var mI = 0; mI < 9; mI++) {
-        var ang = -PI * 0.95 + mI / 8 * PI * 1.25 + rr(-0.12, 0.12), dist = rr(120, 175), mx = Math.cos(ang) * dist, mz = Math.sin(ang) * dist;
-        var rad = rr(9, 18), hh = rr(10, 22), mg = group([mx, hillH(mx, mz) - 1, mz]);
-        mg.add(cyl(rad, rad * 1.18, hh * 0.55, '#c8734a', [0, hh * 0.275, 0], 9));
-        mg.add(cyl(rad * 0.86, rad, hh * 0.45, '#d98c5c', [0, hh * 0.55 + hh * 0.225, 0], 9));
-        mg.add(cyl(rad * 0.88, rad * 0.86, 0.6, '#b8603d', [0, hh + 0.3, 0], 9));
-        mg.scale.set(1, 1, rr(0.6, 1.4)); mg.rotation.y = R() * TAU;
-        statics.add(mg);
-      }
-      animal('camel', 26.5, 7.5, -2.2); animal('camel', 28.4, 11.2, -1.4);
-      // tumbleweeds rolling by
-      for (var tw = 0; tw < 3; tw++) {
-        var weed = mesh(new THREE.IcosahedronGeometry(0.45, 1), mat('#a8834f', { wireframe: true }));
-        weed.userData = { z: [-30, 42, -36][tw], sp: rr(1.6, 2.6), ph: rr(0, 120) };
-        scene.add(weed);
-        WORLD_ANIM.push(function (now) { var u = weed.userData, x = ((now * u.sp + u.ph) % 120) - 60; weed.position.set(x, hillH(x, u.z) + 0.45 + Math.abs(Math.sin(now * 3 + u.ph)) * 0.3, u.z); weed.rotation.z = -now * u.sp / 0.45; });
-      }
-    } else if (WORLD === 'seaside') {
-      palmTree(17, -2, 1, 0.8); palmTree(-18, -16, 1, 0.5);
-      var dry = function (x, z) { return z > -22; };
-      outsideSpots(14, 1.5, 14, 3.5, 41, dry).forEach(function (s2) { palmTree(s2[0], s2[1]); });
-      outsideSpots(22, 4, 38, 4.5, 42, dry).forEach(function (s2) { pine(s2[0], s2[1], rr(0.9, 1.3), s2[2] < 14); });
-      // the sea, with waves rolling onto the beach
-      var sea = mesh(new THREE.PlaneGeometry(900, 400), new THREE.MeshToonMaterial({ color: 0x3f9bd8 }));
-      sea.rotation.x = -PI / 2; sea.position.set(0, SEA_Y, -26 - 200); scene.add(sea);
-      var shallow = mesh(new THREE.PlaneGeometry(900, 7), new THREE.MeshBasicMaterial({ color: 0x8fd6ee, transparent: true, opacity: 0.55, depthWrite: false }));
-      shallow.rotation.x = -PI / 2; shallow.position.set(0, SEA_Y + 0.01, -31.5); scene.add(shallow);
-      for (var wv = 0; wv < 6; wv++) {
-        var foam = mesh(new THREE.PlaneGeometry(260, 0.45), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }));
-        foam.rotation.x = -PI / 2; foam.userData.ph = wv / 6;
-        scene.add(foam);
-        WORLD_ANIM.push(function (now) { var f = foam, k = (now * 0.07 + f.userData.ph) % 1; f.position.set(0, SEA_Y + 0.02, -28.6 - (1 - k) * 14); f.material.opacity = Math.sin(k * PI) * 0.75; f.scale.y = 1 + k * 1.5; });
-      }
-      // the lighthouse on a rocky point, with a beam that sweeps round at night
-      var LH = V(-27, 0, -31);
-      for (var rk = 0; rk < 9; rk++) rock(LH.x + rr(-3.5, 3.5), LH.z + rr(-3, 3), rr(1.2, 2.2), '#8f8a80');
-      var lh = group([LH.x, 0.6, LH.z]);
-      for (var band = 0; band < 6; band++) lh.add(cyl(1.25 - band * 0.12, 1.37 - band * 0.12, 1.5, band % 2 ? '#d8402f' : '#f6f1e4', [0, 0.75 + band * 1.5, 0], 14));
-      lh.add(cyl(1.2, 1.2, 0.18, '#2f3a40', [0, 9.1, 0], 14));
-      lh.add(cyl(0.7, 0.7, 1.1, '#fff2a8', [0, 9.75, 0], 12));
-      lh.add(cone(0.95, 1.0, '#d8402f', [0, 10.8, 0], 12));
-      statics.add(outline(lh, 1.02));
-      var beam = group([LH.x, 10.35, LH.z]);
-      [1, -1].forEach(function (s2) {
-        var bm = mesh(new THREE.ConeGeometry(1.6, 26, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff2b0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-        bm.geometry.translate(0, -13, 0); bm.rotation.z = s2 * PI / 2; beam.add(bm);
-      });
-      scene.add(beam);
-      WORLD_ANIM.push(function (now, dt, n) { beam.rotation.y = now * 0.8; beam.children.forEach(function (b2) { b2.material.opacity = 0.015 + n * 0.11; }); });
-      // a wooden pier, beach umbrellas and towels
-      var pier = group([7, 0, -21.5]);
-      for (var pk = 0; pk < 10; pk++) {
-        var pz = -pk * 2.2;
-        pier.add(box(2.2, 0.16, 2.1, pk % 2 ? '#b98b5a' : '#a57849', [0, 0.35, pz - 1.1]));
-        [-1, 1].forEach(function (s2) { pier.add(cyl(0.12, 0.12, 2.6, '#7a5233', [s2 * 1.0, -0.9, pz - 1.1], 6)); });
-      }
-      statics.add(pier);
-      [[-6, -24.2, '#ff5e7a'], [-1.5, -23.8, '#ffd84d'], [2.8, -24.6, '#4fc3f7']].forEach(function (u2) {
-        var um = group([u2[0], hillH(u2[0], u2[1]), u2[1]]);
-        um.add(cyl(0.05, 0.05, 2.3, '#f4efe4', [0, 1.15, 0], 6));
-        um.add(cone(1.4, 0.6, u2[2], [0, 2.4, 0], 12));
-        var towel = mesh(new THREE.PlaneGeometry(0.9, 1.8), mat(u2[2] === '#ffd84d' ? '#4fc3f7' : '#ffd84d', { side: THREE.DoubleSide }), [1.0, 0.04, 0.4]); towel.rotation.x = -PI / 2;
-        um.add(towel);
-        statics.add(um);
-      });
-      // sailboats out at sea and gulls over the beach
-      [[-60, -58, 1.3], [40, -82, 0.9], [-10, -110, 1.1]].forEach(function (b2, i) {
-        var boat = group();
-        var hull = box(3.2, 0.7, 1.1, i === 1 ? '#d8402f' : '#f6f1e4', [0, 0.25, 0]); hull.scale.set(1, 1, 1); boat.add(hull);
-        boat.add(box(0.6, 0.72, 1.12, '#2f3a40', [1.4, 0.25, 0]));
-        boat.add(cyl(0.06, 0.06, 4.2, '#7a5233', [0, 2.4, 0], 6));
-        var sail = new THREE.Shape(); sail.moveTo(0, 0); sail.lineTo(0, 3.6); sail.lineTo(-2.2, 0); sail.lineTo(0, 0);
-        boat.add(mesh(new THREE.ShapeGeometry(sail), mat('#ffffff', { side: THREE.DoubleSide }), [-0.1, 0.8, 0]));
-        boat.userData = { x0: b2[0], z: b2[1], sp: b2[2], ph: i * 2 };
-        scene.add(boat);
-        WORLD_ANIM.push(function (now) { var u = boat.userData, x = ((u.x0 + now * u.sp + 150) % 300) - 150; boat.position.set(x, SEA_Y + 0.1 + Math.sin(now * 1.2 + u.ph) * 0.08, u.z); boat.rotation.z = Math.sin(now * 0.9 + u.ph) * 0.05; });
-      });
-      for (var gl = 0; gl < 6; gl++) {
-        var gull = group(), wingL = group(), wingR = group();
-        wingL.add(box(0.7, 0.04, 0.18, '#ffffff', [-0.35, 0, 0])); wingR.add(box(0.7, 0.04, 0.18, '#ffffff', [0.35, 0, 0]));
-        gull.add(wingL); gull.add(wingR); gull.add(sphere(0.12, '#ffffff', [0, 0, 0], [1, 0.8, 1.8], 8));
-        gull.userData = { c: V(rr(-20, 20), rr(7, 13), rr(-34, -24)), r: rr(4, 9), sp: rr(0.25, 0.45) * (gl % 2 ? 1 : -1), ph: rr(0, TAU), l: wingL, rr: wingR };
-        scene.add(gull);
-        WORLD_ANIM.push(function (now) { var u = gull.userData, a = now * u.sp + u.ph, fl = Math.sin(now * 5 + u.ph) * 0.45; gull.position.set(u.c.x + Math.cos(a) * u.r, u.c.y + Math.sin(now * 0.7 + u.ph) * 0.6, u.c.z + Math.sin(a) * u.r); gull.rotation.y = -a + (u.sp > 0 ? 0 : PI); u.l.rotation.z = fl; u.rr.rotation.z = -fl; });
-      }
-    } else {                                           // deep forest
-      INNER_TREES.forEach(function (t) { pine(t[0], t[1], 1.1, true); });
-      outsideSpots(230, 1.2, 48, 2.5, 51).forEach(function (s2) { if (R() < 0.12) roundTree(s2[0], s2[1], false, rr(1.0, 1.4)); else pine(s2[0], s2[1], rr(1.0, 1.7), s2[2] < 10); });
-      outsideSpots(10, 1, 20, 4, 52).forEach(function (s2) { rock(s2[0], s2[1], rr(0.6, 1.2), '#8a8a82', true); });
-      outsideSpots(7, 1, 16, 5, 53).forEach(function (s2) {             // fallen logs
-        var lg = cyl(0.32, 0.36, rr(2.6, 4.2), '#6b4a2b', [s2[0], hillH(s2[0], s2[1]) + 0.32, s2[1]], 9);
-        lg.rotation.set(0, R() * TAU, PI / 2); lg.rotation.order = 'YZX';
-        statics.add(outline(lg, 1.03));
-      });
-      var deer = [animal('deer', 25.0, -5.5, -1.9), animal('deer', 26.6, -2.6, -2.5)];
-      WORLD_ANIM.push(function (now) { deer.forEach(function (hd, i) { hd.rotation.x = 0.2 + Math.max(0, Math.sin(now * 0.5 + i * 2)) * 0.7; }); });   // grazing
-      movers.add(deer[0]); movers.add(deer[1]);
-    }
-  })();
+  if (window.NevetWorlds) NevetWorlds.build({
+    group: group, cyl: cyl, box: box, sphere: sphere, cone: cone, mesh: mesh, mat: mat, rot: rot, outline: outline, blobShadow: blobShadow,
+    statics: statics, scene: scene, movers: movers, hillH: hillH, rng: rng, R: R, rr: rr, V: V, SEA_Y: SEA_Y, PLAY: PLAY, world: WORLD,
+    WORLD_ANIM: WORLD_ANIM, EXTRA_OBST: EXTRA_OBST, INNER_TREES: INNER_TREES, textCanvas: textCanvas, merge: NevetHero.merge
+  });
 
   // Harvest cart, hay bales, hand pump, scarecrow, compost / worm bins
   var BARN_BINS = (D.plants || []).filter(function (q) { return q.type === 'worm_bin' && !PINNED[q.id]; }).slice(0, 4);
@@ -1624,10 +1434,20 @@
       var len2 = Math.hypot(e[2] - e[0], e[3] - e[1]), n = Math.round(len2 / 2.2), angE = Math.atan2(e[2] - e[0], e[3] - e[1]);
       for (var i = 0; i < n; i++) {
         var t0 = (i + 0.5) / n, x = e[0] + (e[2] - e[0]) * t0, z = e[1] + (e[3] - e[1]) * t0, seg = len2 / n;
-        if (WORLD === 'classic') statics.add(rot(box(0.6, 0.62, seg - 0.25, WD.border, [x, 0.31, z]), 0, angE));
-        else if (WORLD === 'desert') statics.add(rot(box(0.38, 0.55, seg - 0.05, WD.border, [x, 0.27, z]), 0, angE));
-        else if (WORLD === 'forest') { var lgE = rot(cyl(0.16, 0.18, seg, WD.border, [x, 0.3, z], 7), PI / 2, angE, 0); lgE.rotation.order = 'YXZ'; statics.add(lgE); statics.add(cyl(0.08, 0.08, 0.7, '#5a3d22', [x - Math.sin(angE) * seg / 2, 0.35, z - Math.cos(angE) * seg / 2], 6)); }
-        else {
+        var style = WD.borderStyle || 'hedge', px = x - Math.sin(angE) * seg / 2, pz = z - Math.cos(angE) * seg / 2;
+        if (style === 'hedge') statics.add(rot(box(0.6, 0.62, seg - 0.25, WD.border, [x, 0.31, z]), 0, angE));
+        else if (style === 'adobe') statics.add(rot(box(0.38, 0.55, seg - 0.05, WD.border, [x, 0.27, z]), 0, angE));
+        else if (style === 'logs') { var lgE = rot(cyl(0.16, 0.18, seg, WD.border, [x, 0.3, z], 7), PI / 2, angE, 0); lgE.rotation.order = 'YXZ'; statics.add(lgE); statics.add(cyl(0.08, 0.08, 0.7, '#5a3d22', [px, 0.35, pz], 6)); }
+        else if (style === 'bamboo') {
+          for (var bm = 0; bm < 6; bm++) { var tb = (i + bm / 6) / n; statics.add(cyl(0.05, 0.05, 0.9 + (bm % 3) * 0.12, bm % 2 ? WD.border : '#86a83e', [e[0] + (e[2] - e[0]) * tb, 0.48, e[1] + (e[3] - e[1]) * tb], 5)); }
+          statics.add(rot(box(0.06, 0.06, seg, '#b59b5e', [x, 0.62, z]), 0, angE));
+        } else if (style === 'posts') {
+          statics.add(cyl(0.09, 0.1, 0.9, WD.border, [px, 0.45, pz], 6));
+          statics.add(rot(box(0.035, 0.035, seg, '#d8c8a8', [x, 0.7, z]), 0, angE)); statics.add(rot(box(0.035, 0.035, seg, '#d8c8a8', [x, 0.4, z]), 0, angE));
+        } else if (style === 'railing') {
+          statics.add(cyl(0.04, 0.04, 1.0, WD.border, [px, 0.5, pz], 6));
+          statics.add(rot(box(0.05, 0.05, seg, WD.border, [x, 0.95, z]), 0, angE)); statics.add(rot(box(0.03, 0.03, seg, WD.border, [x, 0.5, z]), 0, angE));
+        } else {
           for (var pk = 0; pk < 5; pk++) { var tt = (i + pk / 5) / n; statics.add(box(0.1, 0.75, 0.05, WD.border, [e[0] + (e[2] - e[0]) * tt, 0.37, e[1] + (e[3] - e[1]) * tt])); }
           statics.add(rot(box(0.05, 0.08, seg, WD.border, [x, 0.5, z]), 0, angE));
         }
@@ -1998,7 +1818,8 @@
     scene.add(h.label);
     h.shadow = blobShadow(0.55);
     scene.add(h.shadow);
-    walkTo(h, [V(0, 0, FARM.maxZ - 1.2)], function () { assign(h, clockNow()); });
+    if (current === 'play') assign(h, now);           // already in the play park: no need to go in through the gate first
+    else walkTo(h, [V(0, 0, FARM.maxZ - 1.2)], function () { assign(h, clockNow()); });
     if (ACTS[current].ring) heroes.forEach(function (o) {
       if (o !== h && o.act === 'dance') goTo(o, ringSlot(o), function () { face(o, ACTS[current].ringCentre); doAct(o, 'dance', 9999, null, clockNow()); });
     });
@@ -2010,10 +1831,12 @@
     h.path = Array.isArray(pts) ? pts.slice() : [pts];
     h.onArrive = then || null;
     h.act = null;
+    h.goal = null;
   }
   function goTo(h, to, then) {
-    h.goal = to.clone().setY(0);
-    walkTo(h, findPath(h.root.position, h.goal, h), then);
+    var goal = to.clone().setY(0);
+    walkTo(h, findPath(h.root.position, goal, h), then);
+    h.goal = goal;
     h.stuckT = 0; h.stuckAt = h.root.position.clone();
   }
   // a spot is taken if another hero is heading there or standing near it
@@ -2535,6 +2358,8 @@
           if (h.stuckAt && h.stuckAt.distanceTo(root.position) < 0.35 && h.goal) {
             var then2 = h.onArrive;
             h.path = findPath(root.position, h.goal, h); h.onArrive = then2;
+          } else if (h.stuckAt && h.stuckAt.distanceTo(root.position) < 0.35 && !h.goal && h.path.length === 1 && h.onArrive) {
+            h.path = []; var cb2 = h.onArrive; h.onArrive = null; cb2();     // a crowd in the way of a plain walk (the gate): good enough, carry on
           }
           h.stuckT = 0; h.stuckAt = root.position.clone();
         }

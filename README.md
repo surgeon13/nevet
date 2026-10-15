@@ -41,6 +41,7 @@ webapp/                      Flask app: dashboard, heroes, garden map, gallery, 
   webapp/static/js/plants3d.js 3D models of every plant, at every growth stage
   webapp/static/assets/plants/catalog.json  the species list (add new plants here)
   webapp/static/js/farm3d.js   the farm: all heroes doing group activities in 3D
+  webapp/static/js/farm-worlds.js  the land around the farm, one per farm setting
   webapp/static/vendor/        Leaflet + Leaflet-Geoman (map drawing), MIT licensed
   webapp/game_stats.py         importable helper for logging game stats
   webapp/logging_config.py     rotating file logging setup
@@ -549,7 +550,7 @@ pinned there, spread out. They show up on the farm right away; without a
 garden map the farm's beds take two or three rows when there are many
 plants. Up to 200 plants at a time.
 
-### Farm settings: green valley, desert oasis, seaside, deep forest
+### Farm settings: nine lands around the farm
 
 The globe button in the farm's top bar picks the land around the farm.
 The choice is saved for this Nevet, so everyone (and the live view) sees
@@ -567,11 +568,30 @@ the same farm; `/farm?world=desert` previews one without saving it.
 - **Deep forest**: hundreds of tall pines and a few broad trees all round,
   ferns, red toadstools, mossy rocks, fallen logs, two deer grazing at the
   forest's edge, and a misty green light.
+- **Snowy mountains**: snow everywhere, pines heavy with snow, snowmen by
+  the play park, a log cabin with smoke from its chimney, snow-capped peaks
+  on the horizon and snow falling.
+- **Jungle**: giant rainforest trees with buttress roots and hanging vines,
+  palms and banana plants, big leafy ground cover and tropical flowers, a
+  waterfall pouring off a cliff into a pool, an old stepped temple ruin and
+  parrots flying over the canopy.
+- **African bushland**: golden tall grass, flat-topped acacias, baobabs,
+  termite mounds and rocky outcrops, giraffes browsing, elephants flapping
+  their ears, zebras grazing, vultures circling and a snow-topped
+  Kilimanjaro far away.
+- **Island lagoon**: the farm is a Pacific island: a white beach ringed with
+  palms, a turquoise lagoon you can see into, surf breaking on the reef,
+  huts on stilts with a boardwalk, an outrigger canoe going round, dolphins
+  leaping, a smoking volcano on a far island and tiki torches lit at night.
+- **City farm**: an urban farm in the middle of town: sidewalks with street
+  lights and trees in planters, a ring road with cars driving round and a
+  zebra crossing, blocks of buildings whose windows light up at night,
+  rooftop gardens and water towers, pigeons, and a GROW LOCAL billboard.
 
 The farm itself (beds, barn, pond, party stage, play park) stays the same in
 every setting, and the play park's border changes with it (a hedge, an adobe
 wall, a white picket fence or logs). More settings can be added in
-`farm3d.js` (`WORLDS` and the scenery builder).
+`static/js/farm-worlds.js` (its `CONFIG` and a scenery function).
 
 ## The farm as a live channel (24/7)
 

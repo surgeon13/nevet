@@ -166,8 +166,9 @@ A Flask app served by waitress on port 8000:
   builds the farm from toon shapes, places each hero with `hero3d.js` and runs the group activities on a
   simulation clock. Static props and each hero's rig parts are merged into
   a few meshes (`NevetHero.merge`) to keep draw calls low on phones.
-  The land around the farm is a setting (`WORLDS` in farm3d.js: classic,
-  desert, seaside, forest) stored as `app_settings.farm_world`, set by
+  The land around the farm is a setting (`static/js/farm-worlds.js`: its
+  `CONFIG` for classic, desert, seaside, forest, snow, jungle, savanna,
+  island and city, and `build()` for the scenery, given farm3d.js's helpers) stored as `app_settings.farm_world`, set by
   `POST /farm/world` and passed as `data.world` (`?world=` previews one);
   it picks the ground, sky, fog, ground cover and the scenery builder, and
   little moving things register a step function in `WORLD_ANIM`. The
