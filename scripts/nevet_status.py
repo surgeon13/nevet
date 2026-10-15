@@ -819,6 +819,121 @@ def garden(n):
         return {"error": str(e)}
 
 
+
+# ---------------------------------------------------------------- station, addresses, the web app's farm data
+PUBLIC_IP_CACHE = BASE / ".update" / "public_ip.json"
+
+
+def read_file(path):
+    try:
+        return Path(path).read_text().strip()
+    except OSError:
+        return None
+
+
+def station():
+    """What the Pi itself looks like right now."""
+    s = {"host": os.uname().nodename}
+    model = read_file("/proc/device-tree/model") or read_file("/sys/firmware/devicetree/base/model")
+    s["model"] = model.replace("\x00", "").replace("Raspberry Pi", "Raspberry Pi").strip() if model else None
+    t = read_file("/sys/class/thermal/thermal_zone0/temp")
+    s["temp"] = int(t) / 1000 if t and t.lstrip("-").isdigit() else None
+    try:
+        s["load"] = os.getloadavg()
+        s["cpus"] = os.cpu_count() or 1
+    except OSError:
+        s["load"] = None
+    mem = {}
+    for line in (read_file("/proc/meminfo") or "").splitlines():
+        k, _, v = line.partition(":")
+        if v.strip().split()[:1]:
+            mem[k] = int(v.split()[0]) * 1024
+    if mem.get("MemTotal"):
+        s["mem"] = (mem["MemTotal"] - mem.get("MemAvailable", mem.get("MemFree", 0)), mem["MemTotal"])
+    thr = run(["vcgencmd", "get_throttled"])           # Raspberry Pi firmware: power and heat problems
+    if thr and "=" in thr:
+        try:
+            v = int(thr.split("=")[1], 16)
+            s["throttled"] = {"now_undervolt": bool(v & 0x1), "now_throttled": bool(v & 0x4),
+                              "past_undervolt": bool(v & 0x10000), "past_throttled": bool(v & 0x40000)}
+        except ValueError:
+            pass
+    return s
+
+
+def public_ip(max_age=900):
+    """The farm's outside (internet) address, asked from the internet at most every 15 minutes."""
+    try:
+        c = json.loads(PUBLIC_IP_CACHE.read_text())
+        if time.time() - c.get("at", 0) < max_age:
+            return c.get("ip"), c.get("at")
+    except (OSError, ValueError):
+        c = {}
+    for url in ("https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com"):
+        try:
+            ip = urllib.request.urlopen(url, timeout=3).read().decode().strip()
+            ipaddress.ip_address(ip)
+        except Exception:
+            continue
+        try:
+            PUBLIC_IP_CACHE.parent.mkdir(parents=True, exist_ok=True)
+            PUBLIC_IP_CACHE.write_text(json.dumps({"ip": ip, "at": time.time()}))
+        except OSError:
+            pass
+        return ip, time.time()
+    return c.get("ip"), c.get("at")                    # offline: the last one we knew, if any
+
+
+def farm_extras():
+    """The web app's own view of today (today.py) and its community numbers."""
+    if not FARM_DB.exists():
+        return None
+    out = {}
+    try:
+        os.environ.setdefault("FARM_DB", str(FARM_DB))
+        import today as today_mod                      # the dashboard's "Today at the farm"
+        rep = today_mod.report(None)
+        out["groups"], out["total"], out["todos"] = rep["groups"], rep["total"], rep["todos"]
+    except Exception as e:                             # keep the screen working whatever happens
+        out["error"] = str(e)
+    try:
+        con = sqlite3.connect(f"file:{FARM_DB}?mode=ro", uri=True, timeout=3)
+        tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        one = lambda sql, *a: con.execute(sql, a).fetchone()[0]
+        week = (date.today() - timedelta(days=6)).isoformat()
+        out["heroes"] = one("SELECT COUNT(*) FROM growers WHERE deleted_at IS NULL") if "growers" in tables else 0
+        out["admins"] = one("SELECT COUNT(*) FROM growers WHERE is_admin = 1 AND deleted_at IS NULL") if "growers" in tables else 0
+        out["active_week"] = one("SELECT COUNT(DISTINCT grower_id) FROM logs WHERE timestamp >= ? AND grower_id IS NOT NULL", week)
+        out["stages"] = con.execute("SELECT COALESCE(life_stage, 'growing'), COUNT(*) FROM assets WHERE asset_type = 'plant' "
+                                    "AND (life_stage IS NULL OR life_stage NOT IN ('harvested','archived')) GROUP BY 1").fetchall()
+        out["bins"] = one("SELECT COUNT(*) FROM assets WHERE asset_type = 'worm_bin' AND (life_stage IS NULL OR life_stage NOT IN ('harvested','archived'))")
+        if "quantities" in tables:
+            g = one("""SELECT COALESCE(SUM(CASE WHEN q.units = 'kg' THEN q.value * 1000 ELSE q.value END), 0)
+                       FROM quantities q JOIN logs ON logs.id = q.log_id
+                       WHERE logs.log_type = 'harvest' AND logs.timestamp >= ? AND q.units IN ('g', 'kg')""", week)
+            out["kg_week"] = round(g / 1000, 1)
+        if "groups" in tables:
+            out["groups_n"] = one("SELECT COUNT(*) FROM groups")
+        if "relationships" in tables:
+            out["connections"] = one("SELECT COUNT(*) FROM relationships WHERE status = 'accepted'") if "status" in {r[1] for r in con.execute("PRAGMA table_info(relationships)")} else one("SELECT COUNT(*) FROM relationships")
+            out["pending"] = one("SELECT COUNT(*) FROM relationships WHERE status = 'pending'") if "status" in {r[1] for r in con.execute("PRAGMA table_info(relationships)")} else 0
+        if "map_features" in tables:
+            out["mapped"] = one("SELECT COUNT(*) FROM map_features WHERE deleted_at IS NULL")
+            out["areas"] = one("SELECT COUNT(*) FROM map_features WHERE deleted_at IS NULL AND kind = 'area'")
+        if "app_settings" in tables:
+            r = con.execute("SELECT value FROM app_settings WHERE key = 'invite_code'").fetchone()
+            out["invite"] = r[0] if r else None
+        con.close()
+    except sqlite3.Error as e:
+        out.setdefault("error", str(e))
+    try:
+        ex = json.loads((BASE / ".update" / "extras.json").read_text())
+        out["extras"] = {k: v for k, v in ex.items() if isinstance(v, dict)}
+    except (OSError, ValueError):
+        out["extras"] = {}
+    return out
+
+
 def git_version():
     return run(["git", "-C", str(REPO), "rev-parse", "--short", "HEAD"]) or "?"
 
@@ -891,23 +1006,85 @@ def render(n):
     heading("System")
     for level, label, value in st.rows:
         P(fit(f" {C.wrap(DOT, *LEVEL_STYLE[level])} {label:<10} {value}", W))
-    addrs = addresses()
-    ts = st.ts
-    if ts and ts.get("state") == "Running" and ts.get("magic") and ts.get("name"):
-        addrs.append((ts["name"], "Tailscale name"))
-    if addrs:
-        P(C.wrap(" Open in a browser:", "grey"))
-        for ip, kind in addrs:
-            url = f"http://{ip}:8000"
-            if len(url) + 4 + len(kind) > W:          # long IPv6 URL: own line, never cut
-                P("   " + C.wrap(url, "cyan", "bold")); P(C.wrap(f"     ({kind})", "grey"))
-            else:
-                P(f"   {C.wrap(url, 'cyan', 'bold')} {C.wrap(kind, 'grey')}")
     hints = [(lv, h) for lv, h in st.issues if h]
     if hints:
         P(C.wrap(" To fix:", "grey"))
         for level, hint in dict.fromkeys(hints):
             out.extend(tip_lines(hint, W, LEVEL_STYLE[level][0]))
+
+
+    # ---- the station: the Pi itself
+    heading("Station")
+    sta = station()
+    P(fit(f" {lbl('Name')} {C.wrap(sta['host'], 'bold')}" + (C.wrap(f" {SEP} {sta['model']}", "grey") if sta.get("model") else ""), W))
+    if sta.get("temp") is not None:
+        tl = "ok" if sta["temp"] < 70 else "warn" if sta["temp"] < 80 else "bad"
+        deg = f"{sta['temp']:.0f}" + ("°C" if UTF8 else " C")
+        P(fit(f" {C.wrap(DOT, *LEVEL_STYLE[tl])} {'CPU temp':<9} {C.wrap(deg, 'bold')}"
+              + (C.wrap(f" {SEP} hot: give it shade and air", "byellow") if tl != "ok" else ""), W))
+    if sta.get("load"):
+        l1 = sta["load"][0]
+        busy = l1 / sta["cpus"]
+        P(fit(f" {C.wrap(DOT, *LEVEL_STYLE['ok' if busy < 0.8 else 'warn' if busy < 1.5 else 'bad'])} {'CPU load':<9} {C.wrap(f'{l1:.2f}', 'bold')}"
+              + C.wrap(f" {SEP} {sta['cpus']} cores {SEP} 15 min {sta['load'][2]:.2f}", "grey"), W))
+    if sta.get("mem"):
+        used, total = sta["mem"]
+        pct = used / total * 100
+        P(fit(f" {C.wrap(DOT, *LEVEL_STYLE['ok' if pct < 80 else 'warn' if pct < 92 else 'bad'])} {'Memory':<9} {C.wrap(f'{pct:.0f}%', 'bold')} used"
+              + C.wrap(f" {SEP} {human_bytes(used)} of {human_bytes(total)}", "grey"), W))
+    th = sta.get("throttled")
+    if th:
+        if th["now_undervolt"] or th["now_throttled"]:
+            P(fit(f" {C.wrap(DOT, *LEVEL_STYLE['bad'])} {'Power':<9} " + C.wrap("too low right now" if th["now_undervolt"] else "slowed down (heat)", "bred")
+                  + C.wrap(f" {SEP} use the official 2.5 A power supply", "grey"), W))
+        elif th["past_undervolt"] or th["past_throttled"]:
+            P(fit(f" {C.wrap(DOT, *LEVEL_STYLE['warn'])} {'Power':<9} dipped since boot" + C.wrap(f" {SEP} check the power supply and cable", "grey"), W))
+        else:
+            P(fit(f" {C.wrap(DOT, *LEVEL_STYLE['ok'])} {'Power':<9} good", W))
+
+    # ---- addresses: home network, outside, Tailscale, public
+    heading("Addresses")
+    addrs = addresses()
+    ts = st.ts
+    lan = [(ip, kind) for ip, kind in addrs if kind != "Tailscale"]
+    tsa = [ip for ip, kind in addrs if kind == "Tailscale"] or (ts.get("ips") if ts and ts.get("state") == "Running" else [])
+    for ip, kind in lan:
+        P(fit(f" {lbl('Home net')} {C.wrap(ip, 'bold')} " + C.wrap(f"({kind})", "grey"), W))
+    if not lan:
+        P(fit(f" {lbl('Home net')} " + C.wrap("no address: not connected to the router", "byellow"), W))
+    gw = gateway()
+    if gw:
+        P(fit(f" {lbl('Router')} {gw}", W))
+    pip, at = public_ip()
+    if pip:
+        P(fit(f" {lbl('Outside')} {C.wrap(pip, 'bold')}" + C.wrap(f" {SEP} the farm's internet address{' (last known)' if at and time.time() - at > 1800 else ''}", "grey"), W))
+    else:
+        P(fit(f" {lbl('Outside')} " + C.wrap("unknown (offline?)", "grey"), W))
+    if tsa:
+        P(fit(f" {lbl('Tailscale')} {C.wrap(tsa[0], 'bold')}" + (C.wrap(f" {SEP} {ts['name']}", "grey") if ts and ts.get("magic") and ts.get("name") else ""), W))
+    elif ts:
+        P(fit(f" {lbl('Tailscale')} " + C.wrap(ts.get("state") or "not running", "grey") + C.wrap(f" {SEP} nevet ts", "cyan"), W))
+    else:
+        P(fit(f" {lbl('Tailscale')} " + C.wrap("not installed", "grey") + C.wrap(f" {SEP} nevet ts", "cyan"), W))
+    fon, furl = funnel_state() if ts and ts.get("state") == "Running" else (None, None)
+    if fon:
+        P(fit(f" {lbl('Public')} {C.wrap(furl, 'bold', 'cyan')}" + C.wrap(f" {SEP} open to everyone", "grey"), W))
+    else:
+        P(fit(f" {lbl('Public')} " + C.wrap("not open to the internet", "grey") + C.wrap(f" {SEP} nevet public on", "cyan"), W))
+    links = [(f"http://{ip}:8000", "home WiFi") for ip, _ in lan]
+    if tsa:
+        links.append((f"http://{tsa[0]}:8000", "your Tailscale devices"))
+        if ts and ts.get("magic") and ts.get("name"):
+            links.append((f"http://{ts['name']}:8000", "Tailscale name"))
+    if fon and furl:
+        links.append((furl, "anyone, anywhere"))
+    if links:
+        P(C.wrap(" Open in a browser:", "grey"))
+        for url, kind in links:
+            if len(url) + 4 + len(kind) > W:
+                P("   " + C.wrap(url, "cyan", "bold")); P(C.wrap(f"     ({kind})", "grey"))
+            else:
+                P(f"   {C.wrap(url, 'cyan', 'bold')} {C.wrap(kind, 'grey')}")
 
     # ---- network: which adapter, how good, last speed test, data moved
     heading("Network")
@@ -1006,6 +1183,60 @@ def render(n):
                 label = ACTION_BY_ID.get(r["log_type"], {}).get("label", r["log_type"].replace("_", " ").capitalize())
                 bar = BAR * max(1, round(bar_w * r["n"] / top_n))
                 P(fit(f" {label:<14}{r['n']:>4} {C.wrap(bar, 'green')}", W))
+
+        fx = farm_extras() or {}
+        if fx.get("heroes") is not None:
+            P(fit(f" {lbl('Active')} {C.wrap(str(fx.get('active_week', 0)), 'bold')} hero{'es' if fx.get('active_week', 0) != 1 else ''} this week"
+                  + C.wrap(f" {SEP} {fx['heroes']} heroes {SEP} {fx.get('admins', 0)} admin{'s' if fx.get('admins', 0) != 1 else ''}", "grey"), W))
+        if fx.get("stages"):
+            names = {"seed": "seeds", "germination": "sprouting", "seedling": "seedlings", "growing": "growing", "mature": "ripe"}
+            parts = [f"{c} {names.get(st_, st_)}" for st_, c in fx["stages"]]
+            if fx.get("bins"):
+                parts.append(f"{fx['bins']} worm bin{'s' if fx['bins'] != 1 else ''}")
+            for k, line in enumerate(textwrap.wrap(f" {SEP} ".join(parts), W - 12)):
+                P(f" {lbl('Plants' if k == 0 else '')} {line}")
+        if fx.get("kg_week"):
+            P(fit(f" {lbl('Harvest')} {C.wrap(str(fx['kg_week']), 'bold')} kg this week", W))
+        bits = []
+        if fx.get("groups_n"):
+            bits.append(f"{C.wrap(str(fx['groups_n']), 'bold')} group{'s' if fx['groups_n'] != 1 else ''}")
+        if fx.get("connections"):
+            bits.append(f"{C.wrap(str(fx['connections']), 'bold')} connection{'s' if fx['connections'] != 1 else ''}")
+        if fx.get("pending"):
+            bits.append(C.wrap(f"{fx['pending']} waiting to confirm", "byellow"))
+        if bits:
+            P(fit(f" {lbl('Community')} " + f" {SEP} ".join(bits), W))
+        if fx.get("mapped"):
+            P(fit(f" {lbl('Map')} {C.wrap(str(fx['mapped']), 'bold')} items {SEP} {fx.get('areas', 0)} areas", W))
+        if fx.get("invite"):
+            P(fit(f" {lbl('Invite')} {C.wrap(fx['invite'], 'bold')}" + C.wrap(f" {SEP} for sign-ups from the internet", "grey"), W))
+        for name, info in sorted((fx.get("extras") or {}).items()):
+            good = info.get("status") in ("up_to_date", "updated")
+            P(fit(f" {C.wrap(DOT, *LEVEL_STYLE['ok' if good else 'warn'])} {name + ' (extra)':<10} {info.get('status', '?').replace('_', ' ')} {SEP} {info.get('version') or '-'}", W))
+
+        heading("Today at the farm")
+        if fx.get("error") and "todos" not in fx:
+            P(C.wrap(f" Couldn't work out today's to-dos: {fx['error']}", "grey"))
+        groups = fx.get("groups") or []
+        if groups:
+            for gr in groups[:6]:
+                cnt = f" ({gr['count']})" if gr["count"] > 1 and not gr["whole"] else ""
+                P(fit(f" {C.wrap(gr['time'], 'grey')} {C.wrap(gr['who'], 'bold', 'cyan')} {gr['verb']} {gr['what']}{cnt}", W))
+            if len(groups) > 6:
+                P(C.wrap(f" and {len(groups) - 6} more", "grey"))
+        else:
+            P(C.wrap(" Nothing logged yet today.", "grey"))
+        todos = fx.get("todos")
+        if todos is not None:
+            if todos:
+                P(C.wrap(" To do:", "grey"))
+                for td in todos:
+                    lv = {"bad": "bad", "warn": "warn"}.get(td["level"], "info")
+                    P(fit(f" {C.wrap(DOT, *LEVEL_STYLE[lv])} {td['text']}", W))
+                    for line in textwrap.wrap(td["detail"], W - 4)[:3]:
+                        P(C.wrap("   " + line, "grey"))
+            else:
+                P(fit(f" {C.wrap(DOT, *LEVEL_STYLE['ok'])} Nothing needs doing right now.", W))
 
         heading(f"Latest {n} garden actions")
         if not g["latest"]:

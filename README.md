@@ -157,13 +157,26 @@ add a line `name  git-url  [branch]` to the config.
 ## Status in the terminal
 
 After `sudo ./install.sh`, type **`nevet`** in any SSH/terminal session for a
-coloured one-screen summary: web app, timelapse, watchdog, updates, camera,
-WiFi, power and disk (with a fix hint for anything wrong), the addresses to
-open the website, the **network** (each WiFi adapter, which one carries the
-internet, router ping, last speed test, data since boot), the **web app
-traffic** (data sent today / yesterday / 7 days, split by photos, 3D files,
-pages and API, home network vs Tailscale), the last 24 hours, the garden
-totals, and the **latest 5 garden actions and system events**.
+coloured one-screen summary:
+
+- **System**: web app, timelapse, watchdog, updates, camera, Tailscale,
+  disk, with a fix hint for anything wrong.
+- **Station**: the Pi's name and model, CPU temperature, CPU load, memory,
+  and whether the power supply has been too weak (under-voltage) or the Pi
+  slowed down from heat.
+- **Addresses**: the home-network address(es), the router, the farm's
+  **outside (internet) address** (checked at most every 15 minutes), the
+  **Tailscale address** and name, the public Funnel address when Nevet is
+  open to everyone, and the links to open the website from each place.
+- **Network**: each WiFi adapter and cable, which one carries the internet,
+  router ping, last speed test, data since boot.
+- **Web app traffic**: data sent today / yesterday / 7 days, by kind and by
+  where visitors came from.
+- **Last 24 hours**, the **garden** (actions, plants by stage, worm bins,
+  active heroes, this week's harvest, groups and connections, map, the
+  invite code, companion repos), **today at the farm** (what was logged
+  today and the to-do list, the same as the dashboard), and the **latest 5
+  garden actions and system events**.
 
 ```bash
 nevet            # summary
@@ -172,6 +185,7 @@ nevet -w         # live view, refreshes every 5 s (Ctrl+C to stop)
 nevet net        # network test: every WiFi adapter, ping + 5 MB download (~30 s)
 nevet net --quick   # same without the download
 nevet ts         # can Nevet be opened from outside? (Tailscale check)
+nevet public on  # open Nevet to everyone (Tailscale Funnel); off / status
 ```
 
 ## Open Nevet from outside (Tailscale)

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-15 (more in the terminal)
+
+- `nevet` shows the **station** (model, CPU temperature and load, memory,
+  power problems), all **addresses** (home network, router, outside/internet
+  address, Tailscale address and name, public Funnel address, with links),
+  the garden's plants by stage, active heroes, harvest, groups, connections,
+  map and invite code, and **today at the farm** with the to-do list.
+
 ## 2026-10-15 (open to everyone)
 
 - `nevet public on | off | status` opens Nevet to the internet through
