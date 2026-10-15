@@ -1201,6 +1201,76 @@ def net_test(quick=False):
 
 
 # ---------------------------------------------------------------- nevet ts
+def funnel_state():
+    """-> (on, url) for Tailscale Funnel on this Pi, or (None, None) if it can't be told."""
+    ts = tailscale_info() or {}
+    raw = run(["tailscale", "funnel", "status", "--json"], timeout=6, any_rc=True)
+    try:
+        j = json.loads(raw) if raw else {}
+    except ValueError:
+        j = None
+    if j is None:
+        return None, None
+    on = any(bool(v) for v in (j.get("AllowFunnel") or {}).values())
+    return on, (f"https://{ts['dns']}/" if ts.get("dns") else None)
+
+
+def public_access(action):
+    """nevet public on|off|status: Nevet on the internet through Tailscale Funnel.
+    Funnel gives the Pi a public https address (https://<name>.<tailnet>.ts.net)
+    without touching the router; the web app keeps listening on port 8000."""
+    P = print
+    if not shutil.which("tailscale"):
+        P("Tailscale isn't installed. First set it up (see `nevet ts` and the README), then run this again.")
+        return 1
+    ts = tailscale_info() or {}
+    if ts.get("state") != "Running":
+        P("Tailscale isn't logged in on this Pi. Run `sudo tailscale up`, then try again (`nevet ts` helps).")
+        return 1
+
+    def tailscale(*args):
+        """Runs `tailscale ...`; on a permission error tries once more with sudo (no password prompt)."""
+        def go(cmd):
+            try:
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                return r.returncode == 0, (r.stdout + r.stderr).strip()
+            except (OSError, subprocess.TimeoutExpired) as e:
+                return False, str(e)
+        ok, out = go(["tailscale", *args])
+        if not ok and any(w in out.lower() for w in ("access denied", "permission", "operator")):
+            ok2, out2 = go(["sudo", "-n", "tailscale", *args])
+            if ok2 or "password" not in out2.lower():
+                return ok2, out2
+        return ok, out
+
+    if action == "on":
+        ok, out = tailscale("funnel", "--bg", "8000")
+        if not ok:
+            P("Couldn't switch Funnel on. Tailscale said:\n  " + out.replace("\n", "\n  "))
+            P("\nIf it mentions a link: open it to allow Funnel and HTTPS for your tailnet, then run `nevet public on` again.")
+            P("If it's about permissions: run `sudo tailscale set --operator=$USER` once, or use sudo.")
+            return 1
+        P(out)
+    elif action == "off":
+        ok, out = tailscale("funnel", "--https=443", "off")
+        if not ok:
+            ok, out = tailscale("funnel", "reset")
+        P("Funnel is off: Nevet is reachable at home and through Tailscale only." if ok else "Couldn't switch Funnel off: " + out)
+        if not ok:
+            return 1
+    on, url = funnel_state()
+    if on is None:
+        P("Couldn't read the Funnel status (old Tailscale version?). `tailscale funnel status` shows it.")
+        return 1
+    if on:
+        P(f"Nevet is open to everyone at: {url}")
+        P("Anyone can open the login page. New players from the internet need the invite code (Account page, admins).")
+        P("Switch it off again with: nevet public off")
+    elif action != "off":
+        P("Nevet is NOT open to the internet. Open it with: nevet public on")
+    return 0
+
+
 def ts_check():
     """Can Nevet be opened from outside the home network? Step-by-step check."""
     W = max(36, min(shutil.get_terminal_size((60, 24)).columns, 66))
@@ -1327,8 +1397,10 @@ def ts_check():
 
 def main():
     ap = argparse.ArgumentParser(prog="nevet", description="Nevet status for the terminal.")
-    ap.add_argument("command", nargs="?", default="status", choices=["status", "net", "ts", "tailscale"],
-                    help="status (default), net (network test) or ts (Tailscale / remote access check)")
+    ap.add_argument("command", nargs="?", default="status", choices=["status", "net", "ts", "tailscale", "public"],
+                    help="status (default), net (network test), ts (Tailscale / remote access check) "
+                         "or public (open Nevet to everyone with Tailscale Funnel: public on | off | status)")
+    ap.add_argument("action", nargs="?", default="status", choices=["on", "off", "status"], help="public: on, off or status")
     ap.add_argument("--quick", action="store_true", help="net: skip the 5 MB download test")
     ap.add_argument("-n", type=int, default=5, metavar="N", help="how many latest actions/events (default 5)")
     ap.add_argument("-w", "--watch", nargs="?", const=5, type=float, metavar="SEC", help="refresh every SEC seconds")
@@ -1345,6 +1417,8 @@ def main():
     if a.command in ("ts", "tailscale"):
         ts_check()
         return
+    if a.command == "public":
+        sys.exit(public_access(a.action))
     if not a.watch:
         print(render(n))
         return

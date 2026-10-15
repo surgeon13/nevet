@@ -25,6 +25,17 @@
     <button type="submit" class="btn btn-primary auth-submit">Change password</button>
   </form>
 
+  {% if invite %}
+  <form method="post" class="auth-section">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <h3>Invite code</h3>
+    <p class="auth-sub">People who reach Nevet from the internet (not your home WiFi or your Tailscale devices) need this code to sign up. Share it with new players.</p>
+    <p class="invite-code" aria-label="Invite code">{{ invite }}</p>
+    <button type="submit" name="action" value="new_invite" class="btn btn-ghost" onclick="return confirm('Make a new code? The old one stops working.');">Make a new code</button>
+  </form>
+  {% endif %}
+  <p class="auth-note">You're connected {{ {'local': 'from the Pi itself', 'lan': 'over the home network', 'tailscale': 'through Tailscale (your own devices)', 'internet': 'from the internet'}[here] }}{% if secure %}, over a secure (https) connection{% endif %}.</p>
+
   <div class="auth-section auth-row">
     <a class="btn btn-ghost" href="{{ url_for('grower_page', grower_id=current_user.id) }}">Back to my hero</a>
     <a class="btn btn-ghost" href="{{ url_for('register') }}">Add a player</a>

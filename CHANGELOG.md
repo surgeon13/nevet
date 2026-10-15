@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-15 (open to everyone)
+
+- `nevet public on | off | status` opens Nevet to the internet through
+  Tailscale Funnel (a public https address, no router changes).
+- Safe to be public: sign-ups from the internet need an invite code (Account
+  page, admins); the wrong-password lockout and traffic stats see each
+  visitor's real address behind the tunnel; secure cookies over https; the
+  stats API refuses the default key from the internet.
+
 ## 2026-10-15 (the party synth: TB-303 + TR-909)
 
 - A little synth docked above the bottom bar in party mode, opened from the

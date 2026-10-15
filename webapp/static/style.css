@@ -628,3 +628,5 @@ dialog.today-dialog { width: min(440px, calc(100vw - 32px)); }
 .bulk-total { margin: 0 0 14px; font-weight: 700; }
 .bulk-form .auth-submit + .auth-submit { margin-top: 8px; }
 @media (max-width: 420px) { .bulk-sub { grid-template-columns: 1fr; } }
+
+.invite-code { margin: 6px 0 10px; font: 800 1.5rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.18em; color: var(--accent); user-select: all; }

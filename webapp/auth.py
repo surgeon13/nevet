@@ -73,6 +73,12 @@ def open_signup():
     return os.environ.get("WEBAPP_OPEN_SIGNUP", "true").strip().lower() not in ("0", "false", "no", "off")
 
 
+def public_signup():
+    """Visitors from the internet can sign up without an invite code only if
+    WEBAPP_PUBLIC_SIGNUP=true (off by default)."""
+    return os.environ.get("WEBAPP_PUBLIC_SIGNUP", "false").strip().lower() in ("1", "true", "yes", "on")
+
+
 class LoginLimiter:
     def __init__(self):
         self._fails = defaultdict(deque)

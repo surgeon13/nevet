@@ -208,3 +208,11 @@ UI-less TB-303 + TR-909 engine, `window.AcidEngine`) and `static/js/party-synth.
 (the docked synth interface, `window.NevetSynth`). The engine's per-step `onStep`
 callback drives the farm's beat clock (`beatsAt()`, phase-locked to the steps), lights
 and dancers; `setViewShift()` lifts the 3D view while the dock is open.
+
+## Public access
+
+`webapp/netaccess.py`: `LocalProxyFix` (WSGI) trusts `X-Forwarded-For/-Proto/-Host` only on
+requests from the Pi itself (Tailscale Funnel's proxy), so `request.remote_addr` is the real
+visitor and `request.is_secure` reflects https; `where(addr)` → local / lan / tailscale /
+internet. Internet sign-ups need `app_settings.invite_code`; the session cookie's Secure flag
+follows `request.is_secure`. `nevet public on|off|status` wraps `tailscale funnel`.

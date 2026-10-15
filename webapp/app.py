@@ -8,6 +8,7 @@ import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
+from flask.sessions import SecureCookieSessionInterface
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, jsonify, abort, g
 from logging_config import setup_logging, LOGS_DIR
 import about
@@ -17,6 +18,7 @@ import farm_db
 import bulk
 import extras
 import garden_map
+import netaccess
 import relations
 import heroes
 import plants
@@ -35,6 +37,17 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     PERMANENT_SESSION_LIFETIME=timedelta(days=30),   # stay logged in for a month
 )
+
+
+class _SessionInterface(SecureCookieSessionInterface):
+    """Session cookies get the Secure flag when the page came over https
+    (e.g. through Tailscale Funnel), but still work over plain http at home."""
+    def get_cookie_secure(self, app):
+        return request.is_secure
+
+
+app.session_interface = _SessionInterface()
+app.wsgi_app = netaccess.LocalProxyFix(app.wsgi_app)      # real visitor addresses behind a tunnel on the Pi
 logger = setup_logging(app)
 av.register(app)
 traffic_counter = traffic.TrafficCounter(farm_db.get_conn).install(app)
@@ -886,9 +899,19 @@ def register():
         return render_template("message.html", title="Sign-up is closed",
                                message="Ask a player who already has an account to add you."), 403
     error, name = None, (request.args.get("name") or "")[:20]
+    # visitors from the internet (not home WiFi or your Tailscale devices) need the invite code
+    need_code = not g.user and not first_account and netaccess.from_internet(request.remote_addr) and not auth.public_signup()
     if request.method == "POST":
         name, error = heroes.validate_name(request.form.get("name"))
         password = request.form.get("password", "")
+        if need_code and not error:
+            code = (request.form.get("invite") or "").strip().upper().replace(" ", "")
+            want = farm_db.get_setting("invite_code") or ""
+            if not want or not hmac.compare_digest(code, want):
+                auth.limiter.fail(request.remote_addr or "?")
+                error = "That invite code isn't right. Ask a player for the code (an admin finds it on the Account page)."
+            elif auth.limiter.blocked(request.remote_addr or "?"):
+                error = "Too many wrong tries. Wait a few minutes and try again."
         if not error:
             error = auth.validate_password(password, request.form.get("confirm", ""))
         if not error:
@@ -914,7 +937,7 @@ def register():
                 return redirect(url_for("grower_page", grower_id=gid, created=1))
             log_in(farm_db.get_grower(gid))
             return redirect(url_for("grower_customize", grower_id=gid, welcome=1))
-    return render_template("register.html", error=error, name=name, first_account=first_account)
+    return render_template("register.html", error=error, name=name, first_account=first_account, need_code=need_code)
 
 
 @app.route("/logout", methods=["POST"])
@@ -926,7 +949,13 @@ def logout():
 @app.route("/account", methods=["GET", "POST"])
 def account():
     message, error = None, None
-    if request.method == "POST":
+    if request.method == "POST" and request.form.get("action") == "new_invite":
+        if not g.user["is_admin"]:
+            abort(403)
+        farm_db.set_setting("invite_code", netaccess.new_invite_code())
+        logger.info("%s made a new invite code", g.user["name"])
+        message = "New invite code made. The old one no longer works."
+    elif request.method == "POST":
         row = farm_db.get_grower(g.user["id"])
         new = request.form.get("new_password", "")
         if not auth.check_password(row["password_hash"], request.form.get("current_password", "")):
@@ -937,7 +966,14 @@ def account():
             farm_db.set_password(row["id"], auth.hash_password(new))
             logger.info("%s changed their password", row["name"])
             message = "Password changed."
-    return render_template("account.html", message=message, error=error)
+    invite = None
+    if g.user["is_admin"]:
+        invite = farm_db.get_setting("invite_code")
+        if not invite:
+            invite = netaccess.new_invite_code()
+            farm_db.set_setting("invite_code", invite)
+    return render_template("account.html", message=message, error=error, invite=invite,
+                           here=netaccess.where(request.remote_addr), secure=request.is_secure)
 
 
 @app.route("/stats")
@@ -961,7 +997,10 @@ def api_logs():
 
 @app.route("/api/stats", methods=["POST"])
 def api_add_stats():
-    if request.headers.get("X-API-Key") != os.environ.get("WEBAPP_API_KEY", "changeme-api-key"):
+    key = os.environ.get("WEBAPP_API_KEY", "changeme-api-key")
+    sent = request.headers.get("X-API-Key", "")
+    default_from_outside = key == "changeme-api-key" and netaccess.where(request.remote_addr) == "internet"
+    if not hmac.compare_digest(sent, key) or default_from_outside:
         logger.warning("Rejected /api/stats call from %s (bad API key)", request.remote_addr)
         abort(401)
     data = request.get_json(force=True, silent=True) or {}

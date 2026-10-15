@@ -202,6 +202,39 @@ console, open the Pi and choose **Disable key expiry**).
 The watchdog restarts `tailscaled` if it stops and logs when Tailscale
 goes online or gets logged out; `nevet` shows a Tailscale row.
 
+## Open Nevet to everyone (Tailscale Funnel)
+
+Tailscale (above) is private: only your own devices get in. To let anyone
+open Nevet from anywhere, like friends, volunteers or other gardens, switch on
+**Tailscale Funnel**. It gives the Pi a public https address
+(`https://raspi03b.<your-tailnet>.ts.net`), with no router changes and no
+open ports at home:
+
+```bash
+nevet public on        # open Nevet to the internet; prints the address
+nevet public status    # is it open, and where
+nevet public off       # back to home + Tailscale only
+```
+
+The first time, Tailscale may print a link to allow Funnel and HTTPS for
+your tailnet: open it, click allow, and run `nevet public on` again. If it
+complains about permissions, run `sudo tailscale set --operator=$USER` once.
+
+What changes when Nevet is public:
+
+- Everyone needs to **log in**, as before; nothing is visible without an
+  account.
+- People signing up **from the internet** need the **invite code**. An
+  admin finds it on the Account page and can make a new one at any time (the
+  old one stops working). At home and on your Tailscale devices no code is
+  needed. To let anyone join without a code, set `WEBAPP_PUBLIC_SIGNUP=true`.
+- Wrong passwords are counted per visitor (their real address, not the
+  tunnel's), so the lockout still works.
+- Over https the login cookie is marked secure; at home plain http keeps
+  working.
+- The stats API refuses the default key from the internet: set your own
+  `WEBAPP_API_KEY` if other machines post stats over the internet.
+
 ## Network and the USB WiFi antenna
 
 The Pi 3B's built-in WiFi is 2.4 GHz only with a tiny antenna. A USB WiFi
