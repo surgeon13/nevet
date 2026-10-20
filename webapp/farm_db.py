@@ -203,6 +203,86 @@ def get_conn():
     rel_cols = {r[1] for r in conn.execute("PRAGMA table_info(relationships)")}
     if "status" not in rel_cols:
         conn.execute("ALTER TABLE relationships ADD COLUMN status TEXT NOT NULL DEFAULT 'accepted'")
+    # Events (added later, see events.py): parties, festivals and gatherings on the farm,
+    # who's coming, volunteer tasks, check-ins, walk-in counts, a live log and feedback.
+    # An event's own map (stage, food, parking...) lives in map_features with its event_id.
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            kind TEXT NOT NULL DEFAULT 'gathering',
+            starts_at TEXT NOT NULL,
+            ends_at TEXT,
+            place TEXT,
+            description TEXT,
+            capacity INTEGER,
+            farm_act TEXT,
+            status TEXT NOT NULL DEFAULT 'planned',
+            created_by INTEGER,
+            created_at TEXT NOT NULL,
+            updated_at TEXT,
+            deleted_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_events_start ON events(starts_at);
+        CREATE TABLE IF NOT EXISTS event_rsvps (
+            event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+            grower_id INTEGER NOT NULL,
+            answer TEXT NOT NULL,
+            guests INTEGER NOT NULL DEFAULT 0,
+            bring TEXT,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (event_id, grower_id)
+        );
+        CREATE TABLE IF NOT EXISTS event_tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            needed INTEGER NOT NULL DEFAULT 1,
+            done INTEGER NOT NULL DEFAULT 0,
+            created_by INTEGER,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS event_task_people (
+            task_id INTEGER NOT NULL REFERENCES event_tasks(id) ON DELETE CASCADE,
+            grower_id INTEGER NOT NULL,
+            PRIMARY KEY (task_id, grower_id)
+        );
+        CREATE TABLE IF NOT EXISTS event_checkins (
+            event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+            grower_id INTEGER NOT NULL,
+            at TEXT NOT NULL,
+            by_id INTEGER,
+            PRIMARY KEY (event_id, grower_id)
+        );
+        CREATE TABLE IF NOT EXISTS event_headcount (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+            delta INTEGER NOT NULL,
+            at TEXT NOT NULL,
+            by_id INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS event_notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+            grower_id INTEGER,
+            at TEXT NOT NULL,
+            text TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS event_feedback (
+            event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+            grower_id INTEGER NOT NULL,
+            rating INTEGER NOT NULL,
+            comment TEXT,
+            at TEXT NOT NULL,
+            PRIMARY KEY (event_id, grower_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_event_notes ON event_notes(event_id, at);
+        CREATE INDEX IF NOT EXISTS idx_event_heads ON event_headcount(event_id, at);
+    """)
+    map_cols = {r[1] for r in conn.execute("PRAGMA table_info(map_features)")}
+    if "event_id" not in map_cols:
+        conn.execute("ALTER TABLE map_features ADD COLUMN event_id INTEGER")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_map_features_event ON map_features(event_id)")
     return conn
 
 
@@ -631,6 +711,13 @@ def purge_hero(grower_id):
         conn.execute("UPDATE map_features SET updated_by = NULL WHERE updated_by = ?", (grower_id,))
         conn.execute("DELETE FROM relationships WHERE a_id = ? OR b_id = ?", (grower_id, grower_id))
         conn.execute("DELETE FROM group_members WHERE grower_id = ?", (grower_id,))
+        for table in ("event_rsvps", "event_task_people", "event_checkins", "event_feedback"):
+            conn.execute(f"DELETE FROM {table} WHERE grower_id = ?", (grower_id,))
+        conn.execute("UPDATE event_notes SET grower_id = NULL WHERE grower_id = ?", (grower_id,))
+        conn.execute("UPDATE event_headcount SET by_id = NULL WHERE by_id = ?", (grower_id,))
+        conn.execute("UPDATE event_checkins SET by_id = NULL WHERE by_id = ?", (grower_id,))
+        conn.execute("UPDATE events SET created_by = NULL WHERE created_by = ?", (grower_id,))
+        conn.execute("UPDATE event_tasks SET created_by = NULL WHERE created_by = ?", (grower_id,))
         conn.execute("DELETE FROM growers WHERE id = ?", (grower_id,))
         conn.commit()
     conn.close()

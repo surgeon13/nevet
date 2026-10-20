@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Nevet — Garden map{% endblock %}
+{% block title %}Nevet — {{ (event.title ~ " · event map") if event else "Garden map" }}{% endblock %}
 {% block head %}
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
@@ -10,7 +10,13 @@
 {% block fab %}{% endblock %}
 {% block content %}
 <div class="map-shell" id="map-shell">
-  <div id="garden-map" class="garden-map" role="application" aria-label="Garden map"></div>
+  <div id="garden-map" class="garden-map{% if event %} is-event{% endif %}" role="application" aria-label="{{ 'Event map: ' ~ event.title if event else 'Garden map' }}"></div>
+  {% if event %}
+  <a class="map-event-chip" href="{{ url_for('event_page', event_id=event.id) }}" title="Back to the event">
+    <svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    <span>{{ event.kind_info.emoji }} {{ event.title }}</span>
+  </a>
+  {% endif %}
 
   <!-- place search (OpenStreetMap Nominatim) -->
   <form class="map-search" id="map-search" role="search" autocomplete="off">
@@ -29,7 +35,7 @@
     <button type="button" class="map-tool" id="map-locate" title="My location" aria-label="My location">
       <svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2" class="fill"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
     </button>
-    <button type="button" class="map-tool" id="map-home" title="Back to the garden" aria-label="Back to the garden">
+    <button type="button" class="map-tool" id="map-home" title="{{ 'Show the whole event' if event else 'Back to the garden' }}" aria-label="{{ 'Show the whole event' if event else 'Back to the garden' }}">
       <svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7M5.5 9.5V20h13V9.5M10 20v-5.5h4V20"/></svg>
     </button>
   </div>
@@ -49,7 +55,7 @@
   <div class="map-bar" id="map-bar">
     <button type="button" class="map-bar-btn" id="open-list">
       <svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1" class="fill"/><circle cx="4.5" cy="12" r="1" class="fill"/><circle cx="4.5" cy="18" r="1" class="fill"/></svg>
-      Garden <span class="map-count" id="map-count">0</span>
+      {{ 'Event' if event else 'Garden' }} <span class="map-count" id="map-count">0</span>
     </button>
     <button type="button" class="map-bar-btn primary" id="open-add">
       <svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>

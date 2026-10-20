@@ -2062,7 +2062,8 @@
     return V(PARTY.c.x + (i - (cols - 1) / 2) * spX * 0.92 + stagger * 0.5 + extra, 0, PARTY.c.z + 0.3 + (j - (rows - 1) / 2) * spZ + extra * 0.5);
   }
   var ORDER = ['harvest', 'water', 'plant', 'animals', 'play', 'campfire', 'party'];
-  var current = D.start && ACTS[D.start] ? D.start : 'harvest';
+  var EVENT = D.event && ACTS[D.event.act] ? D.event : null;      // an event on the farm right now (events.py): the heroes join in
+  var current = D.start && ACTS[D.start] ? D.start : EVENT ? EVENT.act : 'harvest';
   var ringTurn = 0;
   function ringRadius() { return Math.max(2.9, heroes.length * 1.5 / TAU); }   // about 1.5 units between neighbours
   function ringSlot(h) {
@@ -2305,7 +2306,7 @@
   }
 
   // ---------------------------------------------------------------- switching
-  var auto = !D.start, actStarted = 0, AUTO_DUR = { harvest: 50, water: 45, plant: 45, animals: 45, play: 60, campfire: 40, party: 75 };
+  var auto = !D.start && !EVENT, actStarted = 0, AUTO_DUR = { harvest: 50, water: 45, plant: 45, animals: 45, play: 60, campfire: 40, party: 75 };
   var nightTarget = 0, night = 0;
   function setActivity(name, now, byUser) {
     if (!ACTS[name]) return;
@@ -3237,7 +3238,7 @@
     ui.sound.classList.toggle('active', on); ui.sound.setAttribute('aria-pressed', on);
   });
   function updateUI() {
-    if (ui.name) ui.name.textContent = ACTS[current].name;
+    if (ui.name) ui.name.textContent = actTitle();
     ui.chips.forEach(function (c) { c.classList.toggle('active', c.dataset.act === current); c.setAttribute('aria-pressed', c.dataset.act === current); });
     if (ui.auto) { ui.auto.classList.toggle('active', auto); ui.auto.setAttribute('aria-pressed', auto); }
     if (ui.sound) ui.sound.hidden = current !== 'party';
@@ -3292,7 +3293,7 @@
       tvClockAt = now + 1;
       var d = new Date();
       if (tvEl.clock) tvEl.clock.textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      if (tvEl.act) tvEl.act.textContent = ACTS[current].name + (follow ? ' · ' + follow.name : '');
+      if (tvEl.act) tvEl.act.textContent = actTitle() + (follow ? ' · ' + follow.name : '');
     }
     if (!follow && now > tvFollowAt) {                 // the camera finds someone busy and stays with them a while
       var busy = heroes.filter(function (h) { return h.act && h.act !== 'idle'; });
@@ -3328,14 +3329,16 @@
     var exitT = null;
     document.addEventListener('pointerdown', function () { if (!tvEl.exit) return; tvEl.exit.hidden = false; clearTimeout(exitT); exitT = setTimeout(function () { tvEl.exit.hidden = true; }, 4000); });
     var hr0 = new Date().getHours();
-    if (!D.start) setActivity(hr0 >= 20 || hr0 < 6 ? 'campfire' : 'harvest', clockNow(), false);
+    if (!D.start && !EVENT) setActivity(hr0 >= 20 || hr0 < 6 ? 'campfire' : 'harvest', clockNow(), false);
   }
 
   // ---------------------------------------------------------------- loop
   var clock = new THREE.Clock(), last = 0, nextSpawn = 0.4, running = true;
   document.addEventListener('visibilitychange', function () { running = !document.hidden; if (running) { last = clock.getElapsedTime(); loop(); } });
   // the next activity when it changes by itself; the live (TV) view follows the real clock: work by day, campfire and party at night
+  function actTitle() { return EVENT && current === EVENT.act ? EVENT.emoji + ' ' + EVENT.title + ' · ' + ACTS[current].name : ACTS[current].name; }
   function nextAuto() {
+    if (EVENT && TV) return EVENT.act;                // the live view stays with the event while it's on
     var list = ORDER;
     if (TV) { var hr = new Date().getHours(); list = hr >= 20 || hr < 6 ? ['campfire', 'party'] : ['harvest', 'water', 'animals', 'play', 'plant']; }
     var i = list.indexOf(current);

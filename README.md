@@ -36,6 +36,7 @@ webapp/                      Flask app: dashboard, heroes, garden map, gallery, 
   webapp/relations.py          relationship kinds (parent, spouse, sibling...) and group types
   webapp/bulk.py               "olive x 5" lists -> many plants at once, spread over a bed
   webapp/timeline.py           the farm's story, day by day, for the Time page
+  webapp/events.py             events: parties, festivals and gatherings, and the data they gather
   webapp/today.py              today's actions + to-dos for the dashboard
   webapp/plants.py             plant species catalog + "which plant is this?" from its name
   webapp/static/js/plants3d.js 3D models of every plant, at every growth stage
@@ -617,6 +618,50 @@ To stream it to YouTube or Twitch, open the live view on a computer running
 OBS (as a browser source or a captured window) and stream from there; the
 Pi 3B can't render and encode video itself.
 
+## Events (parties, festivals and gatherings)
+
+**Events** on the dashboard (it took the place of Stats; the game stats page
+is still at `/stats`, linked from the bottom of the events list) is where
+the farm plans its parties, festivals, harvest festivals, workshops,
+volunteer days, markets, kids' days and campfire nights, and keeps what
+happened at them.
+
+- **Plan one**: name, kind, day and time, where, a description, how many
+  people fit, and what the heroes on the 3D farm do meanwhile (party,
+  campfire, harvest, play park...). Whoever creates it (and the admin) can
+  edit, cancel or delete it.
+- **Map the surroundings**: every event has its own map on top of the
+  garden map (the garden shows faded underneath): draw the stage, dance
+  floor, food court, market stalls, camping, parking, kids' area, chill-out
+  and keep-out areas; walkways, the emergency route, barriers, queue lines
+  and power or sound cables; and pin the entrance, info point, stage/DJ,
+  speakers, food stalls, bar, drinking water, toilets, first aid, campfire,
+  tents, power, bins, photo spot and meeting point. Areas and lengths are
+  measured as you draw.
+- **Who's coming**: everyone answers Going / Maybe / Can't come, with how
+  many guests (people without a hero) and what they'll bring; a bar shows
+  how full it is when there's a capacity.
+- **Volunteers**: the organizer lists the jobs (setting up, sound, cooking,
+  the gate, cleaning up) with how many people each needs; heroes sign up,
+  and jobs get ticked off.
+- **On the day**: "I'm here" check-ins (the organizer can check people in
+  too), a big +/− walk-in counter for the gate that counts without
+  reloading the page, and a live log of what's happening.
+- **Afterwards**: 1-5 star feedback with comments, and the farm camera's
+  photos from those hours.
+- **The data**: expected vs. came, the most people there at once, how many
+  of those who said "going" checked in, the rating, volunteers, mapped
+  area, a chart of people there every 15 minutes, and downloads: everyone
+  in a CSV (opens in Excel, Hebrew names included), everything in JSON
+  (answers, tasks, check-ins, every gate tap with its time, the log,
+  feedback, photos and the map), and the event map as GeoJSON.
+
+Events also show up elsewhere: **Today at the farm** says when one is on
+today, tomorrow or right now (and asks if you're coming), the dashboard
+node shows what's next, the **Time** story gets a page for each event that
+took place, and while an event is on, the **3D farm** (and its live view)
+joins in with the event's activity and name.
+
 ## Our farm story (the Time tab)
 
 **Time** on the dashboard opens the farm's story as a 3D love story in green
@@ -743,6 +788,9 @@ over a secure link (https): see "Phone location on the map" in
 `docs/TROUBLESHOOTING.md`.
 
 ## Game stats
+
+The game stats page (`/stats`) is no longer a dashboard node (Events took its
+place); it's linked from the bottom of the Events list.
 
 `webapp/game_stats.py` is a small helper for logging XP / time played /
 compost / credits / plant growth to the same SQLite DB the web app reads:

@@ -12,6 +12,11 @@ Kinds of map items:
 - asset (Point):      one of the garden's plants / worm bins (asset_id)
 
 Deleting is a soft delete (deleted_at), so it can be undone.
+
+Events (events.py) get a map of their own on top of the garden map: the
+same table with event_id set, and their own types (EVENT_CATEGORIES:
+stage, dance floor, parking, food, first aid...). Plant pins are only on
+the garden map.
 """
 import json
 import math
@@ -63,6 +68,49 @@ CATEGORIES = {
         {"id": "worm_bin", "label": "Worm bin", "color": "#8d6e52", "icon": "worm"},
     ],
 }
+# An event's map: what goes where for a party, festival or gathering.
+EVENT_CATEGORIES = {
+    "area": [
+        {"id": "stage", "label": "Stage area", "color": "#c2185b"},
+        {"id": "dance", "label": "Dance floor", "color": "#8e44ad"},
+        {"id": "food", "label": "Food court", "color": "#e69138"},
+        {"id": "market", "label": "Market stalls", "color": "#d9a400"},
+        {"id": "camping", "label": "Camping / tents", "color": "#3f7d3a"},
+        {"id": "parking", "label": "Parking", "color": "#6b7480"},
+        {"id": "kids", "label": "Kids' area", "color": "#f06292"},
+        {"id": "chill", "label": "Chill-out / shade", "color": "#6aa6b0"},
+        {"id": "workshop", "label": "Workshop area", "color": "#5f9e4f"},
+        {"id": "backstage", "label": "Backstage / crew", "color": "#455a64"},
+        {"id": "nogo", "label": "Keep out", "color": "#d9534f"},
+        {"id": "other", "label": "Other area", "color": "#9aa39a"},
+    ],
+    "path": [
+        {"id": "walk", "label": "Walkway", "color": "#b08d57"},
+        {"id": "emergency", "label": "Emergency route", "color": "#d9534f"},
+        {"id": "barrier", "label": "Barrier / fence", "color": "#6d5a46"},
+        {"id": "cable", "label": "Power / sound cable", "color": "#f2b33d"},
+        {"id": "queue", "label": "Queue line", "color": "#8e44ad"},
+        {"id": "other", "label": "Other line", "color": "#8a8f8a"},
+    ],
+    "point": [
+        {"id": "entrance", "label": "Entrance / tickets", "color": "#4c9a5b", "icon": "gate"},
+        {"id": "info", "label": "Info point", "color": "#3d85c6", "icon": "info"},
+        {"id": "stage", "label": "Stage / DJ", "color": "#c2185b", "icon": "music"},
+        {"id": "speaker", "label": "Speakers", "color": "#8e44ad", "icon": "speaker"},
+        {"id": "food", "label": "Food stall", "color": "#e69138", "icon": "food"},
+        {"id": "bar", "label": "Drinks / bar", "color": "#d9a400", "icon": "cup"},
+        {"id": "water", "label": "Drinking water", "color": "#3d85c6", "icon": "drop"},
+        {"id": "toilets", "label": "Toilets", "color": "#6b7480", "icon": "wc"},
+        {"id": "first_aid", "label": "First aid", "color": "#d9534f", "icon": "aid"},
+        {"id": "fire", "label": "Campfire", "color": "#f2832c", "icon": "fire"},
+        {"id": "tent", "label": "Tent", "color": "#3f7d3a", "icon": "tent"},
+        {"id": "power", "label": "Power", "color": "#f2b33d", "icon": "bolt"},
+        {"id": "bins", "label": "Bins / recycling", "color": "#5f9e4f", "icon": "recycle"},
+        {"id": "photo", "label": "Photo spot", "color": "#c27ba0", "icon": "camera"},
+        {"id": "meet", "label": "Meeting point", "color": "#e8473c", "icon": "star"},
+        {"id": "note", "label": "Note", "color": "#d9534f", "icon": "pin"},
+    ],
+}
 PALETTE = ["#5f9e4f", "#8fbf6a", "#3f7d3a", "#9bbf3b", "#e69138", "#d9a400",
            "#c27ba0", "#d9534f", "#5b9bd5", "#6aa6b0", "#8d6e52", "#9aa39a"]
 NAME_MAX, NOTES_MAX, MAX_POINTS = 60, 500, 2000
@@ -77,8 +125,8 @@ def _now():
     return datetime.now().isoformat(timespec="seconds")
 
 
-def category(kind, cat_id):
-    return next((c for c in CATEGORIES.get(kind, []) if c["id"] == cat_id), None)
+def category(kind, cat_id, event=False):
+    return next((c for c in (EVENT_CATEGORIES if event else CATEGORIES).get(kind, []) if c["id"] == cat_id), None)
 
 
 # ---------------------------------------------------------------- geometry
@@ -149,15 +197,17 @@ def length_m(geom):
 
 # ---------------------------------------------------------------- validation
 
-def clean(data, existing=None):
-    """Validates a create (existing=None) or update payload.
-    Returns (fields_dict, error_message_or_None)."""
+def clean(data, existing=None, event_id=None):
+    """Validates a create (existing=None) or update payload, for the garden
+    map or (event_id) an event's map. Returns (fields_dict, error_message_or_None)."""
     if not isinstance(data, dict):
         return {}, "Send the map item as JSON."
     out = {}
     kind = existing["kind"] if existing else data.get("kind")
-    if kind not in KINDS:
+    if kind not in KINDS or (event_id and kind == "asset"):
         return {}, "Unknown kind of map item."
+    if event_id and not existing:
+        out["event_id"] = event_id
     if not existing:
         out["kind"] = kind
     if kind == "asset":
@@ -165,7 +215,7 @@ def clean(data, existing=None):
         data = {k: v for k, v in data.items() if k not in ("category", "name", "color")}
     elif "category" in data or not existing:
         cat = data.get("category") or (existing["category"] if existing else None)
-        if not category(kind, cat):
+        if not category(kind, cat, bool(event_id)):
             return {}, "Pick a type from the list."
         out["category"] = cat
     if kind != "asset" and ("name" in data or not existing):
@@ -215,9 +265,15 @@ _SELECT = """
 """
 
 
-def list_features():
+def _which(event_id):
+    return ("f.event_id = ?", (event_id,)) if event_id else ("f.event_id IS NULL", ())
+
+
+def list_features(event_id=None):
+    """The garden map's items, or one event's."""
+    where, args = _which(event_id)
     conn = farm_db.get_conn()
-    rows = conn.execute(_SELECT + " WHERE f.deleted_at IS NULL ORDER BY f.kind = 'area' DESC, f.id").fetchall()
+    rows = conn.execute(_SELECT + f" WHERE f.deleted_at IS NULL AND {where} ORDER BY f.kind = 'area' DESC, f.id", args).fetchall()
     conn.close()
     return rows
 
@@ -237,10 +293,11 @@ def asset_pinned(asset_id):
     return bool(row)
 
 
-def recently_deleted(limit=10):
+def recently_deleted(limit=10, event_id=None):
+    where, args = _which(event_id)
     conn = farm_db.get_conn()
-    rows = conn.execute(_SELECT + " WHERE f.deleted_at IS NOT NULL ORDER BY f.deleted_at DESC, f.id DESC LIMIT ?",
-                        (limit,)).fetchall()
+    rows = conn.execute(_SELECT + f" WHERE f.deleted_at IS NOT NULL AND {where} ORDER BY f.deleted_at DESC, f.id DESC LIMIT ?",
+                        args + (limit,)).fetchall()
     conn.close()
     return rows
 
@@ -258,10 +315,10 @@ def create_feature(fields, user_id):
             conn.close()
             return pin["id"]
     cur = conn.execute(
-        "INSERT INTO map_features (kind, category, name, notes, color, geometry, asset_id, created_by, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO map_features (kind, category, name, notes, color, geometry, asset_id, event_id, created_by, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (fields["kind"], fields.get("category"), fields.get("name") or "", fields.get("notes"),
-         fields.get("color"), json.dumps(fields["geometry"]), fields.get("asset_id"), user_id, _now()))
+         fields.get("color"), json.dumps(fields["geometry"]), fields.get("asset_id"), fields.get("event_id"), user_id, _now()))
     conn.commit()
     new_id = cur.lastrowid
     conn.close()
@@ -370,7 +427,10 @@ def feature_dict(row):
         props.update(asset_id=row["asset_id"], name=row["asset_name"] or "", category=row["asset_type"],
                      variety=row["asset_variety"] or "", stage=row["asset_stage"] or "",
                      owner=row["asset_owner"] or "")
-    cat = category(kind, props["category"])
+    ev = row["event_id"] if "event_id" in row.keys() else None
+    if ev:
+        props["event_id"] = ev
+    cat = category(kind, props["category"], bool(ev))
     props["category_label"] = cat["label"] if cat else ""
     if not props["color"] and cat:
         props["color"] = cat["color"]
@@ -418,7 +478,7 @@ def farm_layout(rows=None):
     return {"features": out, "size": [round(max(xs) - min(xs), 2), round(max(zs) - min(zs), 2)]}
 
 
-def feature_collection(rows=None, garden_name="Nevet garden"):
-    rows = list_features() if rows is None else rows
+def feature_collection(rows=None, garden_name="Nevet garden", event_id=None):
+    rows = list_features(event_id) if rows is None else rows
     return {"type": "FeatureCollection", "name": garden_name,
             "features": [feature_dict(r) for r in rows]}

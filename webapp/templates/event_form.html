@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Nevet — {{ 'Edit event' if ev else 'New event' }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='events.css') }}">{% endblock %}
+{% block content %}
+<div class="ev-formpage">
+  <div class="ev-head">
+    <div>
+      <h2>{{ 'Edit ' ~ ev.title if ev else 'New event' }}</h2>
+      <p class="muted">{{ 'Changes show for everyone right away.' if ev else 'You can map it, add volunteer tasks and invite people once it exists.' }}</p>
+    </div>
+  </div>
+  {% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="{{ url_for('event_edit', event_id=ev.id) if ev else url_for('events_page') }}" class="ev-fields">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label>Name
+      <input type="text" name="title" maxlength="80" required value="{{ form.title or '' }}" placeholder="e.g. Spring equinox party">
+    </label>
+    <fieldset class="ev-fields" style="border: 0; padding: 0; margin: 0;">
+      <legend style="font-size: 0.88rem; font-weight: 600; margin-bottom: 5px;">What kind of event</legend>
+      <div class="ev-kinds">
+        {% for k in kinds %}
+        <label><input type="radio" name="kind" value="{{ k[0] }}" {% if (form.kind or 'party') == k[0] %}checked{% endif %}><span aria-hidden="true">{{ k[2] }}</span>{{ k[1] }}</label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <div class="ev-row">
+      <label>Day <input type="date" name="date" required value="{{ form.date or '' }}"></label>
+      <label>Starts <input type="time" name="time" value="{{ form.time or '18:00' }}"></label>
+    </div>
+    <div class="ev-row">
+      <label>Ends on <small>(leave empty for the same day)</small><input type="date" name="end_date" value="{{ form.end_date or '' }}"></label>
+      <label>Ends at <small>(optional)</small><input type="time" name="end_time" value="{{ form.end_time or '' }}"></label>
+    </div>
+    <label>Where <small>On the farm, or anywhere else</small>
+      <input type="text" name="place" maxlength="120" value="{{ form.place or '' }}" placeholder="e.g. The big lawn by the pond">
+    </label>
+    <label>About it <small>What's planned, what to bring, how to get there</small>
+      <textarea name="description" rows="5" maxlength="2000">{{ form.description or '' }}</textarea>
+    </label>
+    <div class="ev-row">
+      <label>How many people fit <small>(optional)</small><input type="number" name="capacity" min="0" max="100000" value="{{ form.capacity or '' }}" placeholder="e.g. 60"></label>
+      <label>On the 3D farm meanwhile <small>What the heroes do</small>
+        <select name="farm_act">
+          <option value="">Fits the kind of event</option>
+          {% for v, t in acts %}<option value="{{ v }}" {% if form.farm_act == v %}selected{% endif %}>{{ t }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="ev-form-actions">
+      <a class="btn btn-ghost" href="{{ url_for('event_page', event_id=ev.id) if ev else url_for('events_page') }}">Cancel</a>
+      <button type="submit" class="btn btn-primary">{{ 'Save' if ev else 'Create event' }}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

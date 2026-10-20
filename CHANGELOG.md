@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-20 (events)
+
+- **Events** replace Stats on the dashboard: plan parties, festivals and
+  gatherings on the farm, with RSVPs (guests, what you'll bring), volunteer
+  tasks, check-ins, a walk-in counter for the gate, a live log, feedback,
+  the camera's photos from the event, a numbers card with an arrivals chart,
+  and CSV / JSON / GeoJSON downloads.
+- Every event has its **own map** over the garden map: stage, dance floor,
+  food, camping, parking, keep-out areas, walkways, emergency route, cables,
+  entrance, toilets, first aid, water, power and more.
+- Events show in Today at the farm, on the Time story, and on the 3D farm
+  while they're on. The game stats page is still at `/stats`.
+
 ## 2026-10-15 (five more farm settings)
 
 - New farm settings: **snowy mountains** (snowy pines, snowmen, a log

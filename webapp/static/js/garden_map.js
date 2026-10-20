@@ -4,13 +4,17 @@
  *
  * Kinds of map items: area (beds, zones), path (walkways, irrigation),
  * point (tap, compost, tree...), asset (a plant / worm bin pin).
+ *
+ * The same page maps an event (/events/<id>/map, D.event set): the event's
+ * own areas, lines and points with event types (stage, food, parking, first
+ * aid...), drawn over the garden map, which is shown faded (D.background).
  */
 (function () {
   'use strict';
   var D = window.NEVET_MAP;
   if (!D || typeof L === 'undefined') return;
   var CSRF = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
-  var CATS = D.categories, PALETTE = D.palette;
+  var CATS = D.categories, PALETTE = D.palette, EV = D.event || null;
 
   function $(id) { return document.getElementById(id); }
   var shell = $('map-shell'), mapEl = $('garden-map'), sheet = $('map-sheet'), sheetBody = $('sheet-body');
@@ -56,7 +60,19 @@
     shape: '<path d="M4 18l5-12 6 4 5-3"/><rect x="2.5" y="16.5" width="3" height="3" rx=".6"/><rect x="7.5" y="4.5" width="3" height="3" rx=".6"/><rect x="13.5" y="8.5" width="3" height="3" rx=".6"/><rect x="18.5" y="5.5" width="3" height="3" rx=".6"/>',
     move: '<path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5"/>',
     open: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
-    plus: '<path d="M12 5v14M5 12h14"/>'
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><circle cx="12" cy="7.8" r="1" class="fill"/>',
+    music: '<path d="M9 17.5V6l10-2v11.5"/><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="15.5" r="2.5"/>',
+    speaker: '<rect x="6" y="3" width="12" height="18" rx="2"/><circle cx="12" cy="14.5" r="3.2"/><circle cx="12" cy="7.3" r="1.2" class="fill"/>',
+    food: '<path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M16 3c-2 1.5-2.5 4-2.5 7h3v11M16.5 3v18"/>',
+    cup: '<path d="M6 4h12l-1.5 15a2 2 0 0 1-2 1.8h-5a2 2 0 0 1-2-1.8zM6.6 9h10.8"/>',
+    wc: '<circle cx="7.5" cy="5" r="1.6"/><circle cx="16.5" cy="5" r="1.6"/><path d="M5.5 9h4l.5 6h-1.2l-.3 6h-2l-.3-6H5zM16.5 8.5l2.8 7.5h-1.8V21h-2v-5h-1.8z"/>',
+    aid: '<rect x="3.5" y="5.5" width="17" height="14" rx="2.5"/><path d="M12 9v7M8.5 12.5h7M9 5.5V4h6v1.5"/>',
+    fire: '<path d="M12 21c-3.6 0-6-2.4-6-5.6 0-3.3 2.6-4.9 3.5-8.4 1.6 1.3 2.2 2.8 2.2 4.4 1-.8 1.6-2 1.7-3.4 2.5 2 4.6 4.6 4.6 7.4 0 3.2-2.4 5.6-6 5.6z"/>',
+    tent: '<path d="M2.5 20L12 4l9.5 16zM12 4v16M9 20l3-5 3 5"/>',
+    bolt: '<path d="M13 2.5L5 13.5h6l-1 8 8-11h-6z"/>',
+    camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+    star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>'
   };
   function svg(name) { return '<svg class="mi" viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name] || ICONS.pin) + '</svg>'; }
 
@@ -168,8 +184,8 @@
     if (p.kind === 'area') {
       return { color: c, weight: selected ? 3.5 : 2, opacity: 0.95, fillColor: c, fillOpacity: selected ? 0.42 : 0.24 };
     }
-    var dash = p.category === 'irrigation' ? '6 8' : p.category === 'fence' ? '1 8' : null;
-    return { color: c, weight: (p.category === 'path' ? 6 : 4) + (selected ? 2 : 0), opacity: 0.95, dashArray: dash, lineCap: 'round' };
+    var dash = p.category === 'irrigation' || p.category === 'cable' ? '6 8' : p.category === 'fence' || p.category === 'barrier' ? '1 8' : p.category === 'queue' ? '2 6' : null;
+    return { color: c, weight: (p.category === 'path' || p.category === 'walk' || p.category === 'emergency' ? 6 : 4) + (selected ? 2 : 0), opacity: 0.95, dashArray: dash, lineCap: 'round' };
   }
   function assetDone(p) { var a = p.kind === 'asset' && assets[p.asset_id]; return !!(a && a.done); }
   function pinIcon(p, selected) {
@@ -223,6 +239,19 @@
   }
 
   D.features.features.forEach(addItem);
+  if (EV && D.background) {                // the garden map underneath, faded and not editable
+    var bg = L.featureGroup().addTo(map);
+    D.background.features.forEach(function (f) {
+      var p = f.properties, g = f.geometry, c = p.color || '#5f9e4f', layer;
+      if (p.kind === 'area') layer = L.polygon(toLatLngs(g.coordinates[0].slice(0, -1)), { color: c, weight: 1, opacity: 0.55, fillColor: c, fillOpacity: 0.12, dashArray: '3 4', interactive: false });
+      else if (p.kind === 'path') layer = L.polyline(toLatLngs(g.coordinates), { color: c, weight: 3, opacity: 0.45, interactive: false });
+      else layer = L.circleMarker([g.coordinates[1], g.coordinates[0]], { radius: 4, color: '#fff', weight: 1.5, fillColor: c, fillOpacity: 0.7, interactive: false });
+      if (p.kind === 'area' && p.name) layer.bindTooltip(esc(p.name), { permanent: true, interactive: false, direction: 'center', className: 'map-label map-label-area map-label-bg' });
+      bg.addLayer(layer);
+    });
+    bg.bringToBack();
+    groups.background = bg;
+  }
   updateLabels();
 
   // ---------------------------------------------------------------- view
@@ -242,11 +271,13 @@
   }
   function allBounds() {
     var b = L.latLngBounds([]);
-    Object.keys(groups).forEach(function (k) { if (map.hasLayer(groups[k]) && groups[k].getLayers().length) b.extend(groups[k].getBounds()); });
+    Object.keys(groups).forEach(function (k) { if (k !== 'background' && map.hasLayer(groups[k]) && groups[k].getLayers().length) b.extend(groups[k].getBounds()); });
     return b;
   }
   function goHome(animate) {
+    if (EV && Object.keys(items).length) return map.fitBounds(allBounds(), { padding: [50, 50], maxZoom: 20, animate: !!animate });
     if (D.home) return map.setView([D.home.lat, D.home.lng], D.home.zoom, { animate: !!animate });
+    if (EV && groups.background && groups.background.getLayers().length) return map.fitBounds(groups.background.getBounds(), { padding: [40, 40], maxZoom: 20, animate: !!animate });
     var b = allBounds();
     if (b.isValid()) return map.fitBounds(b, { padding: [40, 40], maxZoom: 20, animate: !!animate });
     map.setView([D.defaultView.lat, D.defaultView.lng], D.defaultView.zoom, { animate: !!animate });
@@ -396,17 +427,17 @@
       tooltips: false, snappable: true, allowSelfIntersection: false, finishOn: null,
       templineStyle: { color: color, weight: 3 },
       hintlineStyle: { color: color, weight: 2, dashArray: '5 6' },
-      pathOptions: styleFor({ kind: kind, color: color, category: kind === 'path' ? 'path' : 'bed' })
+      pathOptions: styleFor({ kind: kind, color: color, category: CATS[kind][0].id })
     });
     setHint(kind === 'area'
-      ? '<strong>Draw the bed or area.</strong> Tap each corner, then tap the first corner or <b>Finish</b>.'
-      : '<strong>Draw the path or line.</strong> Tap along it, then <b>Finish</b>.', { undo: true, done: true });
+      ? (EV ? '<strong>Draw the area</strong> (stage, dance floor, parking…).' : '<strong>Draw the bed or area.</strong>') + ' Tap each corner, then tap the first corner or <b>Finish</b>.'
+      : (EV ? '<strong>Draw the line</strong> (walkway, barrier, cable…).' : '<strong>Draw the path or line.</strong>') + ' Tap along it, then <b>Finish</b>.', { undo: true, done: true });
   }
   map.on('pm:create', function (e) {
     if (mode !== 'draw') return;
     var kind = drawShape === 'Polygon' ? 'area' : 'path';
     stopModes();
-    var cat = kind === 'area' ? 'bed' : 'path';
+    var cat = CATS[kind][0].id;
     var f = { type: 'Feature', id: null, geometry: e.layer.toGeoJSON().geometry,
               properties: { id: null, kind: kind, category: cat, name: '', notes: '', color: catOf(kind, cat).color, category_label: catOf(kind, cat).label } };
     map.removeLayer(e.layer);
@@ -446,11 +477,16 @@
   // ---------------------------------------------------------------- add menu
   function openAdd() {
     deselect();
-    var html = '<h2 class="sheet-title">Add to the map</h2><div class="add-grid">' +
-      addBtn('area', 'area', 'Bed or area', 'Draw its outline') +
-      addBtn('path', 'path', 'Path or line', 'Walkways, irrigation, fences') +
-      addBtn('point', 'pin', 'Point', 'Tap, compost, tree, Nevet node…') +
-      addBtn('asset', 'sprout', 'Plant or worm bin', 'Pin where it grows') + '</div>';
+    var html = EV
+      ? '<h2 class="sheet-title">Add to the event map</h2><div class="add-grid">' +
+        addBtn('area', 'area', 'Area', 'Stage, dance floor, food, camping, parking…') +
+        addBtn('path', 'path', 'Line', 'Walkways, emergency route, barriers, cables') +
+        addBtn('point', 'pin', 'Point', 'Entrance, toilets, first aid, water, power…') + '</div>'
+      : '<h2 class="sheet-title">Add to the map</h2><div class="add-grid">' +
+        addBtn('area', 'area', 'Bed or area', 'Draw its outline') +
+        addBtn('path', 'path', 'Path or line', 'Walkways, irrigation, fences') +
+        addBtn('point', 'pin', 'Point', 'Tap, compost, tree, Nevet node…') +
+        addBtn('asset', 'sprout', 'Plant or worm bin', 'Pin where it grows') + '</div>';
     openSheet(html, 'is-add');
     sheetBody.querySelectorAll('[data-add]').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -550,7 +586,7 @@
            (a.log_url ? '<a class="btn btn-primary btn-sm" href="' + esc(a.log_url) + '">' + svg('plus') + ' Log an action</a>' : '') + '</div>';
     } else {
       h += '<label class="ed-field"><span>Name</span><input type="text" id="ed-name" maxlength="60" value="' + esc(p.name || '') +
-           '" placeholder="' + (kind === 'area' ? 'e.g. Tomato bed' : kind === 'path' ? 'e.g. Main drip line' : 'e.g. Big fig tree') + '"></label>';
+           '" placeholder="' + (EV ? (kind === 'area' ? 'e.g. Main stage' : kind === 'path' ? 'e.g. Way to the parking' : 'e.g. First aid tent') : kind === 'area' ? 'e.g. Tomato bed' : kind === 'path' ? 'e.g. Main drip line' : 'e.g. Big fig tree') + '"></label>';
       h += '<div class="ed-field"><span>Type</span><div class="ed-chips">' + CATS[kind].map(function (c) {
         return '<button type="button" class="chip' + (c.id === p.category ? ' active' : '') + '" data-cat="' + c.id + '" style="--c:' + c.color + '">' + esc(c.label) + '</button>';
       }).join('') + '</div></div>';
@@ -698,13 +734,20 @@
     var totLen = by.path.reduce(function (s, it) { return s + lengthM(flatLatLngs(it.layer)); }, 0);
     var pinned = D.assets.filter(function (a) { return a.pinned; }).length;
     var rows = [
-      ['area', 'area', 'Beds & areas', by.area.length, by.area.length ? fmtArea(totArea) : ''],
-      ['path', 'path', 'Paths & lines', by.path.length, by.path.length ? fmtLen(totLen) : ''],
-      ['point', 'pin', 'Points', by.point.length, ''],
-      ['asset', 'sprout', 'Plants & bins', pinned, D.assets.length ? pinned + ' of ' + D.assets.length + ' pinned' : '']
+      ['area', 'area', EV ? 'Areas' : 'Beds & areas', by.area.length, by.area.length ? fmtArea(totArea) : ''],
+      ['path', 'path', EV ? 'Lines' : 'Paths & lines', by.path.length, by.path.length ? fmtLen(totLen) : ''],
+      ['point', 'pin', 'Points', by.point.length, '']
     ];
-    var h = '<h2 class="sheet-title">Garden map</h2>';
-    if (!Object.keys(items).length) {
+    if (!EV) rows.push(['asset', 'sprout', 'Plants & bins', pinned, D.assets.length ? pinned + ' of ' + D.assets.length + ' pinned' : '']);
+    else rows.push(['background', 'tools', 'The garden underneath', D.background ? D.background.features.length : 0, 'faded, for reference']);
+    var h = EV ? '<h2 class="sheet-title">' + esc(EV.emoji + ' ' + EV.title) + '</h2><p class="muted" style="margin:-4px 0 10px">' + esc(EV.when) + ' · <a href="' + esc(EV.url) + '">back to the event</a></p>'
+               : '<h2 class="sheet-title">Garden map</h2>';
+    if (EV && !Object.keys(items).length) {
+      h += '<div class="map-intro"><p><b>Map the event in three steps:</b></p><ol>' +
+           '<li>The garden map is underneath (faded). Search above or tap the location button if the event is somewhere else.</li>' +
+           '<li>Tap <b>Add to map</b>: draw the stage, dance floor, food, camping and parking areas, the walkways and the emergency route.</li>' +
+           '<li>Pin the entrance, toilets, first aid, drinking water, power and the meeting point.</li></ol></div>';
+    } else if (!Object.keys(items).length) {
       h += '<div class="map-intro"><p><b>Map your garden in three steps:</b></p><ol>' +
            '<li>Find your garden: search above, or tap the location button.</li>' +
            '<li>Tap <b>Add to map</b> to draw beds, paths and points, and pin your plants.</li>' +
@@ -727,8 +770,8 @@
       }).join('') + '</ul>';
     }
     h += '<div class="list-foot">';
-    if (D.isAdmin) h += '<button type="button" class="btn btn-ghost btn-sm" id="set-home">' + svg('tools') + ' Save this view as the garden’s spot</button>';
-    h += '<a class="btn btn-ghost btn-sm" href="' + D.urls.export + '">Download map (.geojson)</a></div>';
+    if (D.isAdmin && !EV) h += '<button type="button" class="btn btn-ghost btn-sm" id="set-home">' + svg('tools') + ' Save this view as the garden’s spot</button>';
+    h += '<a class="btn btn-ghost btn-sm" href="' + D.urls.export + '">' + (EV ? 'Download the event map (.geojson)' : 'Download map (.geojson)') + '</a></div>';
     h += '<details class="removed" id="removed"><summary>Recently removed</summary><ul class="removed-list" id="removed-list"><li class="muted">Loading…</li></ul></details>';
     openSheet(h, 'is-list');
 
@@ -780,7 +823,7 @@
     var pin = pinForAsset(D.focus);
     if (pin) setTimeout(function () { select(pin.f.id, { show: true }); }, 50);
     else if (assets[D.focus]) setTimeout(function () { startPinAsset(assets[D.focus]); }, 50);
-  } else if (!Object.keys(items).length && !D.home) {
+  } else if (!Object.keys(items).length && (!D.home || EV)) {
     openList();                        // first visit: show how to start
   }
   window.NevetMap = { map: map, items: items };   // handy for debugging in the console

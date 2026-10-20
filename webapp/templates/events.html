@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Nevet — Events{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='events.css') }}">{% endblock %}
+{% macro card(e) %}
+<a class="ev-card ev-k-{{ e.kind }} is-{{ e.phase }}" href="{{ url_for('event_page', event_id=e.id) }}">
+  <span class="ev-date"><b>{{ e.start.day }}</b><small>{{ e.start.strftime('%b') }}</small></span>
+  <span class="ev-tile" aria-hidden="true">{{ e.kind_info.emoji }}</span>
+  <span class="ev-card-text">
+    <strong>{{ e.title }}</strong>
+    <span>{{ e.kind_info.label }} · {{ e.start.strftime('%a %H:%M') }}{% if e.place %} · {{ e.place }}{% endif %}</span>
+    {% if e.phase in ('now', 'cancelled') %}<span><span class="ev-badge {{ e.phase }}">{{ 'Happening now' if e.phase == 'now' else 'Cancelled' }}</span></span>{% endif %}
+  </span>
+  <span class="ev-card-count">
+    {% if e.phase == 'past' %}<b>{{ e.attended }}</b>came{% else %}<b>{{ e.expected }}</b>coming{% endif %}
+  </span>
+</a>
+{% endmacro %}
+{% block content %}
+<div class="ev-head">
+  <div>
+    <h2>Events</h2>
+    <p class="muted">Parties, festivals and gatherings on the farm: who's coming, who helps, what goes where, and how it went.</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('event_new') }}">+ New event</a>
+</div>
+
+{% if now %}
+<h3 class="ev-section-title">Happening now</h3>
+<div class="ev-list">{% for e in now %}{{ card(e) }}{% endfor %}</div>
+{% endif %}
+
+<h3 class="ev-section-title">Coming up</h3>
+{% if upcoming %}
+<div class="ev-list">{% for e in upcoming %}{{ card(e) }}{% endfor %}</div>
+{% else %}
+<div class="ev-empty">
+  <p><b>Nothing planned yet.</b> Start one: pick a day, map where things go, invite the heroes.</p>
+  <div class="ev-ideas">
+    <a class="chip" href="{{ url_for('event_new', kind='party') }}">🎉 Party</a>
+    <a class="chip" href="{{ url_for('event_new', kind='festival') }}">🎪 Festival</a>
+    <a class="chip" href="{{ url_for('event_new', kind='harvest') }}">🧺 Harvest festival</a>
+    <a class="chip" href="{{ url_for('event_new', kind='volunteer') }}">🙌 Volunteer day</a>
+    <a class="chip" href="{{ url_for('event_new', kind='campfire') }}">🔥 Campfire night</a>
+  </div>
+</div>
+{% endif %}
+
+{% if past %}
+<h3 class="ev-section-title">Past</h3>
+<div class="ev-list">{% for e in past %}{{ card(e) }}{% endfor %}</div>
+{% endif %}
+
+<p class="muted" style="margin-top: 26px; font-size: 0.85rem;">The game's numbers (XP, compost, credits) are still on the <a href="{{ url_for('stats') }}">game stats</a> page.</p>
+{% endblock %}

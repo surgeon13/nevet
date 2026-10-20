@@ -8,6 +8,7 @@ picked out and told as a little story:
 * two heroes connecting (family, partners, friends: they both confirmed it)
 * a group being formed
 * a plant planted for the first time, the first harvest of a plant, a big harvest
+* an event: a party, festival or gathering (events.py), with how many came
 * busy days, photos taken
 
 Each day has a title, a few story lines, the counts by action and who took
@@ -111,6 +112,20 @@ def story(max_days=MAX_DAYS):
             if d:
                 days[d]["moments"].append({"kind": "group", "text": f"{r['name']} came together ({relations.GROUP_KIND.get(r['kind'], 'group').lower()})."})
 
+    if "events" in tables:                               # parties, festivals and gatherings that took place
+        import events as events_mod
+        now = datetime.now()
+        for ev in events_mod.list_events():
+            if ev["status"] == "cancelled" or ev["start"] > now:
+                continue
+            fb = q("SELECT AVG(rating) AS r, COUNT(*) AS n FROM event_feedback WHERE event_id = ?", ev["id"])[0]
+            bits = [f"{ev['attended']} came" if ev["attended"] else (f"{ev['going']} said they'd come" if ev["going"] else "")]
+            if fb["n"]:
+                bits.append(f"rated {fb['r']:.1f}★")
+            text = f"{ev['kind_info']['emoji']} {ev['title']}" + (": " + ", ".join(b for b in bits if b) if any(bits) else "") + "."
+            days[ev["start"].date()]["moments"].append({"kind": "event", "text": text, "title": ev["title"]})
+            days[ev["start"].date()]["event_title"] = f"{ev['kind_info']['emoji']} {ev['title']}"
+
     if "captures" in tables:
         for r in q("SELECT substr(taken_at, 1, 10) AS d, COUNT(*) AS n FROM captures WHERE kind = 'photo' GROUP BY 1"):
             d = _day(r["d"])
@@ -138,6 +153,8 @@ def story(max_days=MAX_DAYS):
         if d == very_first:
             title = "Once upon a time…"
             lines.append("This is where the Nevet story begins.")
+        elif day.get("event_title"):
+            title = day["event_title"]
         elif any(m["kind"] == "love" for m in moments):
             title = "A day of love"
         elif any(m["kind"] == "hero" for m in moments):

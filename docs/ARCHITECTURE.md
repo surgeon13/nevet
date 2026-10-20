@@ -176,6 +176,17 @@ A Flask app served by waitress on port 8000:
   (`PLAY`); the Play activity hands out stations (`PST`: football, swings,
   slide, seesaw, trampoline, sandbox, touchline) and `stepFootball()` runs
   the ball and both teams outside the path planner.
+- **Events** — `events.py` keeps events (`events`) and what they gather:
+  `event_rsvps`, `event_tasks` + `event_task_people`, `event_checkins`,
+  `event_headcount` (every +1/−1 at the gate with its time, which gives the
+  arrivals curve), `event_notes` (the live log) and `event_feedback`
+  (tables made in `farm_db.get_conn()`). An event's map is `map_features`
+  rows with `event_id` set and their own types (`garden_map.EVENT_CATEGORIES`);
+  the garden map, its API and the 3D farm only see rows without one. The
+  event map page reuses `templates/map.html` + `garden_map.js` with
+  `D.event` and the garden as a faded `D.background`, saving through
+  `/api/events/<id>/map/*`. `today.py`, `timeline.py` and the farm page
+  (`data.event`) read events too.
 - **Plant models** — `static/assets/plants/catalog.json` lists ~90
   species as a model archetype (fruiting, herb, leafy, root, vine, stalk,
   flower, berry, tree, succulent, mushroom, microgreens, worms, hive) plus

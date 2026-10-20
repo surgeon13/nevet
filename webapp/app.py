@@ -17,6 +17,7 @@ import auth
 import farm_db
 import bulk
 import extras
+import events
 import garden_map
 import netaccess
 import relations
@@ -219,6 +220,8 @@ def hub():
         players=farm_db.player_activity(),
         banner=banner,
         about=about.info(),
+        events_now=events.happening(),
+        events_next=events.upcoming(days=60),
     )
 
 
@@ -1065,49 +1068,73 @@ def _map_json(fid, status=200):
 
 
 def _map_label(fields_or_row):
-    cat = garden_map.category(fields_or_row["kind"], fields_or_row["category"])
+    ev = fields_or_row["event_id"] if "event_id" in fields_or_row.keys() else None
+    cat = garden_map.category(fields_or_row["kind"], fields_or_row["category"], bool(ev))
     return (cat["label"] if cat else fields_or_row["kind"]).lower()
 
 
-@app.route("/api/map/features", methods=["GET", "POST"])
-def api_map_features():
-    if request.method == "GET":
-        return jsonify(garden_map.feature_collection())
-    fields, err = garden_map.clean(request.get_json(silent=True))
+def _feature_in(fid, event_id, include_deleted=False):
+    """A map item, only if it belongs to this map (the garden's when event_id is None)."""
+    row = garden_map.get_feature(fid, include_deleted=include_deleted)
+    return row if row and (row["event_id"] or None) == (event_id or None) else None
+
+
+def _map_create(event_id=None):
+    fields, err = garden_map.clean(request.get_json(silent=True), event_id=event_id)
     if err:
         return jsonify({"error": err}), 400
     fid = garden_map.create_feature(fields, g.user["id"])
     row = garden_map.get_feature(fid)
-    logger.info("%s mapped %s %s", g.user["name"], _map_label(row), row["asset_name"] or row["name"] or f"#{fid}")
+    logger.info("%s mapped %s %s%s", g.user["name"], _map_label(row), row["asset_name"] or row["name"] or f"#{fid}",
+                f" for event #{event_id}" if event_id else "")
     return _map_json(fid, 201)
 
 
-@app.route("/api/map/features/<int:fid>", methods=["POST"])
-def api_map_feature_update(fid):
-    row = garden_map.get_feature(fid)
+def _map_update(fid, event_id=None):
+    row = _feature_in(fid, event_id)
     if not row:
         return jsonify({"error": "That map item is gone. Refresh the map."}), 404
-    fields, err = garden_map.clean(request.get_json(silent=True), existing=row)
+    fields, err = garden_map.clean(request.get_json(silent=True), existing=row, event_id=event_id)
     if err:
         return jsonify({"error": err}), 400
     garden_map.update_feature(fid, fields, g.user["id"])
     return _map_json(fid)
 
 
-@app.route("/api/map/features/<int:fid>/delete", methods=["POST"])
-def api_map_feature_delete(fid):
-    row = garden_map.get_feature(fid)
+def _map_delete(fid, event_id=None):
+    row = _feature_in(fid, event_id)
     if not row or not garden_map.delete_feature(fid, g.user["id"]):
         return jsonify({"error": "That map item is already gone."}), 404
     logger.info("%s removed %s %s from the map", g.user["name"], _map_label(row), row["asset_name"] or row["name"] or f"#{fid}")
     return jsonify({"ok": True, "id": fid})
 
 
-@app.route("/api/map/features/<int:fid>/restore", methods=["POST"])
-def api_map_feature_restore(fid):
-    if not garden_map.restore_feature(fid, g.user["id"]):
+def _map_restore(fid, event_id=None):
+    if not _feature_in(fid, event_id, include_deleted=True) or not garden_map.restore_feature(fid, g.user["id"]):
         return jsonify({"error": "Can't bring that back (already restored, or the plant was pinned again)."}), 409
     return _map_json(fid)
+
+
+@app.route("/api/map/features", methods=["GET", "POST"])
+def api_map_features():
+    if request.method == "GET":
+        return jsonify(garden_map.feature_collection())
+    return _map_create()
+
+
+@app.route("/api/map/features/<int:fid>", methods=["POST"])
+def api_map_feature_update(fid):
+    return _map_update(fid)
+
+
+@app.route("/api/map/features/<int:fid>/delete", methods=["POST"])
+def api_map_feature_delete(fid):
+    return _map_delete(fid)
+
+
+@app.route("/api/map/features/<int:fid>/restore", methods=["POST"])
+def api_map_feature_restore(fid):
+    return _map_restore(fid)
 
 
 @app.route("/api/map/deleted")
@@ -1160,6 +1187,262 @@ def api_map_geojson():
     if not g.user and not (key and key != "changeme-api-key" and hmac.compare_digest(sent, key)):
         return jsonify({"error": "login or API key required"}), 401
     return jsonify(garden_map.feature_collection())
+
+
+# ---------- events: parties, festivals and gatherings on the farm (events.py) ----------
+def _event_or_404(event_id):
+    ev = events.get(event_id)
+    if not ev:
+        abort(404)
+    return ev
+
+
+def _event_manager(ev):
+    if not events.can_manage(ev, g.user):
+        abort(403)
+
+
+def _back_to_event(ev, anchor=None, error=None):
+    return redirect(url_for("event_page", event_id=ev["id"], error=error) + (f"#{anchor}" if anchor else ""))
+
+
+def _wants_json():
+    return request.headers.get("X-Requested-With") == "fetch"
+
+
+@app.route("/events", methods=["GET", "POST"])
+def events_page():
+    if request.method == "POST":
+        fields, err = events.clean(request.form)
+        if err:
+            return render_template("event_form.html", ev=None, form=request.form, error=err, kinds=events.KINDS, acts=events.FARM_ACTS), 400
+        eid = events.create(fields, g.user["id"])
+        logger.info("%s planned the event %s (%s)", g.user["name"], fields["title"], fields["starts_at"])
+        return redirect(url_for("event_page", event_id=eid))
+    evs = events.list_events()
+    return render_template("events.html", now=[e for e in evs if e["phase"] == "now"],
+                           upcoming=[e for e in evs if e["phase"] == "upcoming"],
+                           past=list(reversed([e for e in evs if e["phase"] in ("past", "cancelled")])))
+
+
+@app.route("/events/new")
+def event_new():
+    day = request.args.get("date") or (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+    return render_template("event_form.html", ev=None, form={"date": day, "time": "18:00", "kind": request.args.get("kind", "party")},
+                           error=None, kinds=events.KINDS, acts=events.FARM_ACTS)
+
+
+@app.route("/events/<int:event_id>")
+def event_page(event_id):
+    ev = _event_or_404(event_id)
+    me = g.user["id"]
+    rs = events.rsvps(event_id)
+    checked = events.checkins(event_id)
+    checked_ids = {c["grower_id"] for c in checked}
+    fb = events.feedback(event_id)
+    return render_template(
+        "event.html", ev=ev, manage=events.can_manage(ev, g.user), error=request.args.get("error"),
+        rsvps=rs, mine=events.rsvp_of(event_id, me), answers=events.ANSWERS,
+        tasks=events.tasks(event_id), checkins=checked, checked_ids=checked_ids, me_in=me in checked_ids,
+        to_check=[r for r in rs if r["answer"] != "no" and r["grower_id"] not in checked_ids],
+        everyone=[r for r in farm_db.list_growers() if r["id"] not in checked_ids],
+        notes=events.notes(event_id), photos=events.photos(ev), feedback=fb,
+        my_feedback=next((f for f in fb if f["grower_id"] == me), None),
+        summary=events.summary(ev), arrivals=events.arrivals(ev),
+        map_count=len(garden_map.list_features(event_id)),
+        acts=dict(events.FARM_ACTS))
+
+
+@app.route("/events/<int:event_id>/edit", methods=["GET", "POST"])
+def event_edit(event_id):
+    ev = _event_or_404(event_id)
+    _event_manager(ev)
+    if request.method == "POST":
+        fields, err = events.clean(request.form)
+        if err:
+            return render_template("event_form.html", ev=ev, form=request.form, error=err, kinds=events.KINDS, acts=events.FARM_ACTS), 400
+        events.update(event_id, fields)
+        return redirect(url_for("event_page", event_id=event_id))
+    form = {"title": ev["title"], "kind": ev["kind"], "date": ev["start"].strftime("%Y-%m-%d"), "time": ev["start"].strftime("%H:%M"),
+            "end_date": ev["ends_at"][:10] if ev["ends_at"] else "", "end_time": ev["ends_at"][11:16] if ev["ends_at"] else "",
+            "place": ev["place"] or "", "description": ev["description"] or "", "capacity": ev["capacity"] or "", "farm_act": ev["farm_act"]}
+    return render_template("event_form.html", ev=ev, form=form, error=None, kinds=events.KINDS, acts=events.FARM_ACTS)
+
+
+@app.route("/events/<int:event_id>/status", methods=["POST"])
+def event_status(event_id):
+    ev = _event_or_404(event_id)
+    _event_manager(ev)
+    status = "cancelled" if request.form.get("status") == "cancelled" else "planned"
+    events.set_status(event_id, status)
+    logger.info("%s %s the event %s", g.user["name"], "cancelled" if status == "cancelled" else "brought back", ev["title"])
+    return _back_to_event(ev)
+
+
+@app.route("/events/<int:event_id>/delete", methods=["POST"])
+def event_delete(event_id):
+    ev = _event_or_404(event_id)
+    _event_manager(ev)
+    events.delete(event_id)
+    logger.info("%s deleted the event %s", g.user["name"], ev["title"])
+    return redirect(url_for("events_page"))
+
+
+@app.route("/events/<int:event_id>/rsvp", methods=["POST"])
+def event_rsvp(event_id):
+    ev = _event_or_404(event_id)
+    err = events.set_rsvp(event_id, g.user["id"], request.form.get("answer"), request.form.get("guests"), request.form.get("bring"))
+    return _back_to_event(ev, "rsvp", err)
+
+
+@app.route("/events/<int:event_id>/tasks", methods=["POST"])
+def event_task_add(event_id):
+    ev = _event_or_404(event_id)
+    _event_manager(ev)
+    return _back_to_event(ev, "tasks", events.add_task(event_id, request.form.get("title"), request.form.get("needed"), g.user["id"]))
+
+
+@app.route("/events/<int:event_id>/tasks/<int:task_id>/<what>", methods=["POST"])
+def event_task_change(event_id, task_id, what):
+    ev = _event_or_404(event_id)
+    t = events.task(task_id)
+    if not t or t["event_id"] != event_id:
+        abort(404)
+    if what == "volunteer":
+        events.toggle_volunteer(task_id, g.user["id"])
+    elif what in ("done", "undone", "delete"):
+        _event_manager(ev)
+        if what == "delete":
+            events.delete_task(task_id)
+        else:
+            events.set_task_done(task_id, what == "done")
+    else:
+        abort(404)
+    return _back_to_event(ev, "tasks")
+
+
+@app.route("/events/<int:event_id>/checkin", methods=["POST"])
+def event_checkin(event_id):
+    ev = _event_or_404(event_id)
+    who = request.form.get("grower_id", type=int) or g.user["id"]
+    if who != g.user["id"] and not events.can_manage(ev, g.user):
+        abort(403)
+    if not farm_db.get_grower(who):
+        abort(404)
+    if request.form.get("out"):
+        events.check_out(event_id, who)
+    else:
+        events.check_in(event_id, who, g.user["id"])
+    return _back_to_event(ev, "day")
+
+
+@app.route("/events/<int:event_id>/walkin", methods=["POST"])
+def event_walkin(event_id):
+    ev = _event_or_404(event_id)
+    total = events.count_walk_in(event_id, request.form.get("delta", type=int) or 1, g.user["id"])
+    if _wants_json():
+        fresh = events.get(event_id)
+        return jsonify({"walk_ins": total, "attended": fresh["attended"]})
+    return _back_to_event(ev, "day")
+
+
+@app.route("/events/<int:event_id>/notes", methods=["POST"])
+def event_note_add(event_id):
+    ev = _event_or_404(event_id)
+    return _back_to_event(ev, "log", events.add_note(event_id, g.user["id"], request.form.get("text")))
+
+
+@app.route("/events/<int:event_id>/notes/<int:note_id>/delete", methods=["POST"])
+def event_note_delete(event_id, note_id):
+    ev = _event_or_404(event_id)
+    n = events.note(note_id)
+    if not n or n["event_id"] != event_id:
+        abort(404)
+    if n["grower_id"] != g.user["id"]:
+        _event_manager(ev)
+    events.delete_note(note_id)
+    return _back_to_event(ev, "log")
+
+
+@app.route("/events/<int:event_id>/feedback", methods=["POST"])
+def event_feedback(event_id):
+    ev = _event_or_404(event_id)
+    return _back_to_event(ev, "feedback", events.set_feedback(event_id, g.user["id"], request.form.get("rating"), request.form.get("comment")))
+
+
+def _event_filename(ev, ext):
+    slug = re.sub(r"[^a-z0-9]+", "-", ev["title"].lower()).strip("-")[:40] or "event"
+    return f"nevet-event-{ev['start']:%Y-%m-%d}-{slug}.{ext}"
+
+
+@app.route("/events/<int:event_id>/export.<fmt>")
+def event_export(event_id, fmt):
+    ev = _event_or_404(event_id)
+    if fmt == "csv":
+        body, mime = "﻿" + events.people_csv(ev), "text/csv"            # the BOM lets Excel read Hebrew names
+    elif fmt == "json":
+        body, mime = json.dumps(events.export(ev), ensure_ascii=False, indent=1, default=str), "application/json"
+    elif fmt == "geojson":
+        body, mime = json.dumps(garden_map.feature_collection(event_id=event_id, garden_name=ev["title"]), ensure_ascii=False, indent=1), "application/geo+json"
+    else:
+        abort(404)
+    return app.response_class(body, mimetype=mime, headers={"Content-Disposition": f'attachment; filename="{_event_filename(ev, fmt)}"'})
+
+
+@app.route("/events/<int:event_id>/map")
+def event_map(event_id):
+    ev = _event_or_404(event_id)
+    garden = garden_map.list_features()
+    data = {
+        "features": garden_map.feature_collection(event_id=event_id, garden_name=ev["title"]),
+        "background": garden_map.feature_collection(garden),
+        "categories": garden_map.EVENT_CATEGORIES,
+        "palette": garden_map.PALETTE,
+        "assets": [],
+        "home": garden_map.get_home(),
+        "defaultView": garden_map.default_view(),
+        "isAdmin": False,
+        "focus": None,
+        "event": {"id": ev["id"], "title": ev["title"], "emoji": ev["kind_info"]["emoji"], "when": ev["when"],
+                  "url": url_for("event_page", event_id=event_id)},
+        "urls": {"features": url_for("api_event_map_features", event_id=event_id),
+                 "deleted": url_for("api_event_map_deleted", event_id=event_id),
+                 "export": url_for("event_export", event_id=event_id, fmt="geojson"), "home": None},
+    }
+    return render_template("map.html", data=data, event=ev)
+
+
+@app.route("/api/events/<int:event_id>/map/features", methods=["GET", "POST"])
+def api_event_map_features(event_id):
+    _event_or_404(event_id)
+    if request.method == "GET":
+        return jsonify(garden_map.feature_collection(event_id=event_id))
+    return _map_create(event_id)
+
+
+@app.route("/api/events/<int:event_id>/map/features/<int:fid>", methods=["POST"])
+def api_event_map_feature_update(event_id, fid):
+    _event_or_404(event_id)
+    return _map_update(fid, event_id)
+
+
+@app.route("/api/events/<int:event_id>/map/features/<int:fid>/delete", methods=["POST"])
+def api_event_map_feature_delete(event_id, fid):
+    _event_or_404(event_id)
+    return _map_delete(fid, event_id)
+
+
+@app.route("/api/events/<int:event_id>/map/features/<int:fid>/restore", methods=["POST"])
+def api_event_map_feature_restore(event_id, fid):
+    _event_or_404(event_id)
+    return _map_restore(fid, event_id)
+
+
+@app.route("/api/events/<int:event_id>/map/deleted")
+def api_event_map_deleted(event_id):
+    _event_or_404(event_id)
+    return jsonify({"features": [garden_map.feature_dict(r) | {"deleted_at": r["deleted_at"]}
+                                 for r in garden_map.recently_deleted(event_id=event_id)]})
 
 
 # ---------- the farm: every hero together (tap the brain on the dashboard) ----------
@@ -1224,6 +1507,8 @@ def farm_page():
         "lastLog": (lambda c: (c.execute("SELECT COALESCE(MAX(id), 0) FROM logs").fetchone()[0], c.close())[0])(farm_db.get_conn()),
         "start": request.args.get("act") if request.args.get("act") in FARM_ACTS else None,
         "world": farm_world(),                    # the land around the farm (see FARM_WORLDS)
+        "event": (lambda e: {"id": e["id"], "title": e["title"], "emoji": e["kind_info"]["emoji"], "act": e["farm_act"] or e["kind_info"]["act"]}
+                  if e else None)(next(iter(events.happening()), None)),
     }
     return render_template("farm.html", data=data)
 

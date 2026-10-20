@@ -72,6 +72,32 @@ def todays_actions(day=None):
     return groups, len([r for r in rows if (r["timestamp"] or "").startswith(day)])
 
 
+def _event_todos(user_id, now):
+    """Events on now, today or tomorrow (events.py), with what's still open for you."""
+    import events
+    out = []
+    for ev in events.list_events():
+        if ev["status"] == "cancelled" or ev["phase"] == "past":
+            continue
+        if ev["phase"] != "now" and ev["days_to"] > 1:
+            continue
+        mine = events.rsvp_of(ev["id"], user_id) if user_id else None
+        open_spots = sum(t["open"] for t in events.tasks(ev["id"]) if not t["done"])
+        bits = [f"{ev['expected']} coming"] + ([f"{open_spots} volunteer spot{'s' if open_spots != 1 else ''} open"] if open_spots else [])
+        if ev["phase"] == "now":
+            text = f"{ev['kind_info']['emoji']} {ev['title']} is on now"
+            bits.insert(0, f"{ev['attended']} here")
+            button, anchor = "Check in", "day"
+        else:
+            text = f"{ev['kind_info']['emoji']} {ev['title']} {'today' if ev['days_to'] == 0 else 'tomorrow'} at {ev['start']:%H:%M}"
+            button, anchor = ("Are you coming?", "rsvp") if user_id and not mine else ("Open", "")
+        if ev["place"]:
+            bits.append(ev["place"])
+        out.append({"kind": "event", "icon": "sparkle", "level": "ok", "text": text, "detail": " · ".join(bits),
+                    "href": f"/events/{ev['id']}" + (f"#{anchor}" if anchor else ""), "button": button})
+    return out
+
+
 def todos(user_id=None, now=None):
     now = now or datetime.now()
     nums = farm_db.farm_numbers()["assets"]
@@ -108,6 +134,8 @@ def todos(user_id=None, now=None):
                     "text": f"Check {len(seeds)} seed tray{'s' if len(seeds) != 1 else ''} for sprouts",
                     "detail": f"Sown {SEED_CHECK_DAYS}+ days ago, no sprouts logged: " + _names(seeds),
                     "href": _log_link("germination", seeds), "button": "Log sprouts"})
+
+    out = _event_todos(user_id, now) + out
 
     if user_id:
         n = farm_db.pending_for(user_id)

@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}Nevet — {{ ev.title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='events.css') }}">{% endblock %}
+{% block fab %}{% endblock %}{# no floating Log button here: it would sit on the gate counter #}
+{% set s = summary %}
+{% set csrf = csrf_token() %}
+
+{% macro rsvp_panel() %}
+<section class="ev-panel" id="rsvp">
+  <h3>Are you coming?</h3>
+  {% if ev.phase == 'cancelled' %}<p class="muted">This event was cancelled.</p>{% else %}
+  <form method="post" action="{{ url_for('event_rsvp', event_id=ev.id) }}">
+    <input type="hidden" name="_csrf" value="{{ csrf }}">
+    <div class="ev-rsvp" role="group" aria-label="Your answer">
+      {% for v, emoji in [('going', '🙌'), ('maybe', '🤔'), ('no', '🙁')] %}
+      <button type="submit" name="answer" value="{{ v }}" class="{{ v }}{% if mine and mine.answer == v %} on{% endif %}" aria-pressed="{{ 'true' if mine and mine.answer == v else 'false' }}"><span aria-hidden="true">{{ emoji }}</span>{{ answers[v] }}</button>
+      {% endfor %}
+    </div>
+    <div class="ev-rsvp-extra">
+      <input type="number" name="guests" min="0" max="20" value="{{ mine.guests if mine else 0 }}" aria-label="Guests coming with you" title="Guests coming with you">
+      <input type="text" name="bring" maxlength="80" value="{{ (mine.bring or '') if mine else '' }}" placeholder="I'll bring… (food, drinks, music, a tent)" aria-label="What you'll bring">
+    </div>
+    <p class="ev-rsvp-note">{% if mine %}You said <b>{{ answers[mine.answer] }}</b>{% if mine.guests %} with {{ mine.guests }} guest{{ 's' if mine.guests != 1 }}{% endif %}. Tap again to change.
+      <button type="submit" name="answer" value="clear" class="link-btn" style="background:none;border:0;color:var(--accent-2);cursor:pointer;font:inherit;padding:0;">Take it back</button>
+      {% else %}Guests: friends or family coming with you who have no hero here.{% endif %}</p>
+  </form>
+  {% endif %}
+</section>
+{% endmacro %}
+
+{% macro people_panel() %}
+<section class="ev-panel" id="people">
+  <h3>Who's coming <span class="muted" style="font-weight:400">{{ s.expected }}{% if ev.capacity %} of {{ ev.capacity }}{% endif %}</span></h3>
+  {% if ev.capacity %}
+  <div class="ev-meter{% if s.expected >= ev.capacity %} full{% endif %}" role="img" aria-label="{{ s.expected }} of {{ ev.capacity }} places"><span style="width: {{ [100 * s.expected / ev.capacity, 100] | min }}%"></span></div>
+  {% endif %}
+  {% set going = rsvps | selectattr('answer', 'equalto', 'going') | list %}
+  {% set maybe = rsvps | selectattr('answer', 'equalto', 'maybe') | list %}
+  {% set cant = rsvps | selectattr('answer', 'equalto', 'no') | list %}
+  {% if not rsvps %}<p class="muted">No answers yet. Be the first.</p>{% endif %}
+  {% if going %}<p class="ev-sub">Going · {{ going | length }}{% if s.guests %} + {{ s.guests }} guest{{ 's' if s.guests != 1 }}{% endif %}</p>
+  <ul class="ev-people">{% for r in going %}<li class="ev-person"><b>{{ r.name }}</b>{% if r.guests %}<span class="plus">+{{ r.guests }}</span>{% endif %}{% if r.bring %}<small>· {{ r.bring }}</small>{% endif %}</li>{% endfor %}</ul>{% endif %}
+  {% if maybe %}<p class="ev-sub">Maybe · {{ maybe | length }}</p>
+  <ul class="ev-people">{% for r in maybe %}<li class="ev-person"><b>{{ r.name }}</b>{% if r.bring %}<small>· {{ r.bring }}</small>{% endif %}</li>{% endfor %}</ul>{% endif %}
+  {% if cant %}<p class="ev-sub">Can't come · {{ cant | length }}</p>
+  <ul class="ev-people">{% for r in cant %}<li class="ev-person"><span class="muted">{{ r.name }}</span></li>{% endfor %}</ul>{% endif %}
+</section>
+{% endmacro %}
+
+{% macro tasks_panel() %}
+<section class="ev-panel" id="tasks">
+  <h3>Volunteers <span class="muted" style="font-weight:400">{% if tasks %}{{ s.volunteers }} helping{% if s.spots_open %} · {{ s.spots_open }} spot{{ 's' if s.spots_open != 1 }} open{% endif %}{% endif %}</span></h3>
+  <p class="muted">Jobs that make the day happen. Sign up for one, or leave it.</p>
+  {% if tasks %}
+  <ul class="ev-tasks">
+    {% for t in tasks %}{% set me_in = g.user.id in (t.people | map(attribute='id') | list) %}
+    <li class="ev-task{% if t.done %} done{% endif %}">
+      <span class="ev-task-text"><b>{{ t.title }}</b>
+        <small>{{ t.people | length }} of {{ t.needed }}{% if t.people %}: {{ t.people | map(attribute='name') | join(', ') }}{% endif %}</small></span>
+      <form method="post" action="{{ url_for('event_task_change', event_id=ev.id, task_id=t.id, what='volunteer') }}">
+        <input type="hidden" name="_csrf" value="{{ csrf }}">
+        <button type="submit" class="btn btn-small {{ 'btn-ghost' if me_in else 'btn-primary' }}" {% if not me_in and not t.open %}disabled{% endif %}>{{ 'Leave' if me_in else ('I\'ll help' if t.open else 'Full') }}</button>
+      </form>
+      {% if manage %}<span class="ev-task-tools">
+        <form method="post" action="{{ url_for('event_task_change', event_id=ev.id, task_id=t.id, what='undone' if t.done else 'done') }}"><input type="hidden" name="_csrf" value="{{ csrf }}"><button class="ev-icon-btn" title="{{ 'Not done' if t.done else 'Done' }}" aria-label="{{ 'Mark not done' if t.done else 'Mark done' }}">{{ '↺' if t.done else '✓' }}</button></form>
+        <form method="post" action="{{ url_for('event_task_change', event_id=ev.id, task_id=t.id, what='delete') }}"><input type="hidden" name="_csrf" value="{{ csrf }}"><button class="ev-icon-btn" title="Remove" aria-label="Remove task">✕</button></form>
+      </span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% elif not manage %}<p class="muted">No tasks yet. The organizer adds them.</p>{% endif %}
+  {% if manage %}
+  <form method="post" action="{{ url_for('event_task_add', event_id=ev.id) }}" class="ev-form">
+    <input type="hidden" name="_csrf" value="{{ csrf }}">
+    <input type="text" name="title" maxlength="80" placeholder="e.g. Setting up the stage, Cooking, Cleaning up" aria-label="Task" required>
+    <input type="number" name="needed" min="1" max="50" value="2" aria-label="People needed" title="People needed">
+    <button type="submit" class="btn btn-ghost btn-small">Add task</button>
+  </form>
+  {% endif %}
+</section>
+{% endmacro %}
+
+{% macro map_panel() %}
+<section class="ev-panel" id="map">
+  <h3>🗺️ Event map</h3>
+  <p class="muted">Map the surroundings: draw the stage, dance floor, food, parking, camping and keep-out areas, and pin the entrance, toilets, first aid, water and power, right on top of the garden map.</p>
+  <p style="margin: 0 0 10px;">{% if map_count %}<b>{{ map_count }}</b> thing{{ 's' if map_count != 1 }} mapped{% if s.mapped_m2 %} · {{ '{:,.0f}'.format(s.mapped_m2) }} m² of areas{% endif %}.{% else %}Nothing mapped yet.{% endif %}</p>
+  <a class="btn btn-primary btn-small" href="{{ url_for('event_map', event_id=ev.id) }}">{{ 'Open the event map' if map_count else 'Start mapping' }}</a>
+</section>
+{% endmacro %}
+
+{% macro day_panel() %}
+<section class="ev-panel ev-wide{% if ev.phase == 'now' %} is-now{% endif %}" id="day">
+  <h3>On the day {% if ev.phase == 'now' %}<span class="ev-badge now">Happening now</span>{% endif %}</h3>
+  <p class="muted">Check in when you arrive. At the gate, count people who have no hero here.</p>
+  <div class="ev-day">
+    <div class="ev-box">
+      <h4>Check-ins · {{ checkins | length }}</h4>
+      <form method="post" action="{{ url_for('event_checkin', event_id=ev.id) }}" style="margin: 0 0 8px;">
+        <input type="hidden" name="_csrf" value="{{ csrf }}">
+        {% if me_in %}<input type="hidden" name="out" value="1"><button class="btn btn-ghost btn-small">✓ You're checked in · undo</button>
+        {% else %}<button class="btn btn-primary btn-small">I'm here</button>{% endif %}
+      </form>
+      {% if manage %}
+      <form method="post" action="{{ url_for('event_checkin', event_id=ev.id) }}" class="ev-form" style="margin-top: 0;">
+        <input type="hidden" name="_csrf" value="{{ csrf }}">
+        <select name="grower_id" aria-label="Check someone in">
+          {% if to_check %}<optgroup label="Said they'd come">{% for r in to_check %}<option value="{{ r.grower_id }}">{{ r.name }}</option>{% endfor %}</optgroup>{% endif %}
+          <optgroup label="Everyone">{% for r in everyone %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}</optgroup>
+        </select>
+        <button class="btn btn-ghost btn-small">Check in</button>
+      </form>
+      {% endif %}
+      {% if checkins %}<ul class="ev-people">{% for c in checkins %}<li class="ev-person"><b>{{ c.name }}</b><small>{{ c.at[11:16] }}</small></li>{% endfor %}</ul>{% endif %}
+    </div>
+    <div class="ev-box">
+      <h4>Walk-ins at the gate</h4>
+      <div class="ev-counter" data-walkin="{{ url_for('event_walkin', event_id=ev.id) }}">
+        <form method="post" action="{{ url_for('event_walkin', event_id=ev.id) }}"><input type="hidden" name="_csrf" value="{{ csrf }}"><input type="hidden" name="delta" value="-1"><button class="minus" aria-label="One less">−</button></form>
+        <output id="ev-walkins" aria-live="polite">{{ s.walk_ins }}</output>
+        <form method="post" action="{{ url_for('event_walkin', event_id=ev.id) }}"><input type="hidden" name="_csrf" value="{{ csrf }}"><input type="hidden" name="delta" value="1"><button class="plus" aria-label="One more">+</button></form>
+      </div>
+      <p class="ev-total">Everyone here: <b id="ev-attended">{{ s.attended }}</b> ({{ s.checked_in }} checked in + walk-ins)</p>
+    </div>
+  </div>
+</section>
+{% endmacro %}
+
+{% macro log_panel() %}
+<section class="ev-panel" id="log">
+  <h3>Live log</h3>
+  <p class="muted">What's happening: the band started, we ran out of water, the rain stopped…</p>
+  <form method="post" action="{{ url_for('event_note_add', event_id=ev.id) }}" class="ev-form">
+    <input type="hidden" name="_csrf" value="{{ csrf }}">
+    <input type="text" name="text" maxlength="500" placeholder="Add to the log" aria-label="Add to the log" required>
+    <button class="btn btn-ghost btn-small">Add</button>
+  </form>
+  {% if notes %}
+  <ul class="ev-log">
+    {% for n in notes %}
+    <li><time datetime="{{ n.at }}">{{ n.at[11:16] }}</time>
+      <span class="ev-log-body">{{ n.text }}<small>{{ n.name or 'Someone' }}{% if n.at[:10] != ev.starts_at[:10] %} · {{ n.at[:10] }}{% endif %}</small></span>
+      {% if manage or n.grower_id == g.user.id %}<form method="post" action="{{ url_for('event_note_delete', event_id=ev.id, note_id=n.id) }}"><input type="hidden" name="_csrf" value="{{ csrf }}"><button class="ev-icon-btn" aria-label="Remove">✕</button></form>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endmacro %}
+
+{% macro photos_panel() %}
+{% if photos %}
+<section class="ev-panel" id="photos">
+  <h3>📷 From the camera</h3>
+  <p class="muted">Photos the farm's camera took during the event.</p>
+  <div class="ev-photos">{% for p in photos %}<a href="{{ url_for('media', filepath=p.path) }}" target="_blank" rel="noopener"><img loading="lazy" src="{{ url_for('media', filepath=p.path) }}" alt="Photo at {{ p.taken_at[11:16] }}"></a>{% endfor %}</div>
+</section>
+{% endif %}
+{% endmacro %}
+
+{% macro feedback_panel() %}
+<section class="ev-panel" id="feedback">
+  <h3>How was it? {% if s.rating %}<span class="muted" style="font-weight:400">★ {{ s.rating }} from {{ s.ratings }}</span>{% endif %}</h3>
+  <form method="post" action="{{ url_for('event_feedback', event_id=ev.id) }}">
+    <input type="hidden" name="_csrf" value="{{ csrf }}">
+    <fieldset style="border:0;padding:0;margin:6px 0 0;"><legend class="sr-only">Your rating</legend>
+      <div class="ev-stars">
+        {% for n in range(5, 0, -1) %}<input type="radio" name="rating" id="star{{ n }}" value="{{ n }}" {% if my_feedback and my_feedback.rating == n %}checked{% endif %} required><label for="star{{ n }}" title="{{ n }} star{{ 's' if n != 1 }}">★</label>{% endfor %}
+      </div>
+    </fieldset>
+    <div class="ev-form" style="margin-top: 4px;">
+      <input type="text" name="comment" maxlength="500" value="{{ (my_feedback.comment or '') if my_feedback else '' }}" placeholder="What was great, what to do better next time" aria-label="Comment">
+      <button class="btn btn-ghost btn-small">{{ 'Update' if my_feedback else 'Send' }}</button>
+    </div>
+  </form>
+  {% if feedback %}
+  <ul class="ev-feedback">{% for f in feedback %}<li><span class="st" aria-label="{{ f.rating }} of 5">{{ '★' * f.rating }}{{ '☆' * (5 - f.rating) }}</span> <b>{{ f.name }}</b>{% if f.comment %}: {{ f.comment }}{% endif %}</li>{% endfor %}</ul>
+  {% endif %}
+</section>
+{% endmacro %}
+
+{% macro data_panel() %}
+<section class="ev-panel ev-wide" id="data">
+  <h3>📊 The numbers</h3>
+  <div class="ev-kpis">
+    <div class="kpi"><span class="kpi-label">Expected</span><span class="kpi-value">{{ s.expected }}</span><span class="kpi-sub">{{ s.going }} going + {{ s.guests }} guests · {{ s.maybe }} maybe</span></div>
+    <div class="kpi"><span class="kpi-label">Came</span><span class="kpi-value">{{ s.attended }}</span><span class="kpi-sub">{{ s.checked_in }} checked in · {{ s.walk_ins }} walk-ins</span></div>
+    <div class="kpi"><span class="kpi-label">Most at once</span><span class="kpi-value">{{ s.peak }}</span><span class="kpi-sub">{% if s.show_rate is not none %}{{ s.show_rate }}% of "going" checked in{% else %}from check-ins and the gate{% endif %}</span></div>
+    <div class="kpi"><span class="kpi-label">Rating</span><span class="kpi-value">{{ s.rating if s.rating else '–' }}</span><span class="kpi-sub">{{ s.ratings }} rating{{ 's' if s.ratings != 1 }}</span></div>
+    <div class="kpi"><span class="kpi-label">Volunteers</span><span class="kpi-value">{{ s.volunteers }}</span><span class="kpi-sub">{{ s.tasks_done }} of {{ s.tasks }} task{{ 's' if s.tasks != 1 }} done</span></div>
+    <div class="kpi"><span class="kpi-label">Mapped</span><span class="kpi-value">{{ s.mapped }}</span><span class="kpi-sub">{{ '{:,.0f}'.format(s.mapped_m2) }} m² of areas</span></div>
+    <div class="kpi"><span class="kpi-label">Log</span><span class="kpi-value">{{ s.notes }}</span><span class="kpi-sub">notes</span></div>
+    <div class="kpi"><span class="kpi-label">Photos</span><span class="kpi-value">{{ s.photos }}</span><span class="kpi-sub">by the camera</span></div>
+  </div>
+  {% if arrivals | length > 1 %}
+  {% set top = [arrivals | map(attribute='n') | max, 1] | max %}
+  <p class="ev-chart-title">People there over time</p>
+  <div class="cols-chart">
+    <div class="cols-axis"><span>{{ top }}</span><span>0</span></div>
+    <div class="cols" role="img" aria-label="People at the event every 15 minutes">
+      {% for a in arrivals %}<span class="col" tabindex="0" data-tip-value="{{ a.n }} {{ 'person' if a.n == 1 else 'people' }}" data-tip-label="{{ a.t }}"><span class="col-fill" style="height: {{ 100 * a.n / top }}%"></span></span>{% endfor %}
+    </div>
+  </div>
+  <div class="cols-dates"><span>{{ arrivals[0].t }}</span><span>{{ arrivals[-1].t }}</span></div>
+  {% endif %}
+  <div class="ev-exports">
+    <a class="btn btn-ghost btn-small" href="{{ url_for('event_export', event_id=ev.id, fmt='csv') }}">⬇ People (.csv)</a>
+    <a class="btn btn-ghost btn-small" href="{{ url_for('event_export', event_id=ev.id, fmt='json') }}">⬇ Everything (.json)</a>
+    <a class="btn btn-ghost btn-small" href="{{ url_for('event_export', event_id=ev.id, fmt='geojson') }}">⬇ Event map (.geojson)</a>
+  </div>
+</section>
+{% endmacro %}
+
+{% block content %}
+<p style="margin: 0 0 10px;"><a href="{{ url_for('events_page') }}" class="muted" style="text-decoration:none;">← All events</a></p>
+{% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
+<div class="ev-hero ev-k-{{ ev.kind }}">
+  <span class="ev-tile" aria-hidden="true">{{ ev.kind_info.emoji }}</span>
+  <div class="ev-hero-text">
+    <span class="ev-badge {{ ev.phase }}">{% if ev.phase == 'now' %}Happening now{% elif ev.phase == 'cancelled' %}Cancelled{% elif ev.phase == 'past' %}Past · {{ ev.kind_info.label }}{% else %}{{ ev.kind_info.label }} · {% if ev.days_to == 0 %}today{% elif ev.days_to == 1 %}tomorrow{% else %}in {{ ev.days_to }} days{% endif %}{% endif %}</span>
+    <h2>{{ ev.title }}</h2>
+    <ul class="ev-facts">
+      <li>🗓️ <b>{{ ev.when }}</b></li>
+      {% if ev.place %}<li>📍 <b>{{ ev.place }}</b></li>{% endif %}
+      {% if ev.capacity %}<li>👥 room for <b>{{ ev.capacity }}</b></li>{% endif %}
+      {% if ev.created_by_name %}<li>by {{ ev.created_by_name }}</li>{% endif %}
+    </ul>
+    {% if ev.description %}<p class="ev-desc">{{ ev.description }}</p>{% endif %}
+  </div>
+</div>
+<div class="ev-actions">
+  <a class="btn btn-ghost btn-small" href="{{ url_for('event_map', event_id=ev.id) }}">🗺️ Event map</a>
+  <a class="btn btn-ghost btn-small" href="{{ url_for('farm_page', act=ev.farm_act) }}">✨ On the 3D farm: {{ acts.get(ev.farm_act, 'Party') }}</a>
+  {% if manage %}
+  <a class="btn btn-ghost btn-small" href="{{ url_for('event_edit', event_id=ev.id) }}">Edit</a>
+  <form method="post" action="{{ url_for('event_status', event_id=ev.id) }}"><input type="hidden" name="_csrf" value="{{ csrf }}">
+    <input type="hidden" name="status" value="{{ 'planned' if ev.status == 'cancelled' else 'cancelled' }}">
+    <button class="btn btn-ghost btn-small">{{ 'Un-cancel' if ev.status == 'cancelled' else 'Cancel event' }}</button></form>
+  <form method="post" action="{{ url_for('event_delete', event_id=ev.id) }}" onsubmit="return confirm('Delete this event with all its answers, notes and map?');"><input type="hidden" name="_csrf" value="{{ csrf }}">
+    <button class="btn btn-ghost btn-small" style="color:#c24848;">Delete</button></form>
+  {% endif %}
+</div>
+
+<div class="ev-grid">
+  {% if ev.phase == 'now' %}
+    {{ day_panel() }}{{ log_panel() }}{{ tasks_panel() }}{{ people_panel() }}{{ map_panel() }}{{ feedback_panel() }}{{ photos_panel() }}{{ data_panel() }}
+  {% elif ev.phase in ('past', 'cancelled') %}
+    {{ data_panel() }}{{ feedback_panel() }}{{ photos_panel() }}{{ log_panel() }}{{ people_panel() }}{{ tasks_panel() }}{{ map_panel() }}{{ day_panel() }}
+  {% else %}
+    {{ rsvp_panel() }}{{ people_panel() }}{{ tasks_panel() }}{{ map_panel() }}{{ day_panel() }}{{ log_panel() }}{{ data_panel() }}
+  {% endif %}
+</div>
+
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+  // the gate counter: count without reloading the page
+  (function () {
+    var box = document.querySelector('[data-walkin]');
+    if (!box || !window.fetch) return;
+    box.querySelectorAll('form').forEach(function (f) {
+      f.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var fd = new FormData(f);
+        fetch(box.dataset.walkin, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
+          .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+          .then(function (j) { document.getElementById('ev-walkins').textContent = j.walk_ins; document.getElementById('ev-attended').textContent = j.attended; })
+          .catch(function () { f.submit(); });
+      });
+    });
+  })();
+</script>
+{% endblock %}
