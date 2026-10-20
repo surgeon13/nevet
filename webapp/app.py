@@ -55,7 +55,7 @@ av.register(app)
 traffic_counter = traffic.TrafficCounter(farm_db.get_conn).install(app)
 
 # Pages anyone can open without logging in. Everything else needs an account.
-PUBLIC_ENDPOINTS = {"login", "register", "healthz", "static", "api_add_stats", "api_map_geojson"}
+PUBLIC_ENDPOINTS = {"login", "register", "join", "healthz", "static", "api_add_stats", "api_map_geojson"}
 CSRF_EXEMPT = {"api_add_stats"}                        # uses its own API key
 
 LOG_FILES = {
@@ -941,13 +941,29 @@ def register():
                                           password_hash=auth.hash_password(password), is_admin=first_account)
                 claimed = False
         if not error:
-            logger.info("New account %s%s%s", name, " (claimed existing hero)" if claimed else "",
-                        " [admin]" if first_account else "")
+            from_screen = bool(session.pop("from_screen", None)) and not g.user
+            if from_screen:
+                farm_db.set_setting("screen_joins", str(int(farm_db.get_setting("screen_joins") or 0) + 1))
+            logger.info("New account %s%s%s%s", name, " (claimed existing hero)" if claimed else "",
+                        " [admin]" if first_account else "", " (from the welcome screen's QR code)" if from_screen else "")
             if g.user:          # a player adding someone else: stay logged in as yourself
                 return redirect(url_for("grower_page", grower_id=gid, created=1))
             log_in(farm_db.get_grower(gid))
             return redirect(url_for("grower_customize", grower_id=gid, welcome=1))
     return render_template("register.html", error=error, name=name, first_account=first_account, need_code=need_code)
+
+
+@app.route("/join")
+def join():
+    """The short link in the welcome screen's QR code (`nevet screen`): counts the scan, then sign-up
+    (with the invite code filled in: /join?i=CODE). Players who are already logged in go to the dashboard."""
+    if g.user:
+        return redirect(url_for("hub"))
+    if not session.get("from_screen"):
+        session["from_screen"] = 1
+        farm_db.set_setting("screen_scans", str(int(farm_db.get_setting("screen_scans") or 0) + 1))
+    code = re.sub(r"[^A-Z0-9]", "", (request.args.get("i") or "").upper())[:12]
+    return redirect(url_for("register", invite=code) if code else url_for("register"))
 
 
 @app.route("/logout", methods=["POST"])

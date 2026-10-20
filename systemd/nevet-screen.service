@@ -1,0 +1,27 @@
+[Unit]
+Description=Nevet welcome screen with a join QR code on the Pi's own display (tty1)
+# Not started by default: `nevet screen on` (or sudo systemctl enable --now nevet-screen) turns it on.
+After=nevet-webapp.service systemd-user-sessions.service
+Conflicts=getty@tty1.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__REPO_DIR__
+EnvironmentFile=-__REPO_DIR__/.env
+Environment=CAMERA_BASE_DIR=__HOME__/camera_captures
+Environment=TERM=linux
+Environment=LANG=C.UTF-8
+ExecStart=/usr/bin/python3 __REPO_DIR__/scripts/nevet_status.py screen --kiosk
+StandardInput=tty
+StandardOutput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

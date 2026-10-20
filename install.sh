@@ -94,6 +94,7 @@ render_unit() {
 }
 
 render_unit "$REPO_DIR/systemd/nevet-webapp.service"    /etc/systemd/system/nevet-webapp.service
+render_unit "$REPO_DIR/systemd/nevet-screen.service"    /etc/systemd/system/nevet-screen.service   # off until `nevet screen on`
 render_unit "$REPO_DIR/systemd/nevet-timelapse.service" /etc/systemd/system/nevet-timelapse.service
 render_unit "$REPO_DIR/systemd/nevet-timelapse.timer"   /etc/systemd/system/nevet-timelapse.timer
 render_unit "$REPO_DIR/systemd/nevet-watchdog.service"  /etc/systemd/system/nevet-watchdog.service

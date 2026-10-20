@@ -27,6 +27,7 @@ resume by themselves when a camera is plugged back in.
 ```
 scripts/                    capture_photo.sh, capture_video.sh, test_camera_scripts.sh, wifi_watchdog.sh,
                             wifi_antenna.sh, nevet_status.py (the `nevet` command)
+  scripts/nevet_screen.py     `nevet screen`: the welcome dashboard with the join QR code
   scripts/lib/log.sh          shared timestamped logging helper
   scripts/lib/camera.sh       "is a camera plugged in?" check shared by the capture scripts
 webapp/                      Flask app: dashboard, heroes, garden map, gallery, logs, game stats
@@ -36,6 +37,7 @@ webapp/                      Flask app: dashboard, heroes, garden map, gallery, 
   webapp/relations.py          relationship kinds (parent, spouse, sibling...) and group types
   webapp/bulk.py               "olive x 5" lists -> many plants at once, spread over a bed
   webapp/timeline.py           the farm's story, day by day, for the Time page
+  webapp/qr.py                 QR codes (for the welcome screen), no extra packages
   webapp/events.py             events: parties, festivals and gatherings, and the data they gather
   webapp/today.py              today's actions + to-dos for the dashboard
   webapp/plants.py             plant species catalog + "which plant is this?" from its name
@@ -618,10 +620,42 @@ To stream it to YouTube or Twitch, open the live view on a computer running
 OBS (as a browser source or a captured window) and stream from there; the
 Pi 3B can't render and encode video itself.
 
+## The welcome screen (`nevet screen`)
+
+A full-screen, minimal dashboard for a screen by the garden (the Pi's own
+HDMI display, or any terminal over SSH) that invites people to join:
+
+- a big **QR code** that phones read with their camera; it opens sign-up;
+- three steps (scan, pick a hero name and password, log what you do);
+- the address to type instead, and the invite code when it's needed;
+- the garden in numbers (heroes, plants growing, actions this week, kg
+  harvested), the next event, and a rotating line of what's happening;
+- a footer with the station's status and how many people scanned the code
+  and joined from it.
+
+It fits itself to the screen: a big QR code with double-size modules on a
+large display, a smaller one and a one-line header on an 80×24 console.
+
+```
+nevet screen            show it (q or Esc to leave, r to refresh)
+nevet screen on         show it on the Pi's display (tty1) at every boot
+nevet screen off        give the display back to the login prompt
+nevet screen status     is it on?
+```
+
+`nevet screen on` needs the service from `sudo ./install.sh` (run it once
+after this update). The QR code opens `/join` (which counts the scan, then
+goes to sign-up) on, in order: `NEVET_JOIN_URL` from `.env` if you set it
+(e.g. your own domain); the public Tailscale Funnel address when Nevet is
+open to the internet (`nevet public on`), with the invite code filled in
+unless `WEBAPP_PUBLIC_SIGNUP=true`; otherwise the home network address
+(phones on the garden's WiFi). The QR code is made by `webapp/qr.py`, with no
+extra packages.
+
 ## Events (parties, festivals and gatherings)
 
-**Events** on the dashboard (it took the place of Stats; the game stats page
-is still at `/stats`, linked from the bottom of the events list) is where
+**Events** on the dashboard (it took the place of the Stats node; the game
+stats moved to the dashboard's **XP** tab) is where
 the farm plans its parties, festivals, harvest festivals, workshops,
 volunteer days, markets, kids' days and campfire nights, and keeps what
 happened at them.
@@ -789,8 +823,8 @@ over a secure link (https): see "Phone location on the map" in
 
 ## Game stats
 
-The game stats page (`/stats`) is no longer a dashboard node (Events took its
-place); it's linked from the bottom of the Events list.
+The game stats page (`/stats`) is the dashboard's **XP** tab (next to
+Dashboard and Time); Events has its own node.
 
 `webapp/game_stats.py` is a small helper for logging XP / time played /
 compost / credits / plant growth to the same SQLite DB the web app reads:

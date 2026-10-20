@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-20 (the welcome screen, XP tab)
+
+- `nevet screen`: a full-screen welcome dashboard for the Pi's display or
+  any terminal, with a big QR code to join (opens sign-up, with the invite
+  code filled in when needed), three steps, the garden's numbers, the next
+  event and what's happening. `nevet screen on` shows it on the Pi's own
+  display at every boot (after `sudo ./install.sh` once).
+- `/join`: the short link behind the QR code; it counts scans and sign-ups
+  from the screen.
+- The game stats are now the dashboard's **XP** tab; Events stands on its own.
+
 ## 2026-10-20 (events)
 
 - **Events** replace Stats on the dashboard: plan parties, festivals and
@@ -11,7 +22,7 @@
   food, camping, parking, keep-out areas, walkways, emergency route, cables,
   entrance, toilets, first aid, water, power and more.
 - Events show in Today at the farm, on the Time story, and on the 3D farm
-  while they're on. The game stats page is still at `/stats`.
+  while they're on.
 
 ## 2026-10-15 (five more farm settings)
 

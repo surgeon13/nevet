@@ -12,6 +12,9 @@
   nevet net --quick   same without the 5 MB download
   nevet ts         Tailscale check: why Nevet can(not) be opened from
                    outside the home network, and exactly what to do
+  nevet screen     full-screen welcome dashboard with a QR code to join
+                   (for the Pi's own display); nevet screen on | off | status
+                   shows it on the Pi's display at every boot
 
 Installed as the `nevet` command by install.sh; also runnable as
 python3 ~/nevet/scripts/nevet_status.py
@@ -1628,10 +1631,12 @@ def ts_check():
 
 def main():
     ap = argparse.ArgumentParser(prog="nevet", description="Nevet status for the terminal.")
-    ap.add_argument("command", nargs="?", default="status", choices=["status", "net", "ts", "tailscale", "public"],
+    ap.add_argument("command", nargs="?", default="status", choices=["status", "net", "ts", "tailscale", "public", "screen"],
                     help="status (default), net (network test), ts (Tailscale / remote access check) "
-                         "or public (open Nevet to everyone with Tailscale Funnel: public on | off | status)")
-    ap.add_argument("action", nargs="?", default="status", choices=["on", "off", "status"], help="public: on, off or status")
+                         "public (open Nevet to everyone with Tailscale Funnel: public on | off | status) "
+                         "or screen (welcome dashboard with a join QR code: screen [on | off | status])")
+    ap.add_argument("action", nargs="?", default=None, choices=["on", "off", "status"], help="public / screen: on, off or status")
+    ap.add_argument("--kiosk", action="store_true", help="screen: no key hints and no quitting (for the Pi's display)")
     ap.add_argument("--quick", action="store_true", help="net: skip the 5 MB download test")
     ap.add_argument("-n", type=int, default=5, metavar="N", help="how many latest actions/events (default 5)")
     ap.add_argument("-w", "--watch", nargs="?", const=5, type=float, metavar="SEC", help="refresh every SEC seconds")
@@ -1649,7 +1654,14 @@ def main():
         ts_check()
         return
     if a.command == "public":
-        sys.exit(public_access(a.action))
+        sys.exit(public_access(a.action or "status"))
+    if a.command == "screen":
+        sys.path.insert(0, str(REPO / "scripts"))
+        import nevet_screen
+        if a.action:
+            sys.exit(nevet_screen.autostart(a.action))
+        nevet_screen.show(kiosk=a.kiosk)
+        return
     if not a.watch:
         print(render(n))
         return

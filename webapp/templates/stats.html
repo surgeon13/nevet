@@ -1,7 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Game Stats{% endblock %}
+{% block title %}Nevet — XP{% endblock %}
 {% block content %}
-<h2>Latest Stats</h2>
+<div class="hub-tabs" style="margin-bottom: 14px;">
+  <a class="hub-tab" href="{{ url_for('hub') }}">Dashboard</a>
+  <a class="hub-tab" href="{{ url_for('time_page') }}">Time</a>
+  <a class="hub-tab active" href="{{ url_for('stats') }}" aria-current="page">XP</a>
+</div>
+<h2>XP &amp; game stats</h2>
+<p class="muted" style="margin-top: -6px;">XP, time played, compost, credits and plant growth, as the game logs them.</p>
+<h3>Latest</h3>
 {% if latest %}
 <section class="summary-bar">
   <div class="stat-card"><span class="num">{{ latest.xp or 0 }}</span><span class="label">XP</span></div>
@@ -15,7 +22,7 @@
 <p>No stats logged yet.</p>
 {% endif %}
 
-<h2>History</h2>
+<h3>History</h3>
 <table class="history-table">
 <tr><th>Time</th><th>XP</th><th>Time played</th><th>Compost</th><th>Credits</th><th>Plant growth</th></tr>
 {% for row in history %}

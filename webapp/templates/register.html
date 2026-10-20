@@ -31,7 +31,7 @@
   {% if need_code %}
   <label class="hero-field">
     <span class="hero-field-label">Invite code</span>
-    <input type="text" name="invite" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" required placeholder="e.g. K7M2QXPA">
+    <input type="text" name="invite" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" required placeholder="e.g. K7M2QXPA" value="{{ (request.form.get('invite') or request.args.get('invite') or '')[:12] }}">
     <span class="hero-field-hint">You're joining from outside the farm's network, so you need the code from a player (admins find it on their Account page).</span>
   </label>
   {% endif %}
