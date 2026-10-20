@@ -19,6 +19,8 @@ import bulk
 import extras
 import events
 import garden_map
+import qr
+import tags
 import netaccess
 import relations
 import heroes
@@ -55,8 +57,8 @@ av.register(app)
 traffic_counter = traffic.TrafficCounter(farm_db.get_conn).install(app)
 
 # Pages anyone can open without logging in. Everything else needs an account.
-PUBLIC_ENDPOINTS = {"login", "register", "join", "healthz", "static", "api_add_stats", "api_map_geojson"}
-CSRF_EXEMPT = {"api_add_stats"}                        # uses its own API key
+PUBLIC_ENDPOINTS = {"login", "register", "join", "healthz", "static", "api_add_stats", "api_map_geojson", "api_tag_scan"}
+CSRF_EXEMPT = {"api_add_stats", "api_tag_scan"}        # their own API key (or the Pi itself)
 
 LOG_FILES = {
     "watchdog": LOGS_DIR / "watchdog.log",
@@ -616,6 +618,7 @@ def asset_page(asset_id):
         abort(404)
     view = plant_view(asset)
     return render_template("asset_detail.html", asset=asset, pinned=garden_map.asset_pinned(asset_id),
+                           asset_tags=tags.list_tags("plant", asset_id),
                            history=farm_db.recent_activity(asset_id=asset_id, limit=100),
                            plant=view, species=plants.species(view["species"]), picked=plants.valid(asset["species"]),
                            detected=plants.detect(asset["name"], asset["variety"], asset["asset_type"]),
@@ -1459,6 +1462,188 @@ def api_event_map_deleted(event_id):
     _event_or_404(event_id)
     return jsonify({"features": [garden_map.feature_dict(r) | {"deleted_at": r["deleted_at"]}
                                  for r in garden_map.recently_deleted(event_id=event_id)]})
+
+
+# ---------- NFC / RFID tags and QR labels (tags.py; readers: scripts/nevet_tags.py) ----------
+app.jinja_env.filters["uid"] = tags.pretty_uid
+
+
+def _tag_base():
+    """Where tag links point: the address saved on the Tags page, NEVET_JOIN_URL, or this site."""
+    base = farm_db.get_setting("tag_base_url") or os.environ.get("NEVET_JOIN_URL") or request.url_root
+    return base.rstrip("/") + "/"
+
+
+def _tag_url(tag):
+    return _tag_base() + "t/" + tag["code"]
+
+
+def _tag_manager(tag):
+    if not (g.user["is_admin"] or tag["created_by"] == g.user["id"]):
+        abort(403)
+
+
+QUICK_ACTIONS = ("watering", "observation", "weeding", "fertilizing", "pruning", "pest_control", "feeding", "germination")
+
+
+@app.route("/t/<code>")
+def tag_landing(code):
+    """What a phone opens when it touches a tag (or scans its QR label)."""
+    tag = tags.by_code(code)
+    if not tag:
+        return render_template("message.html", title="Unknown tag",
+                               message="This tag isn't linked to anything on Nevet (any more). An admin can set it up on the Tags page."), 404
+    tags.record(tag, "phone", grower_id=g.user["id"], result="opened on a phone")
+    ctx = {"tag": tag, "url": _tag_url(tag)}
+    if tag["kind"] == "plant":
+        asset = farm_db.get_asset(tag["target_id"])
+        if not asset:
+            abort(404)
+        worm = asset["asset_type"] == "worm_bin"
+        quick = [a for a in (["feeding", "observation", "watering"] if worm else ["watering", "observation", "weeding", "pruning"])]
+        if tag["action"] and tag["action"] in QUICK_ACTIONS:
+            quick = [tag["action"]] + [a for a in quick if a != tag["action"]]
+        ctx.update(asset=asset, quick=[farm_db.ACTION_BY_ID[a] for a in quick[:4]],
+                   more=[farm_db.ACTION_BY_ID[a] for a in ("harvest", "fertilizing", "pest_control", "transplant", "delivery") if not worm or a != "transplant"],
+                   history=farm_db.recent_activity(asset_id=asset["id"], limit=3))
+    elif tag["kind"] == "action":
+        last = farm_db.get_conn().execute("""SELECT logs.timestamp, growers.name FROM logs LEFT JOIN growers ON growers.id = logs.grower_id
+                                             WHERE logs.log_type = ? AND logs.asset_id IS NULL ORDER BY logs.timestamp DESC LIMIT 1""", (tag["action"],)).fetchone()
+        ctx.update(last=last)
+    elif tag["kind"] == "event":
+        ev = events.get(tag["target_id"])
+        if not ev:
+            abort(404)
+        ctx.update(ev=ev, checked=g.user["id"] in {c["grower_id"] for c in events.checkins(ev["id"])})
+    return render_template("tag.html", **ctx)
+
+
+@app.route("/t/<code>/log", methods=["POST"])
+def tag_log(code):
+    """One tap in the garden: log this plant's action, or the whole-farm action, as you."""
+    tag = tags.by_code(code)
+    if not tag or tag["kind"] not in ("plant", "action"):
+        abort(404)
+    action = tag["action"] if tag["kind"] == "action" else request.form.get("action")
+    if action not in (tags.FARM_ACTIONS if tag["kind"] == "action" else QUICK_ACTIONS):
+        abort(400)
+    before = heroes.progress(**farm_db.grower_counts(g.user["id"]))
+    notes = (request.form.get("notes") or "").strip()[:500] or None
+    farm_db.add_log(action, tag["target_id"] if tag["kind"] == "plant" else None, notes=notes, grower_id=g.user["id"])
+    tags.record(tag, "phone", grower_id=g.user["id"], result=f"{farm_db.ACTION_BY_ID[action]['label']} logged")
+    logger.info("%s logged %s with the tag %s (%s)", g.user["name"], action, tag["code"], tag["name"])
+    return _after_logging(before, action, 1 if tag["kind"] == "plant" else 0, whole=tag["kind"] == "action")
+
+
+@app.route("/t/<code>/checkin", methods=["POST"])
+def tag_checkin(code):
+    tag = tags.by_code(code)
+    if not tag or tag["kind"] != "event" or not events.get(tag["target_id"]):
+        abort(404)
+    events.check_in(tag["target_id"], g.user["id"], g.user["id"])
+    logger.info("%s checked in to event #%s with a tag", g.user["name"], tag["target_id"])
+    return redirect(url_for("event_page", event_id=tag["target_id"]) + "#day")
+
+
+@app.route("/tags", methods=["GET", "POST"])
+def tags_page():
+    error = request.args.get("error")
+    if request.method == "POST":
+        if request.form.get("base_url") is not None:
+            if not g.user["is_admin"]:
+                abort(403)
+            base = (request.form.get("base_url") or "").strip()
+            if base and not re.match(r"^https?://[^\s/]+", base):
+                error = "Tag links start with http:// or https://"
+            else:
+                farm_db.set_setting("tag_base_url", base.rstrip("/") + "/" if base else "")
+                return redirect(url_for("tags_page"))
+        else:
+            kind = request.form.get("kind")
+            target = request.form.get("target_id", type=int) or request.form.get("target_" + (kind or ""), type=int)
+            action = request.form.get("action") or request.form.get("action_farm" if kind == "action" else "action_plant")
+            tag, error = tags.create(kind, target, action, request.form.get("label"), request.form.get("uid"),
+                                     request.form.get("tech"), g.user["id"])
+            if tag:
+                logger.info("%s made the tag %s (%s: %s)", g.user["name"], tag["code"], tag["kind"], tag["name"])
+                back = request.form.get("back")
+                return redirect(back if back and back.startswith("/") and not back.startswith("//") else url_for("tags_page", made=tag["id"]) + f"#tag-{tag['id']}")
+    all_tags = tags.list_tags()
+    for t in all_tags:
+        t["url"] = _tag_url(t)
+    return render_template("tags.html", tags=all_tags, error=error, base=_tag_base(), made=request.args.get("made", type=int),
+                           kinds=tags.KINDS, techs=tags.TECHS, farm_actions=[farm_db.ACTION_BY_ID[a] for a in tags.FARM_ACTIONS],
+                           plant_actions=[farm_db.ACTION_BY_ID[a] for a in tags.PLANT_ACTIONS],
+                           assets=farm_db.plants(None, current=True), evs=[e for e in events.list_events() if e["phase"] != "past"],
+                           growers=farm_db.list_growers(), unknown=tags.unknown_uids(), scans=tags.recent_scans(15),
+                           prefill={k: request.args.get(k) for k in ("kind", "target", "uid")})
+
+
+@app.route("/tags/<int:tag_id>/<what>", methods=["POST"])
+def tag_change(tag_id, what):
+    tag = tags.get(tag_id)
+    if not tag:
+        abort(404)
+    _tag_manager(tag)
+    err = None
+    if what == "link":
+        err = tags.link_uid(tag_id, request.form.get("uid"), request.form.get("tech"))
+    elif what == "unlink":
+        tags.unlink_uid(tag_id)
+    elif what == "rename":
+        tags.rename(tag_id, request.form.get("label"))
+    elif what == "delete":
+        tags.delete(tag_id)
+        logger.info("%s deleted the tag %s", g.user["name"], tag["code"])
+    else:
+        abort(404)
+    return redirect(url_for("tags_page", error=err) + ("" if what == "delete" else f"#tag-{tag_id}"))
+
+
+@app.route("/tags/<int:tag_id>/flipper.<fmt>")
+def tag_flipper_file(tag_id, fmt):
+    """The tag as a Flipper Zero file: .nfc (NTAG215 with the link) or .rfid (EM4100 fob)."""
+    tag = tags.get(tag_id)
+    if not tag or fmt not in ("nfc", "rfid"):
+        abort(404)
+    if fmt == "rfid" and not tag["uid"]:
+        _tag_manager(tag)
+        tags.link_uid(tag_id, tags.em4100_id(tag), "em4100")       # the fob you write will be recognised by the reader
+        tag = tags.get(tag_id)
+    body = tags.flipper_nfc(tag, _tag_url(tag)) if fmt == "nfc" else tags.flipper_rfid(tag)
+    return app.response_class(body, mimetype="text/plain",
+                              headers={"Content-Disposition": f'attachment; filename="{tags.file_name(tag, fmt)}"'})
+
+
+@app.route("/tags/print")
+def tags_print():
+    """A sheet of labels: each tag's QR code, name and code (cut out, laminate, stick next to the NFC sticker)."""
+    ids = {int(x) for x in request.args.getlist("id") if x.isdigit()}
+    chosen = [t for t in tags.list_tags() if not ids or t["id"] in ids]
+    for t in chosen:
+        t["url"] = _tag_url(t)
+        t["svg"] = qr.svg(qr.encode(t["url"]), quiet=2, scale=4, title="QR code for " + t["name"])
+    return render_template("tags_print.html", tags=chosen)
+
+
+def _reader_allowed():
+    """Readers post from the Pi itself (nevet tags reader), or anywhere with WEBAPP_API_KEY."""
+    if netaccess._loopback(request.remote_addr):         # the Pi itself (after LocalProxyFix: never a Funnel visitor)
+        return True
+    key = os.environ.get("WEBAPP_API_KEY", "changeme-api-key")
+    sent = request.headers.get("X-API-Key", "")
+    return bool(sent) and key != "changeme-api-key" and hmac.compare_digest(sent, key)
+
+
+@app.route("/api/tags/scan", methods=["POST"])
+def api_tag_scan():
+    if not _reader_allowed():
+        return jsonify({"error": "readers post from the Pi itself, or with the X-API-Key header"}), 401
+    data = request.get_json(silent=True) or {}
+    res = tags.reader_scan(data.get("uid"), (data.get("tech") or "")[:20] or None, (data.get("reader") or "reader")[:40],
+                           (data.get("via") or "reader")[:20], check=bool(data.get("check")))
+    logger.info("Tag reader %s: %s", data.get("reader") or "reader", res.get("text"))
+    return jsonify(res), 200 if res.get("ok") else 400
 
 
 # ---------- the farm: every hero together (tap the brain on the dashboard) ----------

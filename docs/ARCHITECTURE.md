@@ -187,6 +187,15 @@ A Flask app served by waitress on port 8000:
   `D.event` and the garden as a faded `D.background`, saving through
   `/api/events/<id>/map/*`. `today.py`, `timeline.py` and the farm page
   (`data.event`) read events too.
+- **Tags** — `tags.py` keeps `tags` (code, kind plant/action/event/hero,
+  target, the reader's action, an optional chip UID) and `tag_scans` (every
+  phone tap and reader scan). `/t/<code>` is what NFC stickers and QR labels
+  hold; `/api/tags/scan` (loopback or API key) runs `tags.reader_scan()`:
+  a hero fob sets who's scanning at that reader for two minutes, then tags
+  log as that hero. `tags.flipper_nfc()` builds an NTAG215 dump with the
+  link as an NDEF URI record (Flipper NFC file format v4) and
+  `flipper_rfid()` an EM4100 key. `scripts/nevet_tags.py` drives a Flipper
+  Zero over its USB command line (`rfid read`) and exports the files.
 - **Plant models** — `static/assets/plants/catalog.json` lists ~90
   species as a model archetype (fruiting, herb, leafy, root, vine, stalk,
   flower, berry, tree, succulent, mushroom, microgreens, worms, hive) plus

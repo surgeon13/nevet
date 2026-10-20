@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
+{% block title %}Nevet — {{ tag.name }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='tags.css') }}">{% endblock %}
+{% block fab %}{% endblock %}
+{% set csrf = csrf_token() %}
+{% block content %}
+<div class="tg-land">
+  <div class="tg-card">
+  {% if tag.kind == 'plant' %}
+    <span class="tg-kicker">{{ ui.icon('worm' if asset.asset_type == 'worm_bin' else 'sprout', 15) }} {{ 'Worm bin' if asset.asset_type == 'worm_bin' else 'Plant' }} tag</span>
+    <h2>{{ asset.name }}</h2>
+    <p class="tg-sub">{{ [asset.variety, asset.life_stage, asset.grower_name and ('grown by ' ~ asset.grower_name)] | select | join(' · ') }}</p>
+    <form method="post" action="{{ url_for('tag_log', code=tag.code) }}" class="tg-big">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <button class="tg-btn primary" name="action" value="{{ quick[0].id }}">{{ ui.icon(quick[0].icon, 26) }}<span>{{ quick[0].label }}<small>One tap logs it as you</small></span></button>
+      <div class="tg-grid">
+        {% for a in quick[1:] %}<button class="tg-btn" name="action" value="{{ a.id }}">{{ ui.icon(a.icon, 20) }}<span>{{ a.label }}</span></button>{% endfor %}
+      </div>
+      <div class="tg-note"><input type="text" name="notes" maxlength="500" placeholder="Add a note (optional), then tap" aria-label="Note"></div>
+    </form>
+    <div class="tg-more">
+      {% for a in more %}<a class="chip" href="{{ url_for('log_action', asset=asset.id, action=a.id) }}">{{ ui.icon(a.icon, 15) }} {{ a.label }}…</a>{% endfor %}
+      <a class="chip" href="{{ url_for('asset_page', asset_id=asset.id) }}">Plant page →</a>
+    </div>
+    {% if history %}
+    <ul class="tg-recent">{% for h in history %}<li><b>{{ h.grower_name or 'Someone' }}</b> · {{ action_meta(h.log_type).label | lower }} · {{ h.timestamp[:16] | replace('T', ' ') }}</li>{% endfor %}</ul>
+    {% endif %}
+
+  {% elif tag.kind == 'action' %}
+    <span class="tg-kicker">{{ ui.icon('sparkle', 15) }} Farm action</span>
+    <h2>{{ tag.name }}</h2>
+    <p class="tg-sub">{% if last %}Last time: {{ last.name or 'someone' }}, {{ last.timestamp[:16] | replace('T', ' ') }}{% else %}Not logged with this card yet.{% endif %}</p>
+    <form method="post" action="{{ url_for('tag_log', code=tag.code) }}" class="tg-big">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <div class="tg-note"><input type="text" name="notes" maxlength="500" placeholder="Add a note (optional)" aria-label="Note"></div>
+      <button class="tg-btn primary">{{ ui.icon(action_meta(tag.action).icon, 26) }}<span>Log it: {{ tag.action_label | lower }}, the whole farm<small>As {{ current_user.name }}, right now</small></span></button>
+    </form>
+
+  {% elif tag.kind == 'event' %}
+    <span class="tg-kicker">{{ ui.icon('sparkle', 15) }} Event check-in</span>
+    <h2>{{ ev.kind_info.emoji }} {{ ev.title }}</h2>
+    <p class="tg-sub">{{ ev.when }}{% if ev.place %} · {{ ev.place }}{% endif %}</p>
+    <div class="tg-big">
+      {% if checked %}
+      <a class="tg-btn" href="{{ url_for('event_page', event_id=ev.id) }}">✓<span>You're checked in<small>Open the event</small></span></a>
+      {% else %}
+      <form method="post" action="{{ url_for('tag_checkin', code=tag.code) }}"><input type="hidden" name="_csrf" value="{{ csrf }}">
+        <button class="tg-btn primary">🙌<span>I'm here: check me in<small>{{ ev.attended }} here so far</small></span></button></form>
+      {% endif %}
+    </div>
+
+  {% else %}
+    <span class="tg-kicker">{{ ui.icon('heart', 15) }} Hero fob</span>
+    <h2>{{ tag.hero_name }}</h2>
+    <p class="tg-sub">This fob checks {{ tag.hero_name }} in at the gate reader, and tells the reader who's logging.</p>
+    <div class="tg-big"><a class="tg-btn" href="{{ url_for('grower_page', grower_id=tag.target_id) }}">{{ ui.icon('heart', 22) }}<span>Open {{ tag.hero_name }}'s page</span></a></div>
+  {% endif %}
+  </div>
+  <p class="tg-foot">Tag {{ tag.code }}{% if tag.scans %} · tapped {{ tag.scans }} time{{ 's' if tag.scans != 1 }}{% endif %} · <a href="{{ url_for('tags_page') }}#tag-{{ tag.id }}">manage tags</a></p>
+</div>
+{% endblock %}

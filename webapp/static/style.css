@@ -630,3 +630,6 @@ dialog.today-dialog { width: min(440px, calc(100vw - 32px)); }
 @media (max-width: 420px) { .bulk-sub { grid-template-columns: 1fr; } }
 
 .invite-code { margin: 6px 0 10px; font: 800 1.5rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.18em; color: var(--accent); user-select: all; }
+.asset-tags h3 { margin-bottom: 6px; }
+.asset-tag-list { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 4px; font-size: 0.9rem; }
+.asset-tag-list a { color: var(--accent-2); text-decoration: none; }

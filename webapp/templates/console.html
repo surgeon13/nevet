@@ -127,6 +127,9 @@
     <a class="node-card" data-label="System" href="{{ url_for('logs_page') }}">
       System<span class="node-sub">Live system logs</span>
     </a>
+    <a class="node-card" data-label="Tags" href="{{ url_for('tags_page') }}">
+      Tags<span class="node-sub">NFC, fobs &amp; QR labels</span>
+    </a>
     <a class="node-card" data-label="Events" href="{{ url_for('events_page') }}">
       Events<span class="node-sub">{% if events_now %}Now: {{ events_now[0].title }}{% elif events_next %}Next: {{ events_next[0].title }} · {{ events_next[0].start.strftime('%-d %b') }}{% else %}Parties &amp; gatherings{% endif %}</span>
     </a>

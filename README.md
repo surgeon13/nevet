@@ -27,6 +27,7 @@ resume by themselves when a camera is plugged back in.
 ```
 scripts/                    capture_photo.sh, capture_video.sh, test_camera_scripts.sh, wifi_watchdog.sh,
                             wifi_antenna.sh, nevet_status.py (the `nevet` command)
+  scripts/nevet_tags.py       `nevet tags`: tag list, the gate reader (Flipper Zero or USB reader), Flipper export
   scripts/nevet_screen.py     `nevet screen`: the welcome dashboard with the join QR code
   scripts/lib/log.sh          shared timestamped logging helper
   scripts/lib/camera.sh       "is a camera plugged in?" check shared by the capture scripts
@@ -37,6 +38,7 @@ webapp/                      Flask app: dashboard, heroes, garden map, gallery, 
   webapp/relations.py          relationship kinds (parent, spouse, sibling...) and group types
   webapp/bulk.py               "olive x 5" lists -> many plants at once, spread over a bed
   webapp/timeline.py           the farm's story, day by day, for the Time page
+  webapp/tags.py               NFC / RFID tags and QR labels, the reader API's logic, Flipper Zero files
   webapp/qr.py                 QR codes (for the welcome screen), no extra packages
   webapp/events.py             events: parties, festivals and gatherings, and the data they gather
   webapp/today.py              today's actions + to-dos for the dashboard
@@ -619,6 +621,54 @@ page and the new actions. Log in once on the TV device (logins last 30 days).
 To stream it to YouTube or Twitch, open the live view on a computer running
 OBS (as a browser source or a captured window) and stream from there; the
 Pi 3B can't render and encode video itself.
+
+## Tags: NFC stickers, key fobs and QR labels (and the Flipper Zero)
+
+**Tags** on the dashboard makes tags that phones tap and readers scan:
+
+- **Plant tag**: on a plant, bed, tree or worm bin. A phone tap opens big
+  one-tap buttons (watering, check-up, weeding... feeding for worm bins),
+  logged as you; harvest and others open the log form for that plant.
+- **Farm action**: a card for a whole-farm action, e.g. "Morning watering":
+  one tap logs "watered the whole farm" as you (Dror's 05:30 round).
+- **Event check-in**: a tag at the gate that checks you in to that event.
+- **Hero fob**: a person's 125 kHz key fob or card, for the gate reader.
+
+Every tag has a short code and a link, `/t/<code>`. Write the link to an NFC
+sticker (NTAG213/215) as a URL record and phones open it by themselves; or
+print the tag's **QR label** (Tags → Print QR labels), which does the same.
+A tag can also be linked to a chip's UID, so readers that only see the
+serial number recognise it. The admin sets the address tag links start with
+(use the one phones can always reach, e.g. your public address).
+
+**With a Flipper Zero** (testing tags and handling farm data):
+
+- **Flipper .nfc** (each tag): an NTAG215 holding the tag's link. On the
+  Flipper (NFC → Saved) you can emulate it and tap a phone against the
+  Flipper to test the tag before buying stickers, or write it to a sticker.
+- **Flipper .rfid** (hero fobs): an EM4100 key; write it onto a blank T5577
+  fob with the Flipper (125 kHz RFID → Saved → Write). The reader then knows
+  the fob.
+- `nevet tags export` writes all the files into `~/nevet-flipper/` (`nfc/`
+  and `lfrfid/` folders to copy with qFlipper); `--push` sends them to a
+  Flipper plugged in by USB (experimental).
+- `nevet tags reader`: the Flipper plugged into the Pi becomes the **gate
+  reader**. Scan your hero fob, then tap tags within two minutes: farm
+  cards, plant tags (their "reader logs" action) and event tags are logged
+  as you. A fob on its own checks you in to the event that's on. New chips
+  show up on the Tags page under "Scanned, not linked yet", to link in one
+  click.
+- `nevet tags check`: says what each scanned chip is, without logging, for
+  testing a batch of tags.
+- `nevet tags`: the list of tags and the latest scans.
+
+The reader uses the Flipper's USB command line (`rfid read`; close qFlipper
+first, and add your user to the `dialout` group once:
+`sudo usermod -aG dialout $USER`). Reading NFC chips through the Flipper's
+command line depends on its firmware (`--nfc` tries); for NFC at the gate, a
+USB card reader that types the UID works too: `nevet tags reader --stdin`.
+Readers post to `/api/tags/scan`, allowed from the Pi itself or with
+`WEBAPP_API_KEY`.
 
 ## The welcome screen (`nevet screen`)
 

@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Nevet — Tags{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='tags.css') }}">{% endblock %}
+{% set csrf = csrf_token() %}
+{% block content %}
+<div class="tg-head">
+  <div>
+    <h2>Tags</h2>
+    <p class="muted">NFC stickers, key fobs and QR labels for plants, whole-farm actions, events and heroes. A phone tap (or a scan) opens the tag; a reader at the gate logs it.</p>
+  </div>
+  {% if tags %}<a class="btn btn-ghost" href="{{ url_for('tags_print') }}" target="_blank" rel="noopener">Print QR labels</a>{% endif %}
+</div>
+{% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
+
+<section class="tg-panel" id="new">
+  <h3>New tag</h3>
+  <form method="post" action="{{ url_for('tags_page') }}" class="tg-form" data-kind="{{ prefill.kind or 'plant' }}" id="tg-form">
+    <input type="hidden" name="_csrf" value="{{ csrf }}">
+    <div class="tg-kinds" role="radiogroup" aria-label="What the tag is for">
+      {% for k, label, sub in [('plant', 'Plant tag', 'on a plant, bed or worm bin'), ('action', 'Farm action', 'e.g. watered the whole farm'), ('event', 'Event check-in', 'at the gate'), ('hero', 'Hero fob', 'a person\'s key fob or card')] %}
+      <label><input type="radio" name="kind" value="{{ k }}" {% if (prefill.kind or 'plant') == k %}checked{% endif %}><span>{{ label }}<small>{{ sub }}</small></span></label>
+      {% endfor %}
+    </div>
+    <div class="tg-row tg-for plant">
+      <select name="target_plant" aria-label="Plant or worm bin" data-for="plant">
+        {% for a in assets %}<option value="{{ a.id }}" {% if prefill.target == a.id|string %}selected{% endif %}>{{ a.name }}{% if a.variety %} ({{ a.variety }}){% endif %}{% if a.asset_type == 'worm_bin' %} · worm bin{% endif %}</option>{% else %}<option value="">No plants yet</option>{% endfor %}
+      </select>
+      <select name="action_plant" aria-label="What a reader logs" data-for="plant">
+        <option value="">Reader logs: a check-up</option>
+        {% for a in plant_actions %}<option value="{{ a.id }}">Reader logs: {{ a.label | lower }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="tg-row tg-for action">
+      <select name="action_farm" aria-label="Action" data-for="action">{% for a in farm_actions %}<option value="{{ a.id }}">{{ a.label }}: the whole farm</option>{% endfor %}</select>
+    </div>
+    <div class="tg-row tg-for event">
+      <select name="target_event" aria-label="Event" data-for="event">
+        {% for e in evs %}<option value="{{ e.id }}" {% if prefill.target == e.id|string %}selected{% endif %}>{{ e.kind_info.emoji }} {{ e.title }} · {{ e.start.strftime('%-d %b') }}</option>{% else %}<option value="">No upcoming events</option>{% endfor %}
+      </select>
+    </div>
+    <div class="tg-row tg-for hero">
+      <select name="target_hero" aria-label="Hero" data-for="hero">
+        {% for h in growers %}<option value="{{ h.id }}" {% if prefill.target == h.id|string %}selected{% endif %}>{{ h.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="tg-row">
+      <input type="text" name="label" maxlength="60" placeholder="Name on the label (optional)" aria-label="Label">
+      <select name="tech" aria-label="Kind of chip">
+        {% for v, t in techs.items() %}<option value="{{ v }}">{{ t }}</option>{% endfor %}
+      </select>
+      <input type="text" name="uid" maxlength="40" value="{{ prefill.uid or '' }}" placeholder="Chip UID (optional), e.g. 04 A3 91 2B" aria-label="Chip UID" style="font-family: ui-monospace, monospace;">
+    </div>
+    <div><button type="submit" class="btn btn-primary">Make tag</button></div>
+  </form>
+</section>
+
+{% if unknown %}
+<section class="tg-panel">
+  <h3>Scanned, not linked yet</h3>
+  <p class="muted">Chips a reader saw that no tag knows. Link one to an existing tag below, or make a new tag with it.</p>
+  <ul class="tg-list">{% for u in unknown %}
+    <li class="tg-item"><div class="tg-item-top"><span class="tg-code">{{ u.uid | uid }}</span>
+      <span class="tg-chip">{{ techs.get(u.tech or '', u.tech or 'chip') }}</span><span class="muted" style="font-size:.82rem">{{ u.n }} scan{{ 's' if u.n != 1 }} · last {{ u.at[11:16] }} {{ u.at[:10] }}</span>
+      <a class="btn btn-ghost btn-small" href="{{ url_for('tags_page', uid=u.uid, kind='hero') }}#new">Make a tag with it</a></div></li>
+  {% endfor %}</ul>
+</section>
+{% endif %}
+
+<section class="tg-panel">
+  <h3>All tags · {{ tags | length }}</h3>
+  {% if not tags %}<p class="muted">No tags yet. Make one above, then put its link on an NFC sticker (or print its QR label).</p>{% endif %}
+  <ul class="tg-list">
+    {% for t in tags %}
+    <li class="tg-item{% if made == t.id %} is-new{% endif %}" id="tag-{{ t.id }}">
+      <div class="tg-item-top">
+        <span class="tg-chip k-{{ t.kind }}">{{ t.kind_label }}</span>
+        <b>{{ t.name }}</b>
+        {% if t.label and t.label != t.title %}<span class="muted" style="font-size:.86rem">{{ t.title }}</span>{% endif %}
+        <span class="tg-code">{{ t.code }}</span>
+      </div>
+      <p class="tg-meta">Link: <code>{{ t.url }}</code>{% if t.kind == 'plant' and t.action_label %} · reader logs {{ t.action_label | lower }}{% endif %}</p>
+      <p class="tg-meta">{% if t.uid %}Chip {{ t.uid_pretty }}{% if t.tech_label %} · {{ t.tech_label }}{% endif %}{% else %}No chip linked{% if t.tech_label %} · {{ t.tech_label }}{% endif %}{% endif %}
+        · {% if t.scans %}{{ t.scans }} scan{{ 's' if t.scans != 1 }}, last {{ t.last_scan_at[:16] | replace('T', ' ') }}{% else %}never scanned{% endif %}</p>
+      <div class="tg-tools">
+        <a class="btn btn-ghost btn-small" href="{{ url_for('tag_landing', code=t.code) }}">Open</a>
+        <a class="btn btn-ghost btn-small" href="{{ url_for('tags_print', id=t.id) }}" target="_blank" rel="noopener">QR label</a>
+        <a class="btn btn-ghost btn-small" href="{{ url_for('tag_flipper_file', tag_id=t.id, fmt='nfc') }}" title="NTAG215 with the link: emulate it with the Flipper, or write it to a sticker">Flipper .nfc</a>
+        {% if t.kind == 'hero' or t.tech in ('em4100', 'hid') %}<a class="btn btn-ghost btn-small" href="{{ url_for('tag_flipper_file', tag_id=t.id, fmt='rfid') }}" title="EM4100 key: write it onto a blank T5577 fob with the Flipper">Flipper .rfid</a>{% endif %}
+        {% if current_user.is_admin or t.created_by == current_user.id %}
+        <form method="post" action="{{ url_for('tag_change', tag_id=t.id, what='link') }}" class="tg-inline"><input type="hidden" name="_csrf" value="{{ csrf }}">
+          <input type="text" name="uid" maxlength="40" placeholder="{{ 'Change chip UID' if t.uid else 'Link chip UID' }}" aria-label="Chip UID" required><button class="btn btn-ghost btn-small">{{ 'Change' if t.uid else 'Link' }}</button></form>
+        {% if t.uid %}<form method="post" action="{{ url_for('tag_change', tag_id=t.id, what='unlink') }}"><input type="hidden" name="_csrf" value="{{ csrf }}"><button class="btn btn-ghost btn-small">Unlink chip</button></form>{% endif %}
+        <form method="post" action="{{ url_for('tag_change', tag_id=t.id, what='delete') }}" onsubmit="return confirm('Delete this tag? Phones tapping it will get “Unknown tag”.');"><input type="hidden" name="_csrf" value="{{ csrf }}"><button class="btn btn-ghost btn-small" style="color:#c24848;">Delete</button></form>
+        {% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+{% if scans %}
+<section class="tg-panel">
+  <h3>Latest scans</h3>
+  <table class="tg-scans">
+    <tr><th>When</th><th>Tag</th><th>How</th><th>Who</th><th>What happened</th></tr>
+    {% for s in scans %}<tr><td>{{ s.at[5:16] | replace('T', ' ') }}</td><td>{{ s.code or (s.uid and 'chip ' ~ s.uid) or '?' }}</td><td>{{ s.via }}{% if s.reader and s.via != 'phone' %} · {{ s.reader }}{% endif %}</td><td>{{ s.who or '' }}</td><td>{{ s.result or '' }}</td></tr>{% endfor %}
+  </table>
+</section>
+{% endif %}
+
+<section class="tg-panel tg-help">
+  <h3>Setting up a tag</h3>
+  <ol>
+    <li><b>NFC sticker</b> (NTAG213/215): write the tag's <b>link</b> to it as a URL record, with a phone app like NFC Tools, or with the Flipper Zero (download <b>Flipper .nfc</b>, copy it to the Flipper's <code>nfc</code> folder; the Flipper can also emulate it so you can test a phone tap first). Phones then open the tag by themselves.</li>
+    <li><b>Key fob</b> (125 kHz): download <b>Flipper .rfid</b> and write it onto a blank T5577 fob with the Flipper (125 kHz RFID → Saved → Write). Or scan an existing fob at the reader and link it from “Scanned, not linked yet”.</li>
+    <li><b>At the gate</b>: plug the Flipper (or a USB card reader) into the Pi and run <code>nevet tags reader</code>. Scan your hero fob, then tap a tag: it's logged as you. A fob alone checks you in to the event that's on.</li>
+    <li><b>No chip?</b> Print the QR label; scanning it does the same as a tap.</li>
+  </ol>
+  {% if current_user.is_admin %}
+  <form method="post" action="{{ url_for('tags_page') }}" class="tg-inline" style="margin-top: 10px;">
+    <input type="hidden" name="_csrf" value="{{ csrf }}">
+    <label class="muted" style="font-size:.86rem; align-self:center;">Tag links start with</label>
+    <input type="text" name="base_url" value="{{ base }}" style="width: 320px;" aria-label="Address tag links start with">
+    <button class="btn btn-ghost btn-small">Save</button>
+  </form>
+  <p class="muted" style="font-size:.8rem; margin: 6px 0 0;">Use the address phones can always reach (your public address when Nevet is open to the internet). Changing it later means rewriting stickers.</p>
+  {% endif %}
+</section>
+
+<script>
+  // show only the fields for the chosen kind of tag (the others are disabled so they aren't sent)
+  (function () {
+    var f = document.getElementById('tg-form');
+    if (!f) return;
+    function sync() {
+      var k = (f.querySelector('input[name=kind]:checked') || {}).value || 'plant';
+      f.dataset.kind = k;
+      f.querySelectorAll('[data-for]').forEach(function (el) { el.disabled = el.dataset.for !== k; });
+      var tech = f.querySelector('select[name=tech]');
+      if (tech && !tech.dataset.touched) tech.value = k === 'hero' ? 'em4100' : 'ntag';
+    }
+    f.querySelectorAll('input[name=kind]').forEach(function (r) { r.addEventListener('change', sync); });
+    var t = f.querySelector('select[name=tech]'); if (t) t.addEventListener('change', function () { t.dataset.touched = 1; });
+    sync();
+  })();
+</script>
+{% endblock %}

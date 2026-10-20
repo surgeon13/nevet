@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Nevet — tag labels{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='tags.css') }}">{% endblock %}
+{% block fab %}{% endblock %}
+{% block content %}
+<div class="tg-head tg-noprint">
+  <div><h2>Tag labels</h2><p class="muted">Print, cut out and stick next to the NFC sticker (or use the label alone): scanning the QR does the same as a tap.</p></div>
+  <button class="btn btn-primary" type="button" onclick="window.print()">Print</button>
+</div>
+{% if not tags %}<p class="muted">No tags to print yet.</p>{% endif %}
+<div class="tg-sheet">
+  {% for t in tags %}
+  <div class="tg-label">
+    {{ t.svg | safe }}
+    <b>{{ t.name }}</b>
+    <small>{{ t.kind_label }}{% if t.kind == 'action' %} · tap or scan to log{% elif t.kind == 'event' %} · tap or scan to check in{% endif %}</small>
+    <span class="tg-code">NEVET · {{ t.code }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

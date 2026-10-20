@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-20 (tags: NFC, RFID, QR and the Flipper Zero)
+
+- **Tags**: plant tags, whole-farm action cards, event check-in tags and
+  hero fobs. A phone tap on an NFC sticker (or a scan of its QR label) opens
+  `/t/<code>`: one-tap logging, the whole-farm action, or check-in.
+- **Flipper Zero**: download each tag as a Flipper `.nfc` (NTAG215 with the
+  link: emulate it to test, or write it to a sticker) or `.rfid` (EM4100
+  fob to write onto a T5577); `nevet tags export [--push]` does them all.
+- `nevet tags reader`: the Flipper (or a USB card reader) at the gate: hero
+  fob, then tags, logged as that hero; a fob alone checks in to the event
+  that's on. `nevet tags check` tests tags without logging.
+- Tags page with printable QR labels, chips scanned but not linked yet, and
+  the latest scans; tag buttons on plant, hero and event pages.
+
 ## 2026-10-20 (the welcome screen, XP tab)
 
 - `nevet screen`: a full-screen welcome dashboard for the Pi's display or

@@ -230,6 +230,7 @@
 </div>
 <div class="ev-actions">
   <a class="btn btn-ghost btn-small" href="{{ url_for('event_map', event_id=ev.id) }}">🗺️ Event map</a>
+  <a class="btn btn-ghost btn-small" href="{{ url_for('tags_page', kind='event', target=ev.id) }}#new">🏷️ Check-in tag</a>
   <a class="btn btn-ghost btn-small" href="{{ url_for('farm_page', act=ev.farm_act) }}">✨ On the 3D farm: {{ acts.get(ev.farm_act, 'Party') }}</a>
   {% if manage %}
   <a class="btn btn-ghost btn-small" href="{{ url_for('event_edit', event_id=ev.id) }}">Edit</a>

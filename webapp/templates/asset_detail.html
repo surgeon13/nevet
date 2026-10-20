@@ -54,6 +54,19 @@
   <a class="btn btn-ghost" href="{{ url_for('map_page', asset=asset.id) }}">{{ 'Show on map' if pinned else 'Pin on map' }}</a>
 </p>
 
+<div class="asset-tags" id="tags">
+  <h3>Tags</h3>
+  {% if asset_tags %}
+  <ul class="asset-tag-list">{% for t in asset_tags %}<li><a href="{{ url_for('tags_page') }}#tag-{{ t.id }}"><b>{{ t.name }}</b></a>
+    <span class="muted">· {{ t.code }}{% if t.uid %} · chip {{ t.uid | uid }}{% endif %}{% if t.scans %} · {{ t.scans }} tap{{ 's' if t.scans != 1 }}{% endif %}</span></li>{% endfor %}</ul>
+  {% else %}<p class="muted">No tag yet. Stick an NFC tag (or a QR label) on it: a tap opens quick-log buttons for {{ asset.name }}.</p>{% endif %}
+  <form method="post" action="{{ url_for('tags_page') }}" style="margin: 6px 0 14px;">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="kind" value="plant">
+    <input type="hidden" name="target_id" value="{{ asset.id }}"><input type="hidden" name="back" value="{{ url_for('asset_page', asset_id=asset.id) }}#tags">
+    <button class="btn btn-ghost btn-small">+ Make a tag for {{ asset.name }}</button>
+  </form>
+</div>
+
 <h3>History</h3>
 {{ ui.feed(history, empty='Nothing logged for this plant yet.') }}
 

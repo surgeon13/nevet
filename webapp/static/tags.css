@@ -1,0 +1,81 @@
+/* NFC / RFID tags: the tap landing (tag.html), the Tags page (tags.html) and the label sheet (tags_print.html) */
+
+/* the page a phone opens when it touches a tag: big, thumb-friendly */
+.tg-land { max-width: 520px; margin: 0 auto; }
+.tg-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 18px; }
+.tg-kicker { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 700; color: var(--accent-2);
+  text-transform: uppercase; letter-spacing: 0.06em; }
+.tg-card h2 { margin: 6px 0 2px; font-size: 1.6rem; line-height: 1.15; overflow-wrap: anywhere; }
+.tg-sub { margin: 0; color: var(--text-dim); }
+.tg-big { display: grid; gap: 10px; margin-top: 16px; }
+.tg-big form { margin: 0; }
+.tg-btn { width: 100%; display: flex; align-items: center; gap: 12px; padding: 16px 16px; border-radius: 16px; border: 2px solid var(--border);
+  background: var(--bg); color: var(--text); font: inherit; font-size: 1.05rem; font-weight: 700; text-align: left; cursor: pointer; text-decoration: none; }
+.tg-btn .ic { flex: none; color: var(--accent); }
+.tg-btn small { display: block; font-weight: 400; font-size: 0.82rem; color: var(--text-dim); }
+.tg-btn.primary { background: var(--accent); border-color: var(--accent); color: #0f1712; }
+.tg-btn.primary .ic, .tg-btn.primary small { color: #0f1712; }
+.tg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.tg-grid .tg-btn { padding: 12px; font-size: 0.95rem; }
+.tg-more { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px; }
+.tg-recent { list-style: none; margin: 14px 0 0; padding: 0; font-size: 0.86rem; color: var(--text-dim); display: grid; gap: 4px; }
+.tg-recent b { color: var(--text); font-weight: 600; }
+.tg-note { margin-top: 10px; }
+.tg-note input { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; }
+.tg-foot { margin: 14px 4px 0; font-size: 0.8rem; color: var(--text-dim); text-align: center; }
+
+/* the Tags page */
+.tg-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.tg-head h2 { margin: 0 0 2px; }
+.tg-head p { margin: 0; }
+.tg-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; }
+.tg-panel h3 { margin: 0 0 6px; font-size: 1rem; }
+.tg-panel > p.muted { margin: 0 0 10px; font-size: 0.86rem; }
+.tg-form { display: grid; gap: 10px; }
+.tg-kinds { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.tg-kinds label { display: flex; align-items: center; gap: 8px; padding: 10px; border: 2px solid var(--border); border-radius: 12px; cursor: pointer; font-weight: 650; font-size: 0.9rem; background: var(--bg); }
+.tg-kinds input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.tg-kinds label:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-card)); }
+.tg-kinds label:has(input:focus-visible) { outline: 2px solid var(--accent); }
+.tg-kinds small { display: block; font-weight: 400; color: var(--text-dim); font-size: 0.76rem; }
+.tg-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tg-row > * { flex: 1 1 160px; min-width: 0; }
+.tg-form select, .tg-form input[type=text], .tg-inline input, .tg-inline select {
+  padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 0.92rem; }
+.tg-for { display: none; }
+.tg-form[data-kind="plant"] .tg-for.plant, .tg-form[data-kind="action"] .tg-for.action,
+.tg-form[data-kind="event"] .tg-for.event, .tg-form[data-kind="hero"] .tg-for.hero { display: flex; }
+
+.tg-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.tg-item { border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); padding: 12px 14px; scroll-margin-top: 80px; }
+.tg-item.is-new { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.tg-item-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tg-item-top b { font-size: 1rem; overflow-wrap: anywhere; }
+.tg-chip { display: inline-flex; padding: 2px 8px; border-radius: 999px; font-size: 0.74rem; font-weight: 700; border: 1px solid var(--border); color: var(--text-dim); background: var(--bg); white-space: nowrap; }
+.tg-chip.k-plant { color: #3f7d4c; } .tg-chip.k-action { color: #2f7be0; } .tg-chip.k-event { color: #d6336c; } .tg-chip.k-hero { color: #b07a10; }
+.tg-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86rem; color: var(--text-dim); }
+.tg-meta { margin: 4px 0 0; font-size: 0.82rem; color: var(--text-dim); overflow-wrap: anywhere; }
+.tg-meta code { font-size: 0.8rem; }
+.tg-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+.tg-tools form { margin: 0; }
+.tg-inline { display: flex; gap: 6px; flex-wrap: wrap; }
+.tg-inline input { width: 190px; font-family: ui-monospace, monospace; font-size: 0.84rem; }
+.tg-scans { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.tg-scans td, .tg-scans th { padding: 5px 6px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.tg-scans th { color: var(--text-dim); font-weight: 600; font-size: 0.78rem; }
+.tg-help ol { margin: 6px 0 0; padding-left: 20px; font-size: 0.88rem; }
+.tg-help li { margin-bottom: 4px; }
+
+/* the label sheet */
+.tg-sheet { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.tg-label { border: 1px dashed #9aa39a; border-radius: 12px; padding: 10px; text-align: center; background: #fff; color: #1e2a20; break-inside: avoid; }
+.tg-label svg { width: 132px; height: 132px; display: block; margin: 0 auto; }
+.tg-label b { display: block; margin-top: 4px; font-size: 0.95rem; overflow-wrap: anywhere; }
+.tg-label small { display: block; color: #5c6b5e; font-size: 0.72rem; }
+.tg-label .tg-code { color: #1e2a20; font-size: 0.8rem; }
+@media print {
+  .topnav, .fab, .tg-noprint { display: none !important; }
+  body { background: #fff; }
+  .tg-sheet { grid-template-columns: repeat(4, 1fr); gap: 4mm; }
+  .tg-label { border-color: #bbb; }
+}

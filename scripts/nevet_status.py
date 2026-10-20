@@ -12,6 +12,8 @@
   nevet net --quick   same without the 5 MB download
   nevet ts         Tailscale check: why Nevet can(not) be opened from
                    outside the home network, and exactly what to do
+  nevet tags       NFC / RFID tags: list; `nevet tags reader` (a Flipper Zero or USB
+                   card reader at the gate), `nevet tags check`, `nevet tags export`
   nevet screen     full-screen welcome dashboard with a QR code to join
                    (for the Pi's own display); nevet screen on | off | status
                    shows it on the Pi's display at every boot
@@ -1631,11 +1633,19 @@ def ts_check():
 
 def main():
     ap = argparse.ArgumentParser(prog="nevet", description="Nevet status for the terminal.")
-    ap.add_argument("command", nargs="?", default="status", choices=["status", "net", "ts", "tailscale", "public", "screen"],
+    ap.add_argument("command", nargs="?", default="status", choices=["status", "net", "ts", "tailscale", "public", "screen", "tags"],
                     help="status (default), net (network test), ts (Tailscale / remote access check) "
                          "public (open Nevet to everyone with Tailscale Funnel: public on | off | status) "
-                         "or screen (welcome dashboard with a join QR code: screen [on | off | status])")
-    ap.add_argument("action", nargs="?", default=None, choices=["on", "off", "status"], help="public / screen: on, off or status")
+                         "screen (welcome dashboard with a join QR code: screen [on | off | status]) "
+                         "or tags (NFC / RFID tags: tags [list | reader | check | export])")
+    ap.add_argument("action", nargs="?", default=None,
+                    help="public / screen: on, off or status; tags: list, reader, check or export")
+    ap.add_argument("dir", nargs="?", default=None, help="tags export: the folder to write the Flipper files to")
+    ap.add_argument("--port", help="tags: the Flipper's serial port (default: found by itself)")
+    ap.add_argument("--stdin", action="store_true", help="tags reader/check: UIDs from a USB card reader that types them")
+    ap.add_argument("--nfc", action="store_true", help="tags reader/check: also ask the Flipper for NFC chips")
+    ap.add_argument("--name", default="gate", help="tags reader: this reader's name (default gate)")
+    ap.add_argument("--push", action="store_true", help="tags export: also send the files to the Flipper over USB")
     ap.add_argument("--kiosk", action="store_true", help="screen: no key hints and no quitting (for the Pi's display)")
     ap.add_argument("--quick", action="store_true", help="net: skip the 5 MB download test")
     ap.add_argument("-n", type=int, default=5, metavar="N", help="how many latest actions/events (default 5)")
@@ -1653,6 +1663,16 @@ def main():
     if a.command in ("ts", "tailscale"):
         ts_check()
         return
+    if a.command in ("public", "screen") and a.action not in (None, "on", "off", "status"):
+        ap.error(f"{a.command}: use on, off or status")
+    if a.command == "tags":
+        if a.action not in (None, "list", "reader", "check", "export"):
+            ap.error("tags: use list, reader, check or export")
+        sys.path.insert(0, str(REPO / "scripts"))
+        import nevet_tags
+        nevet_tags.ns.C.on = C.on                       # the tags tool's copy of this module: same colour choice
+        a.what = a.action
+        sys.exit(nevet_tags.main(a))
     if a.command == "public":
         sys.exit(public_access(a.action or "status"))
     if a.command == "screen":

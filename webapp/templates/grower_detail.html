@@ -149,6 +149,9 @@
   </details>
   {% endif %}
   <a class="panel-link" href="{{ url_for('groups_page') }}">Households, families &amp; volunteer groups →</a>
+  {% if is_me or (current_user and current_user.is_admin) %}
+  <a class="panel-link" href="{{ url_for('tags_page', kind='hero', target=hero.id) }}#new" style="margin-left: 14px;">Key fob or card for {{ 'me' if is_me else hero.name }} →</a>
+  {% endif %}
 </section>
   <section class="panel">
     <h3 class="panel-title">Growing now</h3>

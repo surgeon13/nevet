@@ -279,6 +279,38 @@ def get_conn():
         CREATE INDEX IF NOT EXISTS idx_event_notes ON event_notes(event_id, at);
         CREATE INDEX IF NOT EXISTS idx_event_heads ON event_headcount(event_id, at);
     """)
+    # NFC / RFID tags (added later, see tags.py): a sticker on a plant, a card for a whole-farm action,
+    # an event's check-in tag or a hero's key fob; tag_scans keeps every tap and every reader scan.
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT NOT NULL UNIQUE,
+            kind TEXT NOT NULL,
+            target_id INTEGER,
+            action TEXT,
+            label TEXT,
+            uid TEXT UNIQUE,
+            tech TEXT,
+            created_by INTEGER,
+            created_at TEXT NOT NULL,
+            last_scan_at TEXT,
+            scans INTEGER NOT NULL DEFAULT 0,
+            deleted_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS tag_scans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tag_id INTEGER,
+            uid TEXT,
+            tech TEXT,
+            via TEXT NOT NULL,
+            reader TEXT,
+            grower_id INTEGER,
+            at TEXT NOT NULL,
+            result TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_tag_scans_at ON tag_scans(at);
+        CREATE INDEX IF NOT EXISTS idx_tag_scans_reader ON tag_scans(reader, at);
+    """)
     map_cols = {r[1] for r in conn.execute("PRAGMA table_info(map_features)")}
     if "event_id" not in map_cols:
         conn.execute("ALTER TABLE map_features ADD COLUMN event_id INTEGER")
@@ -718,6 +750,9 @@ def purge_hero(grower_id):
         conn.execute("UPDATE event_checkins SET by_id = NULL WHERE by_id = ?", (grower_id,))
         conn.execute("UPDATE events SET created_by = NULL WHERE created_by = ?", (grower_id,))
         conn.execute("UPDATE event_tasks SET created_by = NULL WHERE created_by = ?", (grower_id,))
+        conn.execute("UPDATE tag_scans SET grower_id = NULL WHERE grower_id = ?", (grower_id,))
+        conn.execute("UPDATE tags SET created_by = NULL WHERE created_by = ?", (grower_id,))
+        conn.execute("UPDATE tags SET deleted_at = ?, uid = NULL WHERE kind = 'hero' AND target_id = ? AND deleted_at IS NULL", (_now(), grower_id))
         conn.execute("DELETE FROM growers WHERE id = ?", (grower_id,))
         conn.commit()
     conn.close()
