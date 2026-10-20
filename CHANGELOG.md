@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-20 (friendlier guides, small fixes)
+
+- **New guides for everyone**: a short README front page with "start here"
+  links; `docs/GUIDE.md`, the player guide in plain words; `docs/KIDS.md`
+  for young gardeners (with "ask a grown-up" moments and password safety);
+  `docs/STATION.md`, all the setup and upkeep from the old README, for
+  whoever looks after the station.
+- Fix: the event "people there" chart picks a step size that fits the
+  event, so multi-day festivals no longer make a chart thousands of steps
+  long (labels show the day too).
+- Fix: a fob linked to a hero in the recycle bin no longer logs as that
+  hero at the gate reader.
+- Fix: you can't answer "going" to a cancelled event any more.
+- Fix: "Make a tag with it" on a scanned chip picks a hero fob for
+  125 kHz chips and a plant tag for NFC stickers.
+
 ## 2026-10-20 (tags: NFC, RFID, QR and the Flipper Zero)
 
 - **Tags**: plant tags, whole-farm action cards, event check-in tags and

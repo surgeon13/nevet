@@ -245,6 +245,10 @@ def reader_scan(uid, tech=None, reader=None, via="reader", check=False):
     out = {"ok": True, "known": True, "uid": uid, "code": tag["code"], "kind": tag["kind"], "name": tag["name"]}
     if tag["kind"] == "hero":
         gid = tag["target_id"]
+        hero = farm_db.get_grower(gid)
+        if not hero or hero["deleted_at"]:
+            record(tag, via, uid, tech, reader, None, "hero in the recycle bin")
+            return out | {"text": f"This fob belongs to {tag['hero_name'] or 'a hero'}, who is in the recycle bin. An admin can restore them."}
         on = [e for e in events.happening() if e["status"] != "cancelled"]
         if on:
             events.check_in(on[0]["id"], gid, gid)

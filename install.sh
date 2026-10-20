@@ -170,7 +170,7 @@ if command -v tailscale >/dev/null 2>&1; then
         TS_LINE="installed but not logged in - run: sudo tailscale up"
     fi
 else
-    TS_LINE="not installed - see README, \"Open Nevet from outside\""
+    TS_LINE="not installed - see docs/STATION.md, \"Open Nevet from outside the garden\""
 fi
 
 IP=$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -m1 -E '^[0-9]+\.' || true)

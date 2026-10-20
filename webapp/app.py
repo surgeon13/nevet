@@ -1310,6 +1310,8 @@ def event_delete(event_id):
 @app.route("/events/<int:event_id>/rsvp", methods=["POST"])
 def event_rsvp(event_id):
     ev = _event_or_404(event_id)
+    if ev["status"] == "cancelled" and request.form.get("answer") != "clear":
+        return _back_to_event(ev, "rsvp", "This event was cancelled.")
     err = events.set_rsvp(event_id, g.user["id"], request.form.get("answer"), request.form.get("guests"), request.form.get("bring"))
     return _back_to_event(ev, "rsvp", err)
 

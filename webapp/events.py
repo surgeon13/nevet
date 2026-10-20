@@ -304,23 +304,27 @@ def count_walk_in(event_id, delta, by_id):
     return total
 
 
-def arrivals(ev, bucket_min=15):
-    """How many were there over time: check-ins and walk-ins in 15-minute steps (for the arrivals chart)."""
+def arrivals(ev, bucket_min=None):
+    """How many were there over time: check-ins and walk-ins in steps of 15 minutes (longer steps for
+    long events, so a weekend festival still fits the chart)."""
     marks = [(_dt(r["at"]), 1) for r in checkins(ev["id"])]
     marks += [(_dt(r["at"]), r["delta"]) for r in _q("SELECT at, delta FROM event_headcount WHERE event_id = ? ORDER BY at", (ev["id"],))]
     marks = sorted(m for m in marks if m[0])
     if not marks:
         return []
     t0 = min(ev["start"], marks[0][0]).replace(second=0, microsecond=0)
-    t0 -= timedelta(minutes=t0.minute % bucket_min)
     t1 = max(marks[-1][0], min(ev["end"], datetime.now()))
+    if not bucket_min:
+        span = (t1 - t0).total_seconds() / 60
+        bucket_min = next((b for b in (15, 30, 60, 120, 240, 360, 720, 1440) if span / b <= 96), 1440)
+    t0 -= timedelta(minutes=(t0.hour * 60 + t0.minute) % bucket_min)
     out, total, i, t = [], 0, 0, t0
     while t <= t1 + timedelta(minutes=bucket_min) and len(out) < 200:
         nxt = t + timedelta(minutes=bucket_min)
         while i < len(marks) and marks[i][0] < nxt:
             total += marks[i][1]
             i += 1
-        out.append({"t": t.strftime("%H:%M"), "n": max(0, total)})
+        out.append({"t": t.strftime("%H:%M" if bucket_min < 1440 and (t1 - t0).days < 1 else "%a %H:%M"), "n": max(0, total)})
         t = nxt
     return out
 

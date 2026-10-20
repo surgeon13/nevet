@@ -62,7 +62,7 @@ signal, link rate and router ping — e.g.
 `OK  online via wlan1 (USB) signal=78% rate=72.2Mb/s router=3.1ms ...` vs
 `FAIL WiFi link down ...`. Patterns worth checking in that log:
 - Signal strength dropping toward 0% before failures → range/interference
-  issue: a USB WiFi antenna helps (see README, "Network and the USB WiFi
+  issue: a USB WiFi antenna helps (see docs/STATION.md, "WiFi and the USB
   antenna"); `nevet net` measures the difference.
 - Failures with signal still reported high → likely power (check
   `nevet` for under-voltage) or a driver issue. Power saving is turned off
@@ -85,7 +85,7 @@ in Raspberry Pi OS.
 Linux has no driver for its chip; it can't be used on the Pi (the
 Windows-driver workaround ndiswrapper doesn't run on ARM). Known examples:
 Netgear WNA3100 v1 (Broadcom BCM43231), Linksys WUSB300N (Marvell
-88W8360). See README for chips that work, or use a WiFi extender.
+88W8360). See docs/STATION.md for chips that work, or use a WiFi extender.
 
 **`ip route show default` is empty / `nevet` says "IPv4 none"**
 The WiFi didn't give the Pi an IPv4 address (weak signal, or a guest

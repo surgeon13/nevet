@@ -61,7 +61,7 @@
   <ul class="tg-list">{% for u in unknown %}
     <li class="tg-item"><div class="tg-item-top"><span class="tg-code">{{ u.uid | uid }}</span>
       <span class="tg-chip">{{ techs.get(u.tech or '', u.tech or 'chip') }}</span><span class="muted" style="font-size:.82rem">{{ u.n }} scan{{ 's' if u.n != 1 }} · last {{ u.at[11:16] }} {{ u.at[:10] }}</span>
-      <a class="btn btn-ghost btn-small" href="{{ url_for('tags_page', uid=u.uid, kind='hero') }}#new">Make a tag with it</a></div></li>
+      <a class="btn btn-ghost btn-small" href="{{ url_for('tags_page', uid=u.uid, kind='hero' if u.tech in ('em4100', 'hid') or (u.uid | length) == 10 else 'plant') }}#new">Make a tag with it</a></div></li>
   {% endfor %}</ul>
 </section>
 {% endif %}

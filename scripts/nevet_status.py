@@ -1457,7 +1457,7 @@ def public_access(action):
     without touching the router; the web app keeps listening on port 8000."""
     P = print
     if not shutil.which("tailscale"):
-        P("Tailscale isn't installed. First set it up (see `nevet ts` and the README), then run this again.")
+        P("Tailscale isn't installed. First set it up (see `nevet ts` and docs/STATION.md), then run this again.")
         return 1
     ts = tailscale_info() or {}
     if ts.get("state") != "Running":
