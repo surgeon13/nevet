@@ -57,7 +57,7 @@ av.register(app)
 traffic_counter = traffic.TrafficCounter(farm_db.get_conn).install(app)
 
 # Pages anyone can open without logging in. Everything else needs an account.
-PUBLIC_ENDPOINTS = {"login", "register", "join", "healthz", "static", "api_add_stats", "api_map_geojson", "api_tag_scan"}
+PUBLIC_ENDPOINTS = {"login", "register", "join", "event_join", "healthz", "static", "api_add_stats", "api_map_geojson", "api_tag_scan"}
 CSRF_EXEMPT = {"api_add_stats", "api_tag_scan"}        # their own API key (or the Pi itself)
 
 LOG_FILES = {
@@ -224,7 +224,20 @@ def hub():
         about=about.info(),
         events_now=events.happening(),
         events_next=events.upcoming(days=60),
+        events_soon=_events_for_dashboard(g.user["id"]),
     )
+
+
+def _events_for_dashboard(me):
+    """The next few events for the dashboard's "Coming up" strip: your answer and a QR code to invite people."""
+    out = []
+    for ev in events.soon(limit=4):
+        mine = events.rsvp_of(ev["id"], me)
+        ev["mine"] = mine["answer"] if mine else None
+        ev["link"] = _event_link(ev)
+        ev["qr"] = _event_qr(ev, scale=6)
+        out.append(ev)
+    return out
 
 
 @app.route("/time")
@@ -945,6 +958,7 @@ def register():
                 claimed = False
         if not error:
             from_screen = bool(session.pop("from_screen", None)) and not g.user
+            join_ev = session.pop("join_event", None) if not g.user else None
             if from_screen:
                 farm_db.set_setting("screen_joins", str(int(farm_db.get_setting("screen_joins") or 0) + 1))
             logger.info("New account %s%s%s%s", name, " (claimed existing hero)" if claimed else "",
@@ -952,8 +966,12 @@ def register():
             if g.user:          # a player adding someone else: stay logged in as yourself
                 return redirect(url_for("grower_page", grower_id=gid, created=1))
             log_in(farm_db.get_grower(gid))
+            if join_ev and events.get(join_ev):         # came from an event's QR code: straight to "Are you coming?"
+                events.count_qr(join_ev, "joins")
+                return redirect(url_for("event_page", event_id=join_ev, join=1, welcome=1) + "#rsvp")
             return redirect(url_for("grower_customize", grower_id=gid, welcome=1))
-    return render_template("register.html", error=error, name=name, first_account=first_account, need_code=need_code)
+    join_ev = events.get(session["join_event"]) if session.get("join_event") and not g.user else None
+    return render_template("register.html", error=error, name=name, first_account=first_account, need_code=need_code, join_ev=join_ev)
 
 
 @app.route("/join")
@@ -1221,6 +1239,59 @@ def _event_manager(ev):
         abort(403)
 
 
+def _event_link(ev, invite=False):
+    """The short link an event's QR code opens: /e/<id> (with the invite code for posters made by an admin)."""
+    url = _tag_base() + f"e/{ev['id']}"
+    code = farm_db.get_setting("invite_code") if invite else None
+    return url + (f"?i={code}" if code else "")
+
+
+def _event_qr(ev, scale=4, invite=False):
+    return qr.svg(qr.encode(_event_link(ev, invite)), quiet=2, scale=scale, title="QR code to join " + ev["title"])
+
+
+@app.route("/e/<int:event_id>")
+def event_join(event_id):
+    """Where an event's QR code leads. Counts the scan (once per visitor), then: players go to the event
+    with "Are you coming?" ready; visitors without a hero see the invitation, and can log in or sign up
+    and land back on the event."""
+    ev = events.get(event_id)
+    if not ev:
+        return render_template("message.html", title="Event not found",
+                               message="This event isn't on Nevet any more. Ask the person who invited you."), 404
+    seen = session.get("ev_seen") or []
+    if event_id not in seen:
+        events.count_qr(event_id)
+        session["ev_seen"] = (seen + [event_id])[-30:]
+    if g.user:
+        return redirect(url_for("event_page", event_id=event_id, join=1) + ("#rsvp" if ev["phase"] == "upcoming" else ""))
+    session["join_event"] = event_id
+    code = re.sub(r"[^A-Z0-9]", "", (request.args.get("i") or "").upper())[:12]
+    return render_template("event_invite.html", ev=ev, code=code, open_signup=auth.open_signup(),
+                           next_url=url_for("event_page", event_id=event_id, join=1))
+
+
+@app.route("/events/<int:event_id>/qr.svg")
+def event_qr_svg(event_id):
+    ev = _event_or_404(event_id)
+    invite = request.args.get("invite") == "1" and g.user["is_admin"]
+    resp = app.response_class(_event_qr(ev, scale=10, invite=invite), mimetype="image/svg+xml")
+    if request.args.get("download"):
+        resp.headers["Content-Disposition"] = f'attachment; filename="nevet-event-{ev["id"]}-qr.svg"'
+    return resp
+
+
+@app.route("/events/<int:event_id>/poster")
+def event_poster(event_id):
+    """A printable poster with the event's QR code, for the gate, a notice board or a shop window."""
+    ev = _event_or_404(event_id)
+    invite = request.args.get("invite") == "1" and g.user["is_admin"]
+    link = _event_link(ev, invite)
+    return render_template("event_poster.html", ev=ev, link=link, shown=link.split("://", 1)[-1],
+                           qr_svg=qr.svg(qr.encode(link, ecl="Q"), quiet=2, scale=12, title="QR code to join " + ev["title"]),
+                           invite=invite)
+
+
 def _back_to_event(ev, anchor=None, error=None):
     return redirect(url_for("event_page", event_id=ev["id"], error=error) + (f"#{anchor}" if anchor else ""))
 
@@ -1269,7 +1340,9 @@ def event_page(event_id):
         my_feedback=next((f for f in fb if f["grower_id"] == me), None),
         summary=events.summary(ev), arrivals=events.arrivals(ev),
         map_count=len(garden_map.list_features(event_id)),
-        acts=dict(events.FARM_ACTS))
+        acts=dict(events.FARM_ACTS),
+        link=_event_link(ev), qr_svg=_event_qr(ev, scale=5),
+        joining=bool(request.args.get("join")), welcome=bool(request.args.get("welcome")))
 
 
 @app.route("/events/<int:event_id>/edit", methods=["GET", "POST"])
@@ -1311,8 +1384,17 @@ def event_delete(event_id):
 def event_rsvp(event_id):
     ev = _event_or_404(event_id)
     if ev["status"] == "cancelled" and request.form.get("answer") != "clear":
-        return _back_to_event(ev, "rsvp", "This event was cancelled.")
-    err = events.set_rsvp(event_id, g.user["id"], request.form.get("answer"), request.form.get("guests"), request.form.get("bring"))
+        err = "This event was cancelled."
+    else:
+        err = events.set_rsvp(event_id, g.user["id"], request.form.get("answer"), request.form.get("guests"), request.form.get("bring"))
+    if _wants_json():                    # the dashboard's one-tap buttons
+        ev = events.get(event_id)
+        mine = events.rsvp_of(event_id, g.user["id"])
+        return jsonify({"ok": not err, "error": err, "answer": mine["answer"] if mine else None,
+                        "going": ev["going"], "maybe": ev["maybe"], "expected": ev["expected"]}), (400 if err else 200)
+    nxt = safe_next(request.form.get("next"))
+    if nxt and not err:
+        return redirect(nxt)
     return _back_to_event(ev, "rsvp", err)
 
 

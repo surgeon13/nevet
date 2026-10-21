@@ -8,7 +8,8 @@
     <p class="auth-sub">Create an account for someone else. Tell them the name and password; they can change the password later. You stay logged in as {{ current_user.name }}.</p>
   {% else %}
     <h2>Create your account</h2>
-    <p class="auth-sub">Pick a hero name and a password. You'll choose your hero's look next.</p>
+    {% if join_ev %}<p class="auth-sub">Pick a hero name and a password, and you'll go straight to <b>{{ join_ev.kind_info.emoji }} {{ join_ev.title }}</b> to say you're coming.</p>
+    {% else %}<p class="auth-sub">Pick a hero name and a password. You'll choose your hero's look next.</p>{% endif %}
   {% endif %}
   {% if first_account %}
     <p class="auth-note">This is the first account, so it will be the <strong>admin</strong> (can help players who forget their password).</p>
@@ -35,7 +36,7 @@
     <span class="hero-field-hint">You're joining from outside the farm's network, so you need the code from a player (admins find it on their Account page).</span>
   </label>
   {% endif %}
-  <button type="submit" class="btn btn-primary auth-submit">{{ 'Create account' if current_user else 'Create account & choose look' }}</button>
+  <button type="submit" class="btn btn-primary auth-submit">{{ 'Create account' if current_user else ('Create account & join the event' if join_ev else 'Create account & choose look') }}</button>
   {% if not current_user %}<p class="auth-alt">Already have an account? <a href="{{ url_for('login') }}">Log in</a></p>{% endif %}
 </form>
 {% endblock %}

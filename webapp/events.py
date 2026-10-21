@@ -196,6 +196,19 @@ def upcoming(days=7, now=None):
     return [e for e in list_events() if e["phase"] == "upcoming" and e["start"] <= now + timedelta(days=days)]
 
 
+def soon(limit=4, days=60, now=None):
+    """What's on now and coming up next (not cancelled), for the dashboard."""
+    now = now or datetime.now()
+    evs = [e for e in list_events() if e["phase"] == "now"] + upcoming(days, now)
+    return evs[:limit]
+
+
+def count_qr(event_id, what="scans"):
+    """Someone opened the event's QR link (scans) or signed up from it (joins)."""
+    col = "qr_joins" if what == "joins" else "qr_scans"
+    _run(f"UPDATE events SET {col} = {col} + 1 WHERE id = ?", (event_id,))
+
+
 def can_manage(ev, user):
     return bool(user) and (user.get("is_admin") or ev.get("created_by") == user.get("id"))
 
@@ -397,6 +410,7 @@ def summary(ev):
         "spots_open": sum(t["open"] for t in ts),
         "notes": len(notes(ev["id"])), "photos": len(photos(ev, 1000)),
         "mapped": len(feats), "mapped_m2": round(area, 1),
+        "qr_scans": ev.get("qr_scans") or 0, "qr_joins": ev.get("qr_joins") or 0,
     }
 
 

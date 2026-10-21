@@ -45,8 +45,9 @@ in one go.
 - 🚜 **A 3D farm** where all the heroes harvest, water, play football,
   feed the animals and party, in nine different lands (desert, seaside,
   snowy mountains, jungle, a city...). It can run as a live channel on a TV.
-- 🎈 **Events** for parties, festivals and work days: who's coming,
-  volunteer jobs, a map of the site, check-ins and photos.
+- 🎈 **Events** for parties, festivals and work days: the next ones on the
+  dashboard with one-tap "Going", a QR code and printable poster to invite
+  people, volunteer jobs, a map of the site, check-ins and photos.
 - 🏷️ **Tags**: stickers and QR labels on plants. Tap one with a phone and
   the job is logged.
 - 💚 **Family and groups**, connected only when both people say yes.

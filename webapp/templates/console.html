@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import "_ui.html" as ui with context %}
 {% block title %}Nevet — Dashboard{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='events.css') }}">{% endblock %}
 {% block content %}
 {% if banner %}
 <div class="hero-welcome log-banner" role="status">
@@ -37,6 +38,67 @@
     {{ ui.today_body(today, compact=True) }}
     <a class="panel-link" href="{{ url_for('activity', period='7') }}">All activity →</a>
   </section>
+
+  <section class="ev-soon" aria-labelledby="ev-soon-title">
+    <div class="ev-soon-head">
+      <h2 id="ev-soon-title">🎈 Coming up</h2>
+      <a class="panel-link" href="{{ url_for('events_page') }}">All events →</a>
+    </div>
+    {% if events_soon %}
+    <div class="ev-soon-row">
+      {% for ev in events_soon %}
+      <article class="ev-soon-card ev-k-{{ ev.kind }}{% if ev.phase == 'now' %} is-now{% endif %}" data-answer="{{ ev.mine or '' }}">
+        <a class="ev-soon-top" href="{{ url_for('event_page', event_id=ev.id) }}">
+          <span class="ev-soon-date" aria-hidden="true">{% if ev.phase == 'now' %}<b>NOW</b>{% else %}<small>{{ ev.start.strftime('%a') }}</small><b>{{ ev.start.day }}</b><small>{{ ev.start.strftime('%b') }}</small>{% endif %}</span>
+          <span class="ev-soon-text">
+            <span class="ev-soon-kind">{{ ev.kind_info.emoji }} {{ ev.kind_info.label }} · {% if ev.phase == 'now' %}happening now{% elif ev.days_to == 0 %}today {{ ev.start.strftime('%H:%M') }}{% elif ev.days_to == 1 %}tomorrow {{ ev.start.strftime('%H:%M') }}{% else %}{{ ev.start.strftime('%H:%M') }}, in {{ ev.days_to }} days{% endif %}</span>
+            <strong>{{ ev.title }}</strong>
+            {% if ev.place %}<span class="ev-soon-place">📍 {{ ev.place }}</span>{% endif %}
+          </span>
+        </a>
+        <div class="ev-soon-foot">
+          <span class="ev-soon-count"><b data-going>{{ ev.expected }}</b> coming{% if ev.capacity %} / {{ ev.capacity }}{% endif %} <span class="ev-soon-mine" data-mine>{% if ev.mine == 'going' %}You're going 🎉{% elif ev.mine == 'maybe' %}You said maybe{% endif %}</span></span>
+          {% if ev.phase == 'now' %}
+          <a class="btn btn-primary btn-small" href="{{ url_for('event_page', event_id=ev.id) }}#day">I'm here</a>
+          {% else %}
+          <form method="post" action="{{ url_for('event_rsvp', event_id=ev.id) }}" data-rsvp class="ev-soon-rsvp">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="next" value="{{ url_for('hub') }}">
+            <button type="submit" name="answer" value="going" class="going{% if ev.mine == 'going' %} on{% endif %}" aria-pressed="{{ 'true' if ev.mine == 'going' else 'false' }}">🙌 Going</button>
+            <button type="submit" name="answer" value="maybe" class="maybe{% if ev.mine == 'maybe' %} on{% endif %}" aria-pressed="{{ 'true' if ev.mine == 'maybe' else 'false' }}">🤔 Maybe</button>
+          </form>
+          {% endif %}
+          <button type="button" class="ev-soon-qr" data-open-qr="{{ ev.id }}" aria-label="QR code to invite people to {{ ev.title }}" title="Invite with a QR code">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 17h3v4"/></svg>
+          </button>
+        </div>
+        <template data-qr-for="{{ ev.id }}">
+          <h3>{{ ev.kind_info.emoji }} {{ ev.title }}</h3>
+          <p class="muted">{{ ev.when }}{% if ev.place %} · {{ ev.place }}{% endif %}</p>
+          <div class="ev-qr ev-qr-big">{{ ev.qr | safe }}</div>
+          <p class="ev-qr-hint">Point a phone camera here to join</p>
+          <code class="ev-link">{{ ev.link.split('://', 1)[-1] }}</code>
+          <div class="ev-invite-btns">
+            <button type="button" class="btn btn-ghost btn-small" data-copy="{{ ev.link }}">Copy link</button>
+            <button type="button" class="btn btn-ghost btn-small" data-share="{{ ev.link }}" data-title="{{ ev.title }}" hidden>Share…</button>
+            <a class="btn btn-ghost btn-small" href="{{ url_for('event_poster', event_id=ev.id) }}" target="_blank" rel="noopener">🖨️ Poster</a>
+          </div>
+        </template>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="ev-soon-empty">
+      <p>Nothing planned yet. A harvest day, a campfire night, a party?</p>
+      <a class="btn btn-ghost btn-small" href="{{ url_for('event_new') }}">+ Plan an event</a>
+    </div>
+    {% endif %}
+  </section>
+
+  <dialog class="ev-qr-dialog" id="ev-qr-dialog" aria-label="Invite with a QR code">
+    <button type="button" class="ev-qr-close" data-close aria-label="Close">✕</button>
+    <div class="ev-qr-dialog-body"></div>
+  </dialog>
 
   <a class="btn btn-primary log-cta" href="{{ url_for('log_action') }}">{{ ui.icon('plus', 18) }} Log an action</a>
 
@@ -268,6 +330,7 @@
 </script>
 
 <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script src="{{ url_for('static', filename='js/event-invite.js') }}"></script>
 <script>
   // Everyone / Just me, remembered per device
   (function () {

@@ -60,9 +60,12 @@ The farm is just for fun. Nothing you do there changes the real garden.
 
 ## Parties and events 🎈
 
-When the garden has a party or a market day, you'll see it in
-**Events**. Ask your grown-up if you're going, and when you get there, tap
-**I'm here**!
+When the garden has a party or a market day, you'll see it on the first
+page under **Coming up**. Ask your grown-up if you're going, then tap
+🙌 **Going**. When you get there, tap **I'm here**!
+
+Want to invite a friend? Tap the little square code button and let them
+point their phone camera at it. 📲
 
 ## Be a good garden friend 💚
 

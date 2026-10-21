@@ -315,6 +315,11 @@ def get_conn():
     if "event_id" not in map_cols:
         conn.execute("ALTER TABLE map_features ADD COLUMN event_id INTEGER")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_map_features_event ON map_features(event_id)")
+    # Event QR codes (added later): how many opened the event's link, and how many signed up from it
+    ev_cols = {r[1] for r in conn.execute("PRAGMA table_info(events)")}
+    for col in ("qr_scans", "qr_joins"):
+        if col not in ev_cols:
+            conn.execute(f"ALTER TABLE events ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0")
     return conn
 
 

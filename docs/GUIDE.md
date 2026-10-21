@@ -64,6 +64,9 @@ always brings you back here.
 - family connections waiting for you to say yes,
 - an event happening today, tomorrow or right now.
 
+Under it, **Coming up** shows the next few events as cards you can swipe
+through, each with Going / Maybe buttons and a QR code to invite people.
+
 Every to-do has a button that takes you straight to logging it, with the
 right plants already picked. The same summary pops up the first time you
 open Nevet each day, when there's something to tell.
@@ -260,7 +263,16 @@ nights.
   drinking water, first aid, the meeting point and more. Sizes are measured
   as you draw.
 - **Say if you're coming:** Going, Maybe or Can't come, how many guests
-  you're bringing, and what you'll bring along.
+  you're bringing, and what you'll bring along. The quickest way is the
+  **Coming up** cards on the dashboard: tap 🙌 Going or 🤔 Maybe right
+  there (tap it again to take it back).
+- **Invite people with a QR code:** every event has its own QR code (the
+  little square button on its dashboard card, or **Invite people** on the
+  event page). Show it on your phone, share the link, or print a
+  **poster** for the gate. Whoever scans it lands on the event: players
+  say they're coming in one tap, and new people make a hero on the way
+  and go straight to the event. The event page counts the scans and the
+  new heroes.
 - **Help out:** the organizer lists jobs (setting up, sound, cooking, the
   gate, cleaning up) and you sign up for one.
 - **On the day:** tap "I'm here" when you arrive. The gate has a big +/−
@@ -318,8 +330,9 @@ hero.
 
 ## Our farm story (Time)
 
-The **Time** tab tells the farm's story as two vines, green for the garden
-and pink for its people, winding around each other from the very first day
+The **Time** tab tells the farm's story in pink and green: two vines, green
+for the garden (dark at the start, brighter towards today) and pink for its
+people, winding around each other from the very first day
 until today.
 
 - Every day something happened is a **blossom**; busier days get bigger

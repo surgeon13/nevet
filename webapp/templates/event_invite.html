@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}You're invited: {{ ev.title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='events.css') }}">{% endblock %}
+{% block content %}
+{# What someone without a hero sees after scanning an event's QR code. Only the event itself is shown here:
+   never who is coming, notes or anything about the players. #}
+<div class="ev-invite-page">
+  <div class="ev-hero ev-k-{{ ev.kind }}">
+    <span class="ev-tile" aria-hidden="true">{{ ev.kind_info.emoji }}</span>
+    <div class="ev-hero-text">
+      <span class="ev-badge {{ ev.phase }}">{% if ev.phase == 'now' %}Happening now{% elif ev.phase == 'cancelled' %}Cancelled{% elif ev.phase == 'past' %}This event is over{% else %}You're invited · {{ ev.kind_info.label }}{% endif %}</span>
+      <h2>{{ ev.title }}</h2>
+      <ul class="ev-facts">
+        <li>🗓️ <b>{{ ev.when }}</b></li>
+        {% if ev.place %}<li>📍 <b>{{ ev.place }}</b></li>{% endif %}
+        {% if ev.expected %}<li>👥 <b>{{ ev.expected }}</b> coming</li>{% endif %}
+      </ul>
+      {% if ev.description %}<p class="ev-desc">{{ ev.description }}</p>{% endif %}
+    </div>
+  </div>
+
+  {% if ev.phase in ('upcoming', 'now') %}
+  <div class="ev-invite-choices">
+    <section class="ev-panel">
+      <h3>🌱 New here?</h3>
+      {% if open_signup %}
+      <p class="muted">Make a hero in a minute: just a name and a password. Then say you're coming.</p>
+      <a class="btn btn-primary" href="{{ url_for('register', invite=code) if code else url_for('register') }}">Make my hero</a>
+      {% else %}
+      <p class="muted">Ask someone from the garden to add you to Nevet, then scan the code again.</p>
+      {% endif %}
+    </section>
+    <section class="ev-panel">
+      <h3>🧑‍🌾 Already have a hero?</h3>
+      <p class="muted">Log in and you'll land right on the event.</p>
+      <a class="btn btn-ghost" href="{{ url_for('login', next=next_url) }}">Log in</a>
+    </section>
+  </div>
+  {% else %}
+  <p class="ev-joining">{% if ev.phase == 'cancelled' %}This event was cancelled.{% else %}This event has finished.{% endif %} <a href="{{ url_for('login') }}">Log in to Nevet</a> to see what's coming up next.</p>
+  {% endif %}
+</div>
+{% endblock %}

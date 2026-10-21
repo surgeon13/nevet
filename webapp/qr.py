@@ -286,6 +286,8 @@ def text_lines(m, quiet=4, big=False):
 
 def svg(m, quiet=4, scale=8, dark="#1e2a20", light="#ffffff", title="QR code"):
     """An SVG drawing of the code (one path), for web pages."""
+    from html import escape
+    title = escape(str(title), quote=True)
     n = len(m) + 2 * quiet
     path = "".join(f"M{x + quiet},{y + quiet}h1v1h-1z" for y, r in enumerate(m) for x, v in enumerate(r) if v)
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {n} {n}" width="{n * scale}" height="{n * scale}" '

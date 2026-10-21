@@ -313,6 +313,18 @@ unless `WEBAPP_PUBLIC_SIGNUP=true`; otherwise the home network address
 (phones on the garden's WiFi). The QR code is made by `webapp/qr.py`, with no
 extra packages.
 
+### Events on the welcome screen
+
+The screen lists the events coming up. When one is less than 30 days
+away, the QR code takes turns: 20 seconds for joining Nevet, then 15
+seconds for joining the event (key **e** switches by hand, **a** goes back
+to taking turns). The event code opens `/e/<id>` on the same address, with
+the invite code when sign-up needs one, so new people can sign up from it
+and land on the event. Event links (on the dashboard, the event page and
+the printable posters) start with the address set on the Tags page, or
+`NEVET_JOIN_URL`. Printed posters only carry the invite code when an admin
+picks **Poster for new people**.
+
 ## Tags and the Flipper Zero
 
 How tags work for players is in the [player guide](GUIDE.md#tags-tap-a-sticker-to-log). This part is about

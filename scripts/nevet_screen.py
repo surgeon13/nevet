@@ -1,8 +1,10 @@
 """nevet screen - a full-screen welcome dashboard for the Pi's own display (or any terminal).
 
 A big QR code people scan with their phone camera to join Nevet, three steps,
-the garden's live numbers, the next event and a rotating line of what's
-happening. Made to run all day on a screen by the garden:
+the garden's live numbers, the events coming up and a rotating line of what's
+happening. When an event is less than 30 days away, the QR code takes turns:
+20 seconds to join Nevet, 15 seconds to join the event (key e switches by
+hand, a goes back to taking turns). Made to run all day on a screen by the garden:
 
   nevet screen            show it (q or Esc to leave)
   nevet screen on         show it on the Pi's own display (tty1) at every boot
@@ -16,7 +18,9 @@ The QR code opens the sign-up page. Which address it uses:
      WEBAPP_PUBLIC_SIGNUP=true
   3. otherwise the home network address (works for phones on the same WiFi)
 The code opens the short link /join (counts the scan, then sign-up), so the web app
-knows how many people scanned the screen and how many of them joined.
+knows how many people scanned the screen and how many of them joined. The event
+code opens /e/<id> on the same address: players land on "Are you coming?",
+new people see the invitation and sign up on the way.
 """
 import curses
 import locale
@@ -112,12 +116,22 @@ def join_target(funnel=None):
         return {"url": None, "shown": "No network yet", "where": "none", "invite": None, "note": "Connect the Pi to the WiFi"}
     q = "join" + (f"?i={invite}" if invite else "")
     shown = base.split("://", 1)[1] + "join"
-    return {"url": base + q, "shown": shown, "where": where, "invite": invite, "note": note}
+    return {"url": base + q, "shown": shown, "where": where, "invite": invite, "note": note, "base": base}
+
+
+def event_target(t, ev):
+    """The QR code for an event: /e/<id> on the same address as the join link (with the invite code when
+    sign-up needs one), so people scan straight into "Are you coming?" and new people sign up on the way."""
+    if not t or not t.get("base") or not ev:
+        return None
+    path = f"e/{ev['id']}"
+    return {"url": t["base"] + path + (f"?i={t['invite']}" if t.get("invite") else ""),
+            "shown": t["base"].split("://", 1)[1] + path, "note": t["note"], "invite": t.get("invite"), "where": t["where"]}
 
 
 def numbers():
     """The garden's numbers, today's actions, the next event and the screen's own scan / sign-up counts."""
-    g = {"heroes": 0, "growing": 0, "week": 0, "kg": 0.0, "latest": [], "event": None, "scans": 0, "joins": 0, "today": 0}
+    g = {"heroes": 0, "growing": 0, "week": 0, "kg": 0.0, "latest": [], "event": None, "events": [], "scans": 0, "joins": 0, "today": 0}
     if not ns.FARM_DB.exists():
         return g
     try:
@@ -143,9 +157,9 @@ def numbers():
             now = datetime.now().isoformat(timespec="minutes")
             r = con.execute("""SELECT e.*, (SELECT COUNT(*) + COALESCE(SUM(guests), 0) FROM event_rsvps r WHERE r.event_id = e.id AND r.answer = 'going') AS coming
                                FROM events e WHERE e.deleted_at IS NULL AND e.status != 'cancelled'
-                               AND COALESCE(e.ends_at, e.starts_at) >= ? ORDER BY e.starts_at LIMIT 1""", (now[:10],)).fetchone()
-            if r:
-                g["event"] = dict(r)
+                               AND COALESCE(e.ends_at, e.starts_at) >= ? ORDER BY e.starts_at LIMIT 6""", (now[:10],)).fetchall()
+            g["events"] = [dict(e) for e in r if not ended(e)][:3]
+            g["event"] = g["events"][0] if g["events"] else None
         if "app_settings" in tables:
             g["scans"] = int(setting(con, "screen_scans") or 0)
             g["joins"] = int(setting(con, "screen_joins") or 0)
@@ -153,6 +167,31 @@ def numbers():
     except (sqlite3.Error, ValueError):
         pass
     return g
+
+
+def ended(ev):
+    try:
+        start = datetime.fromisoformat(ev["starts_at"])
+        end = datetime.fromisoformat(ev["ends_at"]) if ev["ends_at"] else start + timedelta(hours=3)
+    except (TypeError, ValueError):
+        return True
+    return end <= datetime.now()
+
+
+def event_when(ev):
+    try:
+        start = datetime.fromisoformat(ev["starts_at"])
+    except (TypeError, ValueError):
+        return ""
+    end = datetime.fromisoformat(ev["ends_at"]) if ev.get("ends_at") else start + timedelta(hours=3)
+    now = datetime.now()
+    if start <= now < end:
+        return "happening now"
+    if start.date() == now.date():
+        return f"today {start:%H:%M}"
+    if start.date() == now.date() + timedelta(days=1):
+        return f"tomorrow {start:%H:%M}"
+    return f"{start:%a %-d %b, %H:%M}"
 
 
 def event_line(ev):
@@ -196,6 +235,7 @@ class Screen:
         self.data_at = self.target_at = 0
         self.tick, self.tick_at = 0, 0
         self.funnel = (None, None)
+        self.mode, self.mode_at, self.pinned = "join", time.time(), False      # the QR code takes turns: Nevet, the next event
         curses.curs_set(0)
         win.timeout(1000)
         self.color = curses.has_colors()
@@ -255,12 +295,36 @@ class Screen:
                 self.put(y + i, x, row, self.attr(2) if self.color else curses.A_REVERSE)
         return len(lines)
 
-    def qr_lines(self, max_w, max_h):
+    EVENT_DAYS = 30                       # events this close get their turn on the QR code
+    TURNS = {"join": 20, "event": 15}     # seconds each code stays up
+
+    def featured_event(self, g):
+        ev = (g or {}).get("event")
+        if not ev:
+            return None
+        try:
+            start = datetime.fromisoformat(ev["starts_at"])
+        except (TypeError, ValueError):
+            return None
+        return ev if start <= datetime.now() + timedelta(days=self.EVENT_DAYS) else None
+
+    def pick_mode(self, g):
+        """Which code to show now: the join code and the next event's code take turns (key e switches by hand)."""
+        ev = self.featured_event(g)
+        if not ev or not event_target(self.target, ev):
+            self.mode = "join"
+            return None
+        if not self.pinned and time.time() - self.mode_at > self.TURNS[self.mode]:
+            self.mode, self.mode_at = ("event" if self.mode == "join" else "join"), time.time()
+        return ev if self.mode == "event" else None
+
+    def qr_lines(self, max_w, max_h, url=None):
         """The biggest QR code that fits: (lines, scale) or (None, 0). Big screens get modules twice the size;
         small ones a thinner light border (phones still read it)."""
-        if not self.target or not self.target["url"]:
+        url = url or (self.target or {}).get("url")
+        if not url:
             return None, 0
-        m = qr.encode(self.target["url"], ecl="M")
+        m = qr.encode(url, ecl="M")
         for big, quiet in ((True, 3), (False, 3), (False, 2), (False, 1)):
             lines = qr.text_lines(m, quiet=quiet, big=big)
             if len(lines[0]) <= max_w and len(lines) <= max_h:
@@ -271,6 +335,9 @@ class Screen:
         self.w.erase()
         H, W = self.w.getmaxyx()
         g, t = self.data or numbers(), self.target or {"url": None, "shown": "…", "note": "", "invite": None, "where": "none"}
+        feat = self.pick_mode(g)
+        if feat:
+            t = event_target(t, feat)
         green, dim, bold = self.attr(1), curses.A_DIM, curses.A_BOLD
         now = datetime.now()
         # header: big NEVET (or a small one), the date and time on the right
@@ -298,10 +365,10 @@ class Screen:
         body_y, foot_y = top + head_h + 1, H - 2
         avail_h = foot_y - body_y - 1
         info_w = 46 if W >= 110 else 38
-        lines, wide = self.qr_lines(W - info_w - 6, avail_h)
+        lines, wide = self.qr_lines(W - info_w - 6, avail_h, t["url"])
         side = lines is not None
         if not side:                                                          # stacked: QR on top, short info below
-            lines, wide = self.qr_lines(W - 4, avail_h - 6)
+            lines, wide = self.qr_lines(W - 4, avail_h - 6, t["url"])
         if lines:
             qw, qh = len(lines[0]), len(lines)
             if side:
@@ -313,7 +380,9 @@ class Screen:
                 ix, iy = 3, body_y + qh + 1
             self.draw_qr(qy, qx, lines, wide)
             if side and qy + qh < foot_y:
-                cap = "Scan me"
+                cap = "Scan to join the event" if feat else "Scan me"
+                if len(cap) > qw:
+                    cap = "Scan me"
                 self.put(qy + qh, qx + (qw - len(cap)) // 2, cap, green | bold)
         else:
             ix, iy = 3, body_y
@@ -324,11 +393,25 @@ class Screen:
 
         # join steps, the address and the invite code
         y = iy
-        self.put(y, ix, "JOIN NEVET", green | bold)
-        y += 2
-        steps = [("Scan the code with your phone camera", "or type the address below"),
-                 ("Pick a hero name and a password", "your hero levels up as you garden"),
-                 ("Log what you do in the garden", "water, plant, harvest, feed the worms")]
+        if feat:                                                              # the next event's turn
+            kind = (feat.get("kind") or "event").upper()
+            self.put(y, ix, "YOU'RE INVITED", self.attr(3, bold))
+            self.put(y, ix + 15, self.clip("· " + kind, iw - 15), dim)
+            y += 1
+            self.put(y, ix, self.clip(feat["title"], iw), bold)
+            y += 1
+            bits = [event_when(feat)] + ([feat["place"]] if feat.get("place") else []) + ([f"{feat['coming']} coming"] if feat.get("coming") else [])
+            self.put(y, ix, self.clip(" · ".join(bits), iw), green)
+            y += 2
+            steps = [("Scan the code with your phone camera", "or type the address below"),
+                     ("Tap Going to say you're coming", "new here? make a hero on the way"),
+                     ("See you there!", "check in when you arrive")]
+        else:
+            self.put(y, ix, "JOIN NEVET", green | bold)
+            y += 2
+            steps = [("Scan the code with your phone camera", "or type the address below"),
+                     ("Pick a hero name and a password", "your hero levels up as you garden"),
+                     ("Log what you do in the garden", "water, plant, harvest, feed the worms")]
         for n, (a, b) in enumerate(steps, 1):
             self.put(y, ix, f" {n} ", self.attr(5, bold) if self.color else curses.A_REVERSE)
             self.put(y, ix + 4, self.clip(a, iw - 4), bold)
@@ -361,11 +444,26 @@ class Screen:
             self.put(y, x + len(val) + 1, label, dim)
             x += len(val) + len(label) + 4
         y += 2 if H > 30 else 1
-        ev = event_line(g["event"])
-        if ev and y < foot_y - 1:
-            self.put(y, ix, "NEXT ", self.attr(3, bold))
-            self.put(y, ix + 5, self.clip(ev, iw - 5), bold)
-            y += 2 if H > 30 else 1
+        evs = g.get("events") or ([g["event"]] if g.get("event") else [])
+        if feat:                                                              # its own code is up: list the others
+            evs = [e for e in evs if e["id"] != feat["id"]]
+        room = foot_y - 2 - y                                                 # keep a line for the ticker
+        if evs and room >= 1:
+            if room >= 2 and len(evs) > 1:                                    # COMING UP, one event per line
+                self.put(y, ix, "ALSO COMING UP" if feat else "COMING UP", self.attr(3, bold))
+                y += 1
+                for ev in evs[:min(3, room - 1)]:
+                    when = event_when(ev)
+                    self.put(y, ix, ("• " if self.utf8 else "* ") + self.clip(ev["title"], max(8, iw - len(when) - 5)), bold)
+                    self.put(y, ix + iw - len(when), when, green)
+                    y += 1
+            else:
+                ev = event_line(evs[0])
+                lab = "THEN " if feat else "NEXT "
+                self.put(y, ix, lab, self.attr(3, bold))
+                self.put(y, ix + 5, self.clip(ev or "", iw - 5), bold)
+                y += 1
+            y += 1 if H > 30 else 0
         items = ticker_items(g)
         if items and y < foot_y:
             if time.time() - self.tick_at > 6:
@@ -387,7 +485,7 @@ class Screen:
         self.put(H - 2, 2, "─" * (W - 4) if self.utf8 else "-" * (W - 4), dim)
         self.put(H - 1, 2, foot[:W - 4], dim)
         if not self.kiosk:
-            hint = "q quit · r refresh"
+            hint = "q quit · r refresh · e event code"
             if len(foot) + len(hint) + 6 < W:
                 self.put(H - 1, W - len(hint) - 3, hint, dim)
         self.w.noutrefresh()
@@ -405,6 +503,10 @@ class Screen:
                 self.refresh_data(force=True)
             elif k == ord(" "):
                 self.tick_at = 0
+            elif k in (ord("e"), ord("E")):                                   # switch codes by hand (and keep it there)
+                self.mode, self.mode_at, self.pinned = ("event" if self.mode == "join" else "join"), time.time(), True
+            elif k in (ord("a"), ord("A")):                                   # take turns again
+                self.pinned = False
             elif k == curses.KEY_RESIZE:
                 curses.update_lines_cols()
 

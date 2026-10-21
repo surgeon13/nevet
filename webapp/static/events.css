@@ -159,3 +159,72 @@
 .ev-kinds label:has(input:focus-visible) { outline: 2px solid var(--accent); }
 .ev-kinds span { font-size: 1.2rem; }
 .ev-form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+
+/* inviting people: the QR code, the link and its buttons (event page Invite card and the dashboard pop-up) */
+.ev-invite { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.ev-qr { flex: none; line-height: 0; padding: 6px; background: #fff; border-radius: 12px; border: 1px solid var(--border); }
+.ev-qr svg { display: block; width: 156px; height: auto; }
+.ev-qr-big svg { width: min(260px, 64vw); }
+.ev-invite-side { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 8px; }
+.ev-link { display: block; font-size: 0.85rem; padding: 6px 9px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); overflow-wrap: anywhere; }
+.ev-invite-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.ev-qr-count { margin: 0; font-size: 0.8rem; color: var(--text-dim); }
+.ev-joining { margin: 0 0 12px; padding: 11px 14px; border-radius: 14px; font-size: 0.95rem;
+  background: linear-gradient(120deg, color-mix(in srgb, var(--ev-party) 14%, var(--bg-card)), color-mix(in srgb, var(--accent) 14%, var(--bg-card)));
+  border: 1px solid color-mix(in srgb, var(--ev-party) 35%, var(--border)); }
+#rsvp:target, .ev-panel:target { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ev-party) 40%, transparent); }
+
+/* the dashboard's "Coming up" strip */
+.ev-soon { margin: 14px 0; }
+.ev-soon-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.ev-soon-head h2 { margin: 0; font-size: 1.05rem; }
+.ev-soon-head .panel-link { margin: 0; }
+.ev-soon-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(250px, 1fr); gap: 10px; overflow-x: auto;
+  scroll-snap-type: x mandatory; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+@media (max-width: 560px) { .ev-soon-row { grid-auto-columns: 86%; } }
+.ev-soon-card { scroll-snap-align: start; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; min-width: 0;
+  padding: 12px; border-radius: 16px; border: 1px solid var(--border);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--ev-party) 9%, var(--bg-card)), var(--bg-card) 55%, color-mix(in srgb, var(--accent) 8%, var(--bg-card))); }
+.ev-soon-card.is-now { border-color: var(--ev-now); }
+.ev-soon-top { display: flex; gap: 11px; align-items: flex-start; color: var(--text); text-decoration: none; min-width: 0; }
+.ev-soon-date { flex: none; width: 50px; padding: 5px 0; border-radius: 12px; text-align: center; line-height: 1.05;
+  background: var(--ev-party); color: #fff; }
+.ev-soon-date b { display: block; font-size: 1.35rem; }
+.ev-soon-date small { display: block; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.9; }
+.ev-soon-card.is-now .ev-soon-date { background: var(--ev-now); padding: 14px 0; }
+.ev-soon-card.is-now .ev-soon-date b { font-size: 0.95rem; letter-spacing: 0.05em; }
+.ev-soon-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ev-soon-text strong { font-size: 1rem; line-height: 1.25; overflow-wrap: anywhere; }
+.ev-soon-kind, .ev-soon-place { font-size: 0.78rem; color: var(--text-dim); }
+.ev-soon-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ev-soon-count { flex: 1 1 100%; font-size: 0.8rem; color: var(--text-dim); }
+.ev-soon-count b { color: var(--text); font-size: 0.95rem; }
+.ev-soon-mine { color: var(--ev-party); font-weight: 600; margin-left: 4px; }
+.ev-soon-rsvp { display: flex; gap: 6px; margin: 0; flex: 1; }
+.ev-soon-rsvp button { flex: 1; min-height: 38px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-card);
+  color: var(--text); font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.ev-soon-rsvp button.going.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ev-soon-rsvp button.maybe.on { background: var(--ev-soft); border-color: var(--ev-party); color: var(--ev-party); }
+.ev-soon-rsvp.busy { opacity: 0.6; pointer-events: none; }
+.ev-soon-foot .btn-primary { flex: 1; }
+.ev-soon-qr { flex: none; width: 40px; height: 38px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-card);
+  color: var(--text); display: grid; place-items: center; cursor: pointer; }
+.ev-soon-qr:hover, .ev-soon-rsvp button:hover { border-color: var(--ev-party); }
+.ev-soon-empty { padding: 16px; border: 1px dashed var(--border); border-radius: 16px; text-align: center; color: var(--text-dim); }
+.ev-soon-empty p { margin: 0 0 10px; }
+
+.ev-qr-dialog { border: 1px solid var(--border); border-radius: 20px; padding: 22px 20px 18px; max-width: min(360px, calc(100vw - 32px));
+  background: var(--bg-card); color: var(--text); text-align: center; }
+.ev-qr-dialog::backdrop { background: rgba(20, 10, 16, 0.55); }
+.ev-qr-dialog h3 { margin: 0 0 2px; font-size: 1.1rem; overflow-wrap: anywhere; }
+.ev-qr-dialog p.muted { margin: 0 0 12px; font-size: 0.85rem; }
+.ev-qr-dialog .ev-qr { display: inline-block; }
+.ev-qr-dialog .ev-invite-btns { justify-content: center; margin-top: 10px; }
+.ev-qr-hint { margin: 8px 0; font-size: 0.85rem; color: var(--ev-party); font-weight: 600; }
+.ev-qr-close { position: absolute; top: 8px; right: 10px; border: 0; background: none; color: var(--text-dim); font-size: 1.1rem; cursor: pointer; padding: 6px; }
+
+/* the invitation someone without a hero sees after scanning (event_invite.html) */
+.ev-invite-page { max-width: 640px; margin: 0 auto; }
+.ev-invite-choices { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.ev-invite-choices .ev-panel { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.ev-invite-choices .btn { margin-top: auto; }

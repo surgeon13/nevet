@@ -1,39 +1,55 @@
 /* The Time page: the farm's story as a green and pink vine (templates/time.html, static/js/time3d.js) */
-html, body.time-body { height: 100%; margin: 0; overflow: hidden; background: #ffe6f0; }
-.time-wrap { position: fixed; inset: 0; font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #3b2433; }
+:root {
+  --t-rose: #ec407a; --t-hot: #ff2d7a; --t-magenta: #c2185b; --t-petal: #ff8fb8; --t-blush: #ffd6e7; --t-cream: #fff7fa;
+  --t-forest: #1f6b3f; --t-emerald: #2e9e5b; --t-sage: #6cc28a; --t-mint: #dcf7e6; --t-ink: #3b2433;
+  --t-glass: rgba(255, 250, 252, 0.9); --t-shadow: 0 10px 30px rgba(173, 20, 87, 0.16), 0 2px 6px rgba(31, 107, 63, 0.08);
+  --t-love: linear-gradient(100deg, var(--t-magenta), var(--t-rose) 45%, var(--t-emerald));
+}
+html, body.time-body { height: 100%; margin: 0; overflow: hidden; background: linear-gradient(#ffc4dc, #ffe3ee 60%, #d3f3df); }
+.time-wrap { position: fixed; inset: 0; font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--t-ink); }
 #time-canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
 #time-canvas:active { cursor: grabbing; }
 .time-top { position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 10px; right: 10px; display: flex; align-items: center; gap: 8px; pointer-events: none; }
 .time-top > * { pointer-events: auto; }
-.time-btn { width: 42px; height: 42px; flex: none; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.88);
-  color: #c2185b; box-shadow: 0 4px 14px rgba(194, 24, 91, 0.18); cursor: pointer; text-decoration: none; }
+.time-btn { width: 42px; height: 42px; flex: none; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--t-glass);
+  color: var(--t-magenta); box-shadow: var(--t-shadow); cursor: pointer; text-decoration: none; transition: transform 0.15s, background 0.2s; }
+.time-btn:hover { transform: scale(1.06); }
 .time-btn .i-pause, .time-btn.playing .i-play { display: none; }
 .time-btn.playing .i-pause { display: inline; }
-.time-btn.playing { background: #ec407a; color: #fff; }
-.time-title { flex: 1; min-width: 0; text-align: center; padding: 6px 14px; border-radius: 18px; background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 4px 14px rgba(194, 24, 91, 0.14); margin: 0 auto; max-width: 360px; }
-.time-title b { display: block; font: italic 700 18px/1.2 Georgia, "Times New Roman", serif; color: #ad1457; }
-.time-title span { font-size: 12px; color: #6d8f6f; }
+.time-btn.playing { background: var(--t-love); color: #fff; }
+.time-title { flex: 1; min-width: 0; text-align: center; padding: 6px 16px 7px; border-radius: 20px; background: var(--t-glass);
+  box-shadow: var(--t-shadow); margin: 0 auto; max-width: 380px; border: 1px solid rgba(236, 64, 122, 0.18); }
+.time-title b { display: block; font: italic 700 19px/1.2 Georgia, "Times New Roman", serif; color: var(--t-magenta);
+  background: var(--t-love); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.time-title span { font-size: 12px; color: var(--t-emerald); font-weight: 600; }
 .time-card { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(66px + env(safe-area-inset-bottom)); width: min(460px, calc(100% - 20px)); box-sizing: border-box;
-  max-height: 42vh; overflow: auto; padding: 12px 16px 12px; border-radius: 20px; background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 10px 30px rgba(173, 20, 87, 0.18); border: 1px solid rgba(236, 64, 122, 0.25); backdrop-filter: blur(6px); transition: opacity 0.25s; }
+  max-height: 42vh; overflow: auto; padding: 13px 16px 13px; border-radius: 22px; background: var(--t-glass);
+  box-shadow: var(--t-shadow); border: 1.5px solid transparent;
+  background-image: linear-gradient(var(--t-glass), var(--t-glass)), linear-gradient(120deg, var(--t-petal), var(--t-blush) 45%, #a8e2bd);
+  background-origin: border-box; background-clip: padding-box, border-box; backdrop-filter: blur(8px); transition: opacity 0.25s; }
 .time-card header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.time-date { font-weight: 800; color: #2e7d32; font-size: 13px; letter-spacing: 0.02em; }
-.time-count { font-size: 11.5px; color: #a07a8f; }
-.time-card h2 { margin: 2px 0 6px; font: italic 700 21px/1.2 Georgia, "Times New Roman", serif; color: #c2185b; }
+.time-date { font-weight: 800; color: var(--t-forest); font-size: 13px; letter-spacing: 0.02em; }
+.time-count { font-size: 11.5px; color: #b07a95; }
+.time-card h2 { margin: 2px 0 6px; font: italic 700 21px/1.2 Georgia, "Times New Roman", serif; color: var(--t-magenta); }
 .time-card h2:empty { display: none; }
 .time-card ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
 .time-card li { position: relative; padding-left: 18px; font-size: 13.5px; }
-.time-card li::before { content: ""; position: absolute; left: 2px; top: 6px; width: 9px; height: 9px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: #81c784; }
-.time-card li.love::before { background: #ec407a; border-radius: 50% 50% 0 50%; transform: rotate(45deg); }
-.time-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.time-card li::before { content: ""; position: absolute; left: 2px; top: 6px; width: 9px; height: 9px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+  background: linear-gradient(135deg, var(--t-sage), var(--t-emerald)); }
+.time-card li.love::before { background: linear-gradient(135deg, var(--t-petal), var(--t-hot)); border-radius: 50% 50% 0 50%; transform: rotate(45deg); }
+.time-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
 .time-chips:empty { display: none; }
-.time-chip { padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: #e8f5e9; color: #2e7d32; }
-.time-chip.pink { background: #fce4ec; color: #c2185b; }
+.time-chip { padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: var(--t-mint); color: var(--t-forest); border: 1px solid #b5e8c7; }
+.time-chip.pink { background: var(--t-blush); color: var(--t-magenta); border-color: #ffb3d0; }
 .time-scrub { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom)); width: min(460px, calc(100% - 20px));
-  display: flex; align-items: center; gap: 8px; padding: 6px 8px; box-sizing: border-box; border-radius: 999px; background: rgba(255, 255, 255, 0.85); box-shadow: 0 6px 20px rgba(173, 20, 87, 0.15); }
-.time-step { width: 32px; height: 32px; flex: none; border: 0; border-radius: 50%; background: #fce4ec; color: #c2185b; font-size: 20px; font-weight: 800; line-height: 1; cursor: pointer; }
-#time-range { flex: 1; accent-color: #ec407a; }
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px; box-sizing: border-box; border-radius: 999px; background: var(--t-glass); box-shadow: var(--t-shadow); }
+.time-step { width: 32px; height: 32px; flex: none; border: 0; border-radius: 50%; background: var(--t-blush); color: var(--t-magenta); font-size: 20px; font-weight: 800; line-height: 1; cursor: pointer; }
+.time-step:hover { background: var(--t-petal); color: #fff; }
+/* the slider: a vine from green (the first day) to pink (today) */
+#time-range { flex: 1; -webkit-appearance: none; appearance: none; height: 8px; border-radius: 999px; background: linear-gradient(90deg, var(--t-forest), var(--t-sage) 40%, var(--t-petal) 70%, var(--t-rose)); outline: none; }
+#time-range::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 3px solid var(--t-rose); box-shadow: 0 2px 6px rgba(194, 24, 91, 0.35); cursor: pointer; }
+#time-range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid var(--t-rose); box-shadow: 0 2px 6px rgba(194, 24, 91, 0.35); cursor: pointer; }
+#time-range:focus-visible { box-shadow: 0 0 0 3px rgba(236, 64, 122, 0.35); }
 .time-empty { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); width: min(340px, calc(100% - 40px)); text-align: center;
-  padding: 16px; border-radius: 18px; background: rgba(255, 255, 255, 0.9); color: #ad1457; font: italic 16px/1.4 Georgia, serif; }
+  padding: 16px; border-radius: 18px; background: var(--t-glass); box-shadow: var(--t-shadow); color: var(--t-magenta); font: italic 16px/1.4 Georgia, serif; }
 @media (max-width: 520px) { .time-card { max-height: 36vh; padding: 10px 13px; } .time-card h2 { font-size: 18px; } }

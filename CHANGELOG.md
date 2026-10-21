@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-10-21 (events on the dashboard, event QR codes, a pinker-and-greener story)
+
+- **Coming up** on the dashboard: the next events as swipeable cards with
+  one-tap 🙌 Going / 🤔 Maybe (no page reload; tap again to take it back),
+  "I'm here" for an event that's on, and a QR button.
+- **Event QR codes**: every event has a short link `/e/<id>` and a QR code
+  (dashboard pop-up, the event page's new Invite card, a downloadable SVG
+  and a printable A4 poster). Players who scan land on "Are you coming?";
+  people without a hero see the invitation (no names of who's coming), sign
+  up or log in, and land on the event. Scans and new heroes are counted per
+  event (the event's numbers).
+- **Welcome screen**: lists what's coming up, and when an event is less
+  than 30 days away the QR code takes turns between joining Nevet and
+  joining the event (`e` switches, `a` takes turns again).
+- **Our farm story**: a new pink and green palette: the green vine grows
+  from deep forest to fresh leaf green towards today, the pink one from
+  magenta to petal pink, rose and blush blossoms with gold centres, truer
+  pink hearts (the lights no longer wash them violet), pink and green
+  floating hearts and pollen, and the page itself (title, card, chips and a
+  green-to-pink slider) in the same colours.
+
 ## 2026-10-20 (friendlier guides, small fixes)
 
 - **New guides for everyone**: a short README front page with "start here"

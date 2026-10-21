@@ -6,7 +6,7 @@ The web app runs on port 8000. All routes are relative to
 ## Pages (browser routes)
 
 Every page needs a logged-in player except `/login`, `/register`,
-`/healthz` and `POST /api/stats` (API key). All POST forms carry a
+`/join`, `/e/<id>`, `/healthz` and `POST /api/stats` (API key). All POST forms carry a
 `_csrf` token.
 
 | Method | Path | Description |
@@ -39,6 +39,13 @@ Every page needs a logged-in player except `/login`, `/register`,
 | GET | `/stats` | Game stats (latest snapshot + history) |
 | GET | `/logs` | System logs (watchdog, capture, web app, updates), refreshes every 5s |
 | GET | `/healthz` | `ok` when the app and database respond (used by the watchdog and updater) |
+| GET | `/join` | Short link in the welcome screen's QR code: counts the scan, then sign-up (`?i=` invite code). Public |
+| GET, POST | `/events` | All events (now, upcoming, past); POST creates one |
+| GET | `/events/<id>` | One event: answers, volunteers, check-ins, walk-in counter, log, feedback, photos, numbers, Invite card. `?join=1` (from a QR code) highlights "Are you coming?" |
+| POST | `/events/<id>/rsvp` | `answer` = going / maybe / no / clear, `guests`, `bring`, optional `next`. With `X-Requested-With: fetch` it answers JSON: `{ok, error, answer, going, maybe, expected}` (the dashboard's one-tap buttons) |
+| GET | `/e/<id>` | An event's short link (its QR code). Counts the scan once per visitor; players go to the event, visitors see the invitation (event details only, no names) and log in or sign up (`?i=` invite code), then land on the event. Public |
+| GET | `/events/<id>/qr.svg` | The event's QR code as SVG; `?download=1` saves it, `?invite=1` (admin) adds the invite code |
+| GET | `/events/<id>/poster` | Printable A4 poster with the event's QR code; `?invite=1` (admin) adds the invite code |
 
 ## JSON API
 

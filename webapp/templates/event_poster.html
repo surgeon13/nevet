@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ ev.title }} · poster</title>
+<style>
+  :root { --pink: #d6336c; --pink-soft: #fde8ef; --green: #2f8a4c; --green-soft: #e6f4e9; --ink: #1e2a20; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #eee; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); }
+  .bar { display: flex; gap: 10px; justify-content: center; align-items: center; padding: 12px 16px; font-size: 14px; flex-wrap: wrap; }
+  .bar button { font: inherit; padding: 8px 16px; border-radius: 999px; border: 0; background: var(--green); color: #fff; cursor: pointer; }
+  .bar a { color: var(--green); }
+  .sheet { width: min(210mm, 100%); min-height: 297mm; margin: 0 auto 24px; background: #fff; padding: 18mm 16mm;
+    display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; overflow: hidden; }
+  .sheet::before, .sheet::after { content: ""; position: absolute; width: 120mm; height: 120mm; border-radius: 50%; z-index: 0; }
+  .sheet::before { background: var(--pink-soft); top: -60mm; left: -50mm; }
+  .sheet::after { background: var(--green-soft); bottom: -60mm; right: -50mm; }
+  .sheet > * { position: relative; z-index: 1; }
+  .kind { font-size: 18px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--pink); margin: 0; }
+  h1 { font-size: clamp(32px, 7vw, 56px); line-height: 1.05; margin: 8px 0 14px; overflow-wrap: anywhere; }
+  .when { font-size: 22px; font-weight: 600; margin: 0; }
+  .place { font-size: 18px; margin: 6px 0 0; color: #4d5b50; }
+  .qr { margin: 12mm 0 6mm; padding: 5mm; background: #fff; border: 3px solid var(--pink); border-radius: 8mm; line-height: 0; }
+  .qr svg { width: min(105mm, 70vw); height: auto; }
+  .scan { font-size: 26px; font-weight: 800; margin: 0; color: var(--green); }
+  .steps { font-size: 16px; margin: 6px 0 0; color: #4d5b50; }
+  .url { margin-top: 8mm; font-size: 15px; color: #4d5b50; overflow-wrap: anywhere; }
+  .brand { margin-top: auto; padding-top: 10mm; font-weight: 800; letter-spacing: 0.2em; color: var(--green); }
+  .brand span { color: var(--pink); }
+  @media print {
+    body { background: #fff; }
+    .bar { display: none; }
+    .sheet { margin: 0; width: auto; min-height: 0; height: 100vh; padding: 14mm; }
+    @page { size: A4; margin: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="bar">
+  <button type="button" onclick="window.print()">🖨️ Print</button>
+  <a href="{{ url_for('event_page', event_id=ev.id) }}">Back to the event</a>
+  {% if invite %}<span>This poster carries the invite code, so anyone can sign up from it.</span>{% endif %}
+</div>
+<div class="sheet">
+  <p class="kind">{{ ev.kind_info.emoji }} {{ ev.kind_info.label }}</p>
+  <h1>{{ ev.title }}</h1>
+  <p class="when">{{ ev.when }}</p>
+  {% if ev.place %}<p class="place">📍 {{ ev.place }}</p>{% endif %}
+  <div class="qr">{{ qr_svg | safe }}</div>
+  <p class="scan">Scan to join!</p>
+  <p class="steps">Point your phone camera at the code · say you're coming · new? make a hero on the way</p>
+  <p class="url">{{ shown }}</p>
+  <p class="brand">🌱 NEV<span>ET</span></p>
+</div>
+</body>
+</html>

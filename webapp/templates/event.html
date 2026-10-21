@@ -179,6 +179,27 @@
 </section>
 {% endmacro %}
 
+{% macro invite_panel() %}
+<section class="ev-panel" id="invite">
+  <h3>📲 Invite people</h3>
+  <p class="muted">Anyone who scans this lands on the event: players say if they're coming in one tap, new people make a hero on the way.</p>
+  <div class="ev-invite">
+    <div class="ev-qr">{{ qr_svg | safe }}</div>
+    <div class="ev-invite-side">
+      <code class="ev-link" id="ev-link">{{ link.split('://', 1)[-1] }}</code>
+      <div class="ev-invite-btns">
+        <button type="button" class="btn btn-ghost btn-small" data-copy="{{ link }}">Copy link</button>
+        <button type="button" class="btn btn-ghost btn-small" data-share="{{ link }}" data-title="{{ ev.title }}" hidden>Share…</button>
+        <a class="btn btn-ghost btn-small" href="{{ url_for('event_poster', event_id=ev.id) }}" target="_blank" rel="noopener">🖨️ Poster</a>
+        <a class="btn btn-ghost btn-small" href="{{ url_for('event_qr_svg', event_id=ev.id, download=1) }}">⬇ QR</a>
+        {% if current_user.is_admin %}<a class="btn btn-ghost btn-small" href="{{ url_for('event_poster', event_id=ev.id, invite=1) }}" target="_blank" rel="noopener" title="The QR code also carries the invite code, so people from outside the garden's WiFi can sign up">🖨️ Poster for new people</a>{% endif %}
+      </div>
+      <p class="ev-qr-count">{{ s.qr_scans }} scan{{ 's' if s.qr_scans != 1 }} · {{ s.qr_joins }} new hero{{ 'es' if s.qr_joins != 1 }} from it</p>
+    </div>
+  </div>
+</section>
+{% endmacro %}
+
 {% macro data_panel() %}
 <section class="ev-panel ev-wide" id="data">
   <h3>📊 The numbers</h3>
@@ -191,6 +212,7 @@
     <div class="kpi"><span class="kpi-label">Mapped</span><span class="kpi-value">{{ s.mapped }}</span><span class="kpi-sub">{{ '{:,.0f}'.format(s.mapped_m2) }} m² of areas</span></div>
     <div class="kpi"><span class="kpi-label">Log</span><span class="kpi-value">{{ s.notes }}</span><span class="kpi-sub">notes</span></div>
     <div class="kpi"><span class="kpi-label">Photos</span><span class="kpi-value">{{ s.photos }}</span><span class="kpi-sub">by the camera</span></div>
+    <div class="kpi"><span class="kpi-label">QR scans</span><span class="kpi-value">{{ s.qr_scans }}</span><span class="kpi-sub">{{ s.qr_joins }} new hero{{ 'es' if s.qr_joins != 1 }} joined</span></div>
   </div>
   {% if arrivals | length > 1 %}
   {% set top = [arrivals | map(attribute='n') | max, 1] | max %}
@@ -214,6 +236,10 @@
 {% block content %}
 <p style="margin: 0 0 10px;"><a href="{{ url_for('events_page') }}" class="muted" style="text-decoration:none;">← All events</a></p>
 {% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
+{% if welcome %}<p class="ev-joining" role="status">👋 Welcome to Nevet, <b>{{ current_user.name }}</b>! Your hero is ready. You can dress them up later from <a href="{{ url_for('grower_customize', grower_id=current_user.id) }}">your hero page</a>.</p>
+{% elif joining and ev.phase == 'upcoming' %}<p class="ev-joining" role="status">🎈 You're invited! {% if mine %}You said <b>{{ answers[mine.answer] }}</b>. Change it below any time.{% else %}Tap <b>🙌 Going</b> below to say you're coming.{% endif %}</p>
+{% elif joining and ev.phase == 'now' %}<p class="ev-joining" role="status">🎉 It's on right now! Tap <b>I'm here</b> below when you arrive.</p>
+{% elif joining and ev.phase == 'cancelled' %}<p class="ev-joining" role="status">This event was cancelled.</p>{% endif %}
 <div class="ev-hero ev-k-{{ ev.kind }}">
   <span class="ev-tile" aria-hidden="true">{{ ev.kind_info.emoji }}</span>
   <div class="ev-hero-text">
@@ -244,15 +270,16 @@
 
 <div class="ev-grid">
   {% if ev.phase == 'now' %}
-    {{ day_panel() }}{{ log_panel() }}{{ tasks_panel() }}{{ people_panel() }}{{ map_panel() }}{{ feedback_panel() }}{{ photos_panel() }}{{ data_panel() }}
+    {{ day_panel() }}{{ log_panel() }}{{ tasks_panel() }}{{ people_panel() }}{{ invite_panel() }}{{ map_panel() }}{{ feedback_panel() }}{{ photos_panel() }}{{ data_panel() }}
   {% elif ev.phase in ('past', 'cancelled') %}
     {{ data_panel() }}{{ feedback_panel() }}{{ photos_panel() }}{{ log_panel() }}{{ people_panel() }}{{ tasks_panel() }}{{ map_panel() }}{{ day_panel() }}
   {% else %}
-    {{ rsvp_panel() }}{{ people_panel() }}{{ tasks_panel() }}{{ map_panel() }}{{ day_panel() }}{{ log_panel() }}{{ data_panel() }}
+    {{ rsvp_panel() }}{{ invite_panel() }}{{ people_panel() }}{{ tasks_panel() }}{{ map_panel() }}{{ day_panel() }}{{ log_panel() }}{{ data_panel() }}
   {% endif %}
 </div>
 
 <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script src="{{ url_for('static', filename='js/event-invite.js') }}"></script>
 <script>
   // the gate counter: count without reloading the page
   (function () {
