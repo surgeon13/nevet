@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-10-22 (the ring in the play park)
+
+- **The ring**: a round sparring ring in the play park (the seesaw moved
+  a little south to make room). Three heroes wait by the ropes, hop in,
+  bow and spar: they circle, close in and swing, hits pop up as comic
+  words, a big hit knocks a hero flat with stars (they bounce back up), and
+  the most points wins the round. Then everyone bows and climbs out.
+- **A new style every round**: giant gloves (blue canvas), sumo suits
+  (puffy suits and belts on a clay ring with its straw circle), kendo
+  swords (bamboo swords, helmets with face grilles and chest guards on a
+  wooden floor) and mud wrestling (a mud floor, slipping, and heroes that
+  get muddier with every splash). The floor, apron, ropes and posts change
+  with it.
+- Fighters wear their corner's colour (red, blue, yellow) on their name tags
+  and gear; a board by the ring shows the round, the style and the score;
+  banners call the round and the winner; other heroes come to watch and
+  cheer. With only two heroes on the farm, they spar one on one.
+- The farm's status line shows the ring's round and style.
+
 ## 2026-10-21 (events on the dashboard, event QR codes, a pinker-and-greener story)
 
 - **Coming up** on the dashboard: the next events as swipeable cards with

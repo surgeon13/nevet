@@ -207,6 +207,14 @@ off, Esc goes back.
 - **Play park** ⚽: football in two teams (the Tomatoes and the
   Blueberries) with a scoreboard, plus swings, a slide, a seesaw, a
   trampoline, a sandbox where a sandcastle grows, and kites overhead.
+  There's also **the ring** 🥊: three heroes climb in, bow, and spar in a
+  silly, friendly way. Every round is different: **giant gloves**, puffy
+  **sumo suits**, bamboo **kendo swords** with helmets, or **mud
+  wrestling** (they get muddier and muddier). Hits pop up as "POW!",
+  "BOING!" or "SPLAT!", a big one knocks a hero flat with stars round their
+  head (they hop right back up), and after the round the one with the
+  most points wins and everyone bows. The board by the ring shows the
+  round and the score, and other heroes come over to cheer.
 - **Party!**: a stage with a DJ (whoever opened the farm), a light-up
   dance floor, lasers, a disco ball and confetti. Everyone does the same
   dance, from Disco and the Robot to the Chicken dance, the Hora, Debka

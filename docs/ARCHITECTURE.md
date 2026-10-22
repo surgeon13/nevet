@@ -173,9 +173,14 @@ A Flask app served by waitress on port 8000:
   it picks the ground, sky, fog, ground cover and the scenery builder, and
   little moving things register a step function in `WORLD_ANIM`. The
   navigation grid covers the farm and the play park beyond the gate
-  (`PLAY`); the Play activity hands out stations (`PST`: football, swings,
-  slide, seesaw, trampoline, sandbox, touchline) and `stepFootball()` runs
-  the ball and both teams outside the path planner.
+  (`PLAY`); the Play activity hands out stations (`PST`: the ring, football,
+  swings, slide, seesaw, trampoline, sandbox, watching the ring, touchline)
+  and `stepFootball()` runs the ball and both teams outside the path
+  planner. `stepRing()` runs the sparring ring the same way: rounds go
+  idle → intro → fight → outro → exit (`RING.phase`), each with a style
+  from `RING_STYLES` (gloves, sumo, kendo, mud: reach, speed, knockback,
+  floor and rope colours); `addGear()` puts the style's props on a hero's
+  arms, head and body and `removeGear()` takes them off.
 - **Events** — `events.py` keeps events (`events`) and what they gather:
   `event_rsvps`, `event_tasks` + `event_task_people`, `event_checkins`,
   `event_headcount` (every +1/−1 at the gate with its time, which gives the

@@ -42,7 +42,8 @@ in one go.
   (thirsty plants, hungry worms, ripe fruit).
 - 🗺️ **A garden map** on real streets or satellite photos, where you draw
   beds, paths, taps and trees.
-- 🚜 **A 3D farm** where all the heroes harvest, water, play football,
+- 🚜 **A 3D farm** where all the heroes harvest, water, play football, spar
+  in a silly ring (giant gloves, sumo suits, kendo swords, mud),
   feed the animals and party, in nine different lands (desert, seaside,
   snowy mountains, jungle, a city...). It can run as a live channel on a TV.
 - 🎈 **Events** for parties, festivals and work days: the next ones on the
