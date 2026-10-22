@@ -117,14 +117,17 @@
   {% if gs %}
   <h3 class="panel-title panel-sub">Games</h3>
   <div class="game-kpis">
-    <div><b>{{ gs.bouts or 0 }}</b><span>Arena bouts</span></div>
-    <div><b>{{ gs.wins or 0 }}</b><span>Wins</span></div>
+    <div><b>{{ glory }}</b><span>Glory</span></div>
+    <div><b>{{ gs.championships or 0 }}</b><span>🏆 Grand victories</span></div>
+    <div><b>{{ gs.finals or 0 }}</b><span>Finals</span></div>
+    <div><b>{{ gs.advanced or 0 }}</b><span>Rounds won</span></div>
+    <div><b>{{ gs.bouts or 0 }}</b><span>Mud bouts</span></div>
+    <div><b>{{ gs.wins or 0 }}</b><span>Bouts won</span></div>
     <div><b>{{ gs.points or 0 }}</b><span>Points</span></div>
-    <div><b>{{ gs.punches_landed or 0 }}/{{ gs.punches or 0 }}</b><span>Punches landed</span></div>
+    <div><b>{{ gs.grabs_landed or 0 }}/{{ gs.grabs or 0 }}</b><span>Grabs landed</span></div>
     <div><b>{{ gs.throws or 0 }}</b><span>Throws</span></div>
-    <div><b>{{ gs.strikes_landed or 0 }}</b><span>Sword strikes</span></div>
-    <div><b>{{ gs.knockdowns or 0 }}</b><span>Knockdowns</span></div>
     <div><b>{{ gs.dodges or 0 }}</b><span>Dodges</span></div>
+    <div><b>{{ gs.slips or 0 }}</b><span>Slips</span></div>
     <div><b>{{ gs.matches or 0 }}</b><span>Football matches</span></div>
     <div><b>{{ gs.goals or 0 }}</b><span>Goals</span></div>
     <div><b>{{ gs.assists or 0 }}</b><span>Assists</span></div>
@@ -133,14 +136,14 @@
   {% if matches %}
   <ul class="game-recent">
     {% for m in matches %}
-    <li>{% if m.game == 'arena' %}🔥 {{ m.name }}: {% set me = m.points.get(hero.id|string, 0) %}{{ me }} point{{ 's' if me != 1 }}
+    <li>{% if m.game == 'arena' %}🔥 {% if m.stage == 'final' %}Final{% elif m.stage == 'semi' %}Final three{% elif m.round %}Round {{ m.round }}{% else %}{{ m.name }}{% endif %}: {% set me = m.points.get(hero.id|string, 0) %}{{ me }} point{{ 's' if me != 1 }}
       {%- if m.winner == hero.id|string %} · <b>won</b>{% elif m.winner == 'draw' %} · draw{% endif %}
       {% else %}⚽ Football {{ m.score[0] }}:{{ m.score[1] }}{% endif %} <span class="muted">· {{ m.starts_at[5:16].replace('T', ' ') }}</span></li>
     {% endfor %}
   </ul>
   {% endif %}
   {% else %}
-  <p class="muted">No games yet. Open the farm's Play activity to see the arena and football.</p>
+  <p class="muted">No games yet. Open the farm's Campfire dance for the mud arena, or the Play park for football.</p>
   {% endif %}
 </section>
 

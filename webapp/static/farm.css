@@ -156,3 +156,8 @@ html, body.farm-body { height: 100%; margin: 0; overflow: hidden; background: #6
 .farm-world-emoji { font-size: 26px; width: 34px; text-align: center; flex: none; }
 .farm-tv .farm-world { display: none; }
 @media (max-width: 420px) { .farm-chip { padding: 0 8px; } .farm-acts { gap: 3px; } }
+
+/* the day / night switch (the farm is in full daylight unless you switch it; the campfire dims by itself) */
+.farm-light .i-moon, .farm-light.dark .i-sun { display: none; }
+.farm-light.dark .i-moon { display: block; }
+.farm-light.dark { background: #283a63; color: #ffe9a8; }

@@ -34,11 +34,11 @@
       {{ (50 + g_.LUCK * 100) | int }}% against the weakest.</li>
     <li><b>Spirit</b>: a hero's first {{ g_.ROOKIE_MATCHES }} matches of a game get +{{ g_.ROOKIE_BOOST }}, and after {{ g_.COMEBACK_LOSSES }}
       losses in a row they get +{{ g_.COMEBACK_BOOST }}.</li>
-    <li><b>Turns</b>: whoever played least in the last week goes first, so everyone gets their turn in the arena and on the pitch.</li>
+    <li><b>Everyone enters</b> the campfire tournament, and football picks whoever played least in the last week first.</li>
     <li><b>Balanced teams</b>: football teams are picked in turns (A B B A …) from the strongest down, and the best keeper goes in goal.</li>
-    <li>Each arena style uses different powers:
-      {% for sid, st in g_.ARENA_STYLES.items() %}{{ st.name }} ({{ st.uses.keys() | join(' + ') }}){{ ', ' if not loop.last }}{% endfor %}.
+    <li>Mud wrestling uses every power a little: {% for k, w in g_.ARENA_STYLES.mud.uses.items() %}{{ k }} {{ (w * 100) | int }}%{{ ', ' if not loop.last }}{% endfor %}.
       Football uses Strength and Wisdom to shoot, Wisdom and Agility to keep goal.</li>
+    <li><b>Glory</b> (the arena's ranking) is just for fun: it never adds XP or powers. Only real garden work does.</li>
   </ul>
   <p class="formula">chance a move lands = 50% + {{ (g_.LUCK * 100) | int }}% × tanh((attacker − defender) ÷ {{ g_.SPREAD }})</p>
   <p class="muted" style="margin: 6px 0 0;">So a level-5 veteran wins about half of their bouts against two brand-new heroes, and each newcomer

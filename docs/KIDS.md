@@ -50,11 +50,13 @@ all the heroes play together! They can:
 - water the plants 💧
 - feed the chickens, ducks and worms 🐔🦆🪱
 - play football and go on the swings and the slide ⚽
-- have silly matches in the arena round the campfire 🔥: giant gloves,
-  puffy sumo suits, bamboo swords or a big muddy splash fight, and then
-  everyone bows
 - dance at a party with lights and music 🪩
-- dance around a campfire at night 🔥
+- dance around the campfire 🔥, while three at a time have a silly muddy
+  splash match in the mud ring round the fire. The winners go on, and at
+  the end there's a champion! 🏆
+
+The farm is sunny. Tap the 🌙 button to make it night, and ☀️ to make it
+day again.
 
 Tap a hero to follow them, and they'll wave at you! 👋
 

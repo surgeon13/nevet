@@ -1,10 +1,17 @@
-"""Games on the 3D farm: the fire pit arena and football in the play park.
+"""Games on the 3D farm: the mud arena at the campfire and football in the play park.
 
 Matches are decided here, on the station, so everyone watching sees the same
 bout and the same goals, and the results can be kept as stats. The farm page
-asks for the current and the next match while it shows the Play activity
-(/api/games/now) and animates what's decided here; a match is only created
-when someone is watching, so the stats are of matches that were shown.
+asks for the current and the next match while it shows the Campfire dance
+(the mud wrestling tournament) or the Play park (football), and animates
+what's decided here (/api/games/now?mode=campfire|play). A match is only
+created when someone is watching, so the stats are of matches that were shown.
+
+The campfire tournament: every hero on the farm enters. Each round they
+wrestle in groups of three (a pair or a free pass when the numbers don't
+divide); the winner of each group goes through. When three are left, the top
+two go through; the last two wrestle for the grand victory. Then there's a
+ceremony for the champion, and a new tournament begins.
 
 Powers come from real garden work (a doocracy: those who do, grow):
 
@@ -135,19 +142,18 @@ def _mix(p, weights):
     return sum(p[k] * w for k, w in weights.items())
 
 
-# ---------------------------------------------------------------- the arena
-ARENA = {"slot": 45, "lead": 9, "intro": 4.0, "fight": 18.0, "outro": 4.2, "exit": 1.0}
+# ---------------------------------------------------------------- the mud arena (campfire)
+ARENA = {"slot": 32, "lead": 7, "intro": 3.5, "fight": 16.0, "outro": 4.5}
+CEREMONY = {"lead": 1, "length": 14}
 ARENA_STYLES = {
-    #          powers it uses                          time between moves, chance of a big move, the move, the big move
-    "gloves": {"name": "Giant gloves", "uses": {"strength": 0.5, "agility": 0.5}, "cd": (0.8, 1.5), "big": 0.14, "move": "punch", "bigmove": "punch"},
-    "sumo": {"name": "Sumo suits", "uses": {"strength": 0.6, "stamina": 0.4}, "cd": (1.1, 2.0), "big": 0.22, "move": "push", "bigmove": "throw"},
-    "kendo": {"name": "Kendo swords", "uses": {"wisdom": 0.5, "agility": 0.5}, "cd": (1.0, 1.8), "big": 0.12, "move": "strike", "bigmove": "strike"},
-    "mud": {"name": "Mud wrestling", "uses": {"stamina": 0.5, "heart": 0.5}, "cd": (0.9, 1.7), "big": 0.26, "move": "grab", "bigmove": "throw"},
+    # the powers it uses, time between moves, chance of a big move (a throw that knocks someone flat), the moves
+    "mud": {"name": "Mud wrestling", "uses": {"strength": 0.25, "stamina": 0.25, "agility": 0.2, "wisdom": 0.1, "heart": 0.2},
+            "cd": (0.9, 1.7), "big": 0.24, "move": "grab", "bigmove": "throw"},
 }
-ARENA_ORDER = ["gloves", "sumo", "kendo", "mud"]
 PLURAL = {"punch": "punches", "push": "pushes", "strike": "strikes", "grab": "grabs"}
-DOWN_TIME = 1.4           # a hero knocked flat is out for this long
-SLIP_CHANCE = 0.08        # mud: each move might end on your back
+DOWN_TIME = 1.4           # a hero thrown flat is out for this long
+SLIP_CHANCE = 0.08        # each move might end on your back in the mud
+GLORY = {"points": 1, "advanced": 5, "finals": 10, "championships": 25}   # the arena's ranking: points plus going through
 
 # ---------------------------------------------------------------- football
 FOOTBALL = {"slot": 60, "lead": 6, "play": 48}
@@ -162,6 +168,7 @@ STAT_NAMES = {
     "throws": "Throws", "knockdowns": "Knockdowns", "knocked_down": "Knocked down", "dodges": "Dodges", "slips": "Slips",
     "matches": "Matches", "match_wins": "Match wins", "match_draws": "Match draws", "match_losses": "Match losses",
     "goals": "Goals", "assists": "Assists", "shots": "Shots", "on_target": "On target", "saves": "Saves", "conceded": "Goals let in",
+    "advanced": "Rounds won", "finals": "Finals", "championships": "Grand victories", "runner_up": "Runner-up",
 }
 
 
@@ -223,17 +230,20 @@ def _names(conn, ids):
     return {r[0]: r[1] for r in conn.execute(f"SELECT id, name FROM growers WHERE id IN ({q})", list(ids))}
 
 
-def _store(conn, game, slot, slot_start, slot_end, start, end, style, data, winner, players, stats):
-    cur = conn.execute("""INSERT OR IGNORE INTO game_matches (game, slot, slot_start, slot_end, starts_at, ends_at, style, data, winner, created_at)
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                       (game, slot, slot_start, slot_end, _iso(start), _iso(end), style, json.dumps(data), winner, _iso(_now())))
+def _store(conn, game, slot, slot_start, slot_end, start, end, style, data, winner, players, stats, tournament=None, rnd_no=None):
+    cur = conn.execute("""INSERT OR IGNORE INTO game_matches (game, slot, slot_start, slot_end, starts_at, ends_at, style, data, winner, created_at,
+                                                               tournament_id, round)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       (game, slot, slot_start, slot_end, _iso(start), _iso(end), style, json.dumps(data), winner, _iso(_now()),
+                        tournament, rnd_no))
     if not cur.rowcount:          # someone else just made this one
-        return
+        return None
     mid = cur.lastrowid
     conn.executemany("INSERT INTO game_players (match_id, grower_id, side, power, result) VALUES (?, ?, ?, ?, ?)",
                      [(mid, p["id"], p["side"], p["power"], p["result"]) for p in players])
     conn.executemany("INSERT INTO game_stats (match_id, grower_id, stat, value) VALUES (?, ?, ?, ?)",
                      [(mid, gid, k, v) for gid, st in stats.items() for k, v in st.items() if v])
+    return mid
 
 
 def arena_bout(fighters, style, rnd):
@@ -291,44 +301,155 @@ def arena_bout(fighters, style, rnd):
     return events, S
 
 
+def _rank(S, rnd):
+    """Who did best in a bout: points, then moves landed, then fewest times thrown, then luck (a tournament needs a winner)."""
+    order = list(S)
+    rnd.shuffle(order)
+    return sorted(order, key=lambda g: (-S[g]["points"], -S[g].get("grabs_landed", 0), S[g].get("knocked_down", 0)))
+
+
+def _groups(field, rnd, byes_so_far):
+    """Split a round's field: groups of three, plus one pair (two left over) or one free pass (one left over)."""
+    f = list(field)
+    rnd.shuffle(f)
+    if len(f) <= 3:
+        return [f], []
+    byes = []
+    if len(f) % 3 == 1:                               # the free pass goes to whoever had the fewest
+        pick = min(f, key=lambda g: (byes_so_far.count(g), rnd.random()))
+        f.remove(pick)
+        byes.append(pick)
+    groups = []
+    if len(f) % 3 == 2:
+        groups.append(f[:2])
+        f = f[2:]
+    groups += [f[k:k + 3] for k in range(0, len(f), 3)]
+    return groups, byes
+
+
+def _tournament(conn):
+    """The tournament that's on (or None)."""
+    return conn.execute("SELECT * FROM game_tournaments WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1").fetchone()
+
+
+def _active(conn):
+    return {r[0] for r in conn.execute("SELECT id FROM growers WHERE deleted_at IS NULL")}
+
+
 def _arena(conn, slot):
+    """Make what happens in this campfire slot: the next bout of the tournament, the champion's ceremony, or a new tournament."""
     slot_start = slot * ARENA["slot"]
     slot_end = slot_start + ARENA["slot"]
-    rnd = random.Random(f"arena:{slot}")
-    picked, _ = _pick(conn, "arena", slot_start, slot_end, 3, rnd)
-    if len(picked) < 2:
-        return
-    style = ARENA_ORDER[slot % len(ARENA_ORDER)]
+    for _ in range(12):                               # (a few steps: start a round, skip an emptied group, finish...)
+        t = _tournament(conn)
+        if not t:
+            last = conn.execute("SELECT * FROM game_tournaments ORDER BY id DESC LIMIT 1").fetchone()
+            if last and last["champion_id"] and not conn.execute(
+                    "SELECT 1 FROM game_matches WHERE tournament_id = ? AND style = 'ceremony'", (last["id"],)).fetchone():
+                return _ceremony(conn, slot, slot_start, slot_end, last)
+            field = _roster(conn)
+            if len(field) < 2:
+                return None
+            conn.execute("INSERT INTO game_tournaments (started_at, field, state, rounds) VALUES (?, ?, ?, 0)",
+                         (_iso(slot_start), json.dumps(field), json.dumps({"rounds": []})))
+            continue
+        made = _next_bout(conn, slot, slot_start, slot_end, t)
+        if made != "again":
+            return made
+    return None
+
+
+def _next_bout(conn, slot, slot_start, slot_end, t):
+    state = json.loads(t["state"])
+    rounds = state["rounds"]
+    rnd = random.Random(f"tournament:{t['id']}:{len(rounds)}")
+    alive = _active(conn)
+    if rounds:
+        r = rounds[-1]
+        played = conn.execute("SELECT data FROM game_matches WHERE tournament_id = ? AND round = ? AND style != 'ceremony' ORDER BY slot",
+                              (t["id"], len(rounds))).fetchall()
+        if len(played) < len(r["groups"]):
+            group = [g for g in r["groups"][len(played)] if g in alive]
+            if len(group) < 2:                        # not enough left in this group: they go through
+                r["byes"] += group
+                r["groups"][len(played)] = []
+                r["groups"] = [g for g in r["groups"] if g] or []
+                conn.execute("UPDATE game_tournaments SET state = ? WHERE id = ?", (json.dumps(state), t["id"]))
+                return "again"
+            return _bout(conn, slot, slot_start, slot_end, t, len(rounds), len(played), group, len(r["field"]), rnd)
+        through = [g for g in r["byes"] if g in alive]
+        for row in played:
+            through += [g for g in json.loads(row[0])["advance"] if g in alive]
+    else:
+        through = [g for g in json.loads(t["field"]) if g in alive]
+    if len(through) <= 1:                             # a champion
+        return _finish(conn, t, through[0] if through else None)
+    byes_so_far = [g for rr in rounds for g in rr["byes"]]
+    groups, byes = _groups(through, rnd, byes_so_far)
+    rounds.append({"field": through, "groups": groups, "byes": byes})
+    conn.execute("UPDATE game_tournaments SET state = ?, rounds = ? WHERE id = ?", (json.dumps(state), len(rounds), t["id"]))
+    return "again"
+
+
+def _bout(conn, slot, slot_start, slot_end, t, rnd_no, k, group, field_size, rnd):
+    style = "mud"
     st = ARENA_STYLES[style]
     P = all_powers(conn)
-    names = _names(conn, picked)
+    names = _names(conn, group)
     fighters = []
-    for k, gid in enumerate(picked):
+    for c, gid in enumerate(group):
         pw = P.get(gid, {"powers": powers_from({}, 1, None), "level": 1})
         boost, why = _spirit(conn, "arena", gid)
-        fighters.append({"id": gid, "name": names.get(gid, "?"), "corner": k, "level": pw["level"],
-                         "raw": round(_mix(pw["powers"], st["uses"]), 1),
+        fighters.append({"id": gid, "name": names.get(gid, "?"), "corner": c, "level": pw["level"],
                          "eff": round(effective(_mix(pw["powers"], st["uses"])) + boost, 1),
                          "spirit": why, "agility": pw["powers"]["agility"]})
     events, S = arena_bout(fighters, style, rnd)
-    best = max(s["points"] for s in S.values())
-    top = [g for g, s in S.items() if s["points"] == best]
-    if best > 0 and len(top) == 1:
-        result = {g: "won" if g == top[0] else "lost" for g in S}
-        winner = str(top[0])
-    else:
-        result = {g: "draw" if (S[g]["points"] == best) else "lost" for g in S}
-        winner = "draw"
-    for g, s in S.items():
-        s["bouts"] = 1
-        s[{"won": "wins", "draw": "draws", "lost": "losses"}[result[g]]] = 1
+    order = _rank(S, rnd)
+    stage = "final" if field_size == 2 else "semi" if field_size == 3 else "group"
+    advance = order[:2] if field_size == 3 else order[:1]
+    result = {g: "won" if g == order[0] else "lost" for g in S}
+    for g, s_ in S.items():
+        s_["bouts"] = 1
+        s_[{"won": "wins", "lost": "losses"}[result[g]]] = 1
+        if g in advance and stage != "final":
+            s_["advanced"] = 1
+        if stage == "final":
+            s_["finals"] = 1
     start = slot_start + ARENA["lead"]
-    end = start + ARENA["intro"] + ARENA["fight"] + ARENA["outro"] + ARENA["exit"]
-    data = {"style": style, "name": st["name"], "round": slot, "start": start, "end": end,
-            "fighters": [{k: f[k] for k in ("id", "name", "corner", "level", "eff", "spirit")} for f in fighters],
-            "events": events, "points": {str(g): s["points"] for g, s in S.items()}, "winner": winner}
+    end = start + ARENA["intro"] + ARENA["fight"] + ARENA["outro"]
+    state = json.loads(t["state"])
+    data = {"style": style, "name": st["name"], "tournament": t["id"], "round": rnd_no, "bout": k + 1,
+            "bouts": len(state["rounds"][rnd_no - 1]["groups"]), "field": field_size, "stage": stage,
+            "start": start, "end": end, "fighters": [{k2: f[k2] for k2 in ("id", "name", "corner", "level", "eff", "spirit")} for f in fighters],
+            "events": events, "points": {str(g): s_["points"] for g, s_ in S.items()}, "winner": str(order[0]), "advance": advance}
     players = [{"id": f["id"], "side": f["corner"], "power": f["eff"], "result": result[f["id"]]} for f in fighters]
-    _store(conn, "arena", slot, slot_start, slot_end, start, end, style, data, winner, players, S)
+    return _store(conn, "arena", slot, slot_start, slot_end, start, end, style, data, str(order[0]), players, S, t["id"], rnd_no)
+
+
+def _finish(conn, t, champion):
+    """The last bout is decided: the tournament is over (it shows as over once the final has been played)."""
+    final = conn.execute("""SELECT * FROM game_matches WHERE tournament_id = ? AND style != 'ceremony' ORDER BY slot DESC LIMIT 1""",
+                         (t["id"],)).fetchone()
+    runner = None
+    if final:
+        d = json.loads(final["data"])
+        others = [f["id"] for f in d["fighters"] if f["id"] != champion]
+        runner = others[0] if d.get("stage") == "final" and others else None
+        conn.executemany("INSERT OR IGNORE INTO game_stats (match_id, grower_id, stat, value) VALUES (?, ?, ?, 1)",
+                         [(final["id"], g, k) for g, k in ((champion, "championships"), (runner, "runner_up")) if g])
+    conn.execute("UPDATE game_tournaments SET ended_at = ?, champion_id = ?, runner_up_id = ? WHERE id = ?",
+                 (final["ends_at"] if final else _iso(_now()), champion, runner, t["id"]))
+    return "again"
+
+
+def _ceremony(conn, slot, slot_start, slot_end, t):
+    names = _names(conn, [g for g in (t["champion_id"], t["runner_up_id"]) if g])
+    start = slot_start + CEREMONY["lead"]
+    end = start + CEREMONY["length"]
+    data = {"style": "ceremony", "tournament": t["id"], "start": start, "end": end, "champion": t["champion_id"],
+            "champion_name": names.get(t["champion_id"], "?"), "runner_up": t["runner_up_id"], "runner_up_name": names.get(t["runner_up_id"]),
+            "field": len(json.loads(t["field"])), "rounds": t["rounds"], "fighters": [], "events": []}
+    return _store(conn, "arena", slot, slot_start, slot_end, start, end, "ceremony", data, str(t["champion_id"]), [], {}, t["id"], None)
 
 
 def football_match(teams, rnd):
@@ -420,6 +541,7 @@ def _football(conn, slot):
 
 
 MAKERS = {"arena": (_arena, ARENA), "football": (_football, FOOTBALL)}
+MODES = {"campfire": "arena", "play": "football"}
 
 
 def _match_view(row):
@@ -428,23 +550,27 @@ def _match_view(row):
     return d
 
 
-def now_playing(now=None):
-    """The current and the next match of each game, made if they don't exist yet (for the farm's Play activity)."""
+def now_playing(now=None, mode="play"):
+    """The current and the next match of the activity's game (made if they don't exist yet): the campfire's mud
+    tournament or the play park's football. Matches are only made while someone watches that activity."""
     now = now or _now()
+    game = MODES.get(mode, "football")
+    make, T = MAKERS[game]
     conn = farm_db.get_conn()
-    out = {}
-    for game in ("arena", "football"):
-        make, T = MAKERS[game]
-        slot = int(now // T["slot"])
-        for s in (slot, slot + 1):
-            if not conn.execute("SELECT 1 FROM game_matches WHERE game = ? AND slot = ?", (game, s)).fetchone():
-                make(conn, s)
-                conn.commit()
-        rows = conn.execute("SELECT * FROM game_matches WHERE game = ? AND slot IN (?, ?) ORDER BY slot", (game, slot, slot + 1)).fetchall()
-        out[game] = [_match_view(r) for r in rows]
+    slot = int(now // T["slot"])
+    for s_ in (slot, slot + 1):
+        if not conn.execute("SELECT 1 FROM game_matches WHERE game = ? AND slot = ?", (game, s_)).fetchone():
+            make(conn, s_)
+            conn.commit()
+    rows = conn.execute("SELECT * FROM game_matches WHERE game = ? AND slot IN (?, ?) ORDER BY slot", (game, slot, slot + 1)).fetchall()
+    out = [_match_view(r) for r in rows]
+    t = conn.execute("SELECT * FROM game_tournaments ORDER BY id DESC LIMIT 1").fetchone() if game == "arena" else None
     conn.close()
-    return {"now": now, "arena": out["arena"], "football": out["football"],
-            "timing": {"arena": ARENA, "football": FOOTBALL}}
+    res = {"now": now, "mode": mode, "arena": out if game == "arena" else [], "football": out if game == "football" else [],
+           "timing": {"arena": ARENA, "football": FOOTBALL, "ceremony": CEREMONY}}
+    if t:
+        res["tournament"] = {"id": t["id"], "field": len(json.loads(t["field"])), "rounds": t["rounds"]}
+    return res
 
 
 def participants(now=None):
@@ -489,6 +615,76 @@ def leaderboard(days=None):
         thrown = sum(r.get(k, 0) for k in ("punches", "pushes", "strikes", "grabs"))
         r["landed"], r["moves"] = landed, thrown
         r["accuracy"] = round(100 * landed / thrown) if thrown else None
+        r["glory"] = sum(r.get(k, 0) * w for k, w in GLORY.items())
+    return out
+
+
+def glory(stats):
+    return sum((stats or {}).get(k, 0) * w for k, w in GLORY.items())
+
+
+def champions(limit=10):
+    """Finished tournaments, newest first: the champion, the runner-up, how many entered."""
+    conn = farm_db.get_conn()
+    rows = conn.execute("""SELECT t.*, c.name AS champion, r.name AS runner_up FROM game_tournaments t
+                           LEFT JOIN growers c ON c.id = t.champion_id LEFT JOIN growers r ON r.id = t.runner_up_id
+                           WHERE t.ended_at IS NOT NULL AND t.ended_at <= ? AND t.champion_id IS NOT NULL
+                           ORDER BY t.id DESC LIMIT ?""", (_iso(_now()), limit)).fetchall()
+    conn.close()
+    return [dict(r) | {"entered": len(json.loads(r["field"]))} for r in rows]
+
+
+def bracket():
+    """The tournament that's on (or the last one): its rounds, the groups, and who went through so far
+    (only bouts that have been played: no spoilers)."""
+    conn = farm_db.get_conn()
+    t = conn.execute("SELECT * FROM game_tournaments ORDER BY id DESC LIMIT 1").fetchone()
+    if not t:
+        conn.close()
+        return None
+    now = _iso(_now())
+    names = {r[0]: r[1] for r in conn.execute("SELECT id, name FROM growers")}
+    played = {}
+    for m in conn.execute("SELECT * FROM game_matches WHERE tournament_id = ? AND style != 'ceremony' AND ends_at <= ?", (t["id"], now)):
+        d = json.loads(m["data"])
+        played[(d["round"], d["bout"])] = d
+    rounds = []
+    for i, r in enumerate(json.loads(t["state"])["rounds"], 1):
+        groups = []
+        for k, g in enumerate(r["groups"], 1):
+            d = played.get((i, k))
+            groups.append({"names": [names.get(x, "?") for x in g], "ids": g, "played": bool(d),
+                           "advance": d["advance"] if d else [], "points": d["points"] if d else {}})
+        rounds.append({"n": i, "field": len(r["field"]), "groups": groups, "byes": [names.get(x, "?") for x in r["byes"]]})
+    done = bool(t["ended_at"] and t["ended_at"] <= now)
+    conn.close()
+    return {"id": t["id"], "entered": len(json.loads(t["field"])), "rounds": rounds, "done": done,
+            "champion": names.get(t["champion_id"]) if done else None, "runner_up": names.get(t["runner_up_id"]) if done else None,
+            "started": t["started_at"]}
+
+
+def records(board):
+    """A few fun records from the leaderboard (each: title, hero, value)."""
+    out = []
+    def best(key, title, unit=""):
+        rows = [r for r in board if r.get(key)]
+        if rows:
+            r = max(rows, key=lambda x: x[key])
+            out.append({"title": title, "name": r["name"], "id": r["id"], "value": f"{r[key]}{unit}"})
+    best("championships", "🏆 Most grand victories")
+    best("glory", "✨ Most glory")
+    best("throws", "🤼 Most throws")
+    best("dodges", "💨 Best dodger", " dodges")
+    best("slips", "🫠 Slipperiest", " slips")
+    best("goals", "⚽ Top scorer", " goals")
+    best("saves", "🧤 Safest hands", " saves")
+    conn = farm_db.get_conn()
+    row = conn.execute("""SELECT s.grower_id, g.name, MAX(s.value) FROM game_stats s JOIN game_matches m ON m.id = s.match_id
+                          JOIN growers g ON g.id = s.grower_id WHERE s.stat = 'points' AND m.game = 'arena' AND m.ends_at <= ?
+                          AND g.deleted_at IS NULL""", (_iso(_now()),)).fetchone()
+    conn.close()
+    if row and row[2]:
+        out.append({"title": "💥 Biggest bout", "name": row[1], "id": row[0], "value": f"{row[2]} points"})
     return out
 
 

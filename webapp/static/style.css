@@ -656,3 +656,18 @@ dialog.today-dialog { width: min(440px, calc(100vw - 32px)); }
 .seg-links a { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); text-decoration: none; color: var(--text); font-size: 0.85rem; }
 .seg-links a.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .formula { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; font-size: 0.88rem; overflow-x: auto; }
+.records { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin: 8px 0 12px; }
+.record { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 8px 10px; display: flex; flex-direction: column; gap: 1px; }
+.record span { font-size: 0.78rem; color: var(--text-dim); }
+.record a { font-weight: 650; }
+.record b { font-size: 0.85rem; font-weight: 500; }
+.bracket-box { margin: 8px 0 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; }
+.bracket-box summary { cursor: pointer; }
+.bracket { display: flex; gap: 12px; overflow-x: auto; padding: 10px 0 4px; }
+.bracket-round { min-width: 150px; display: flex; flex-direction: column; gap: 6px; }
+.bracket-round h4 { margin: 0; font-size: 0.85rem; }
+.bracket-group { border: 1px solid var(--border); border-radius: 10px; padding: 5px 8px; display: flex; flex-direction: column; font-size: 0.85rem; background: var(--bg); }
+.bracket-group .through { font-weight: 700; color: var(--accent-2); }
+.bracket-group .through::before { content: "➜ "; }
+.bracket-group small { color: var(--text-dim); }
+.champions { font-size: 0.9rem; }

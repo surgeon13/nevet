@@ -176,17 +176,27 @@ A Flask app served by waitress on port 8000:
   (`PLAY`); the Play activity hands out stations (`PST`: the ring, football,
   swings, slide, seesaw, trampoline, sandbox, watching the ring, touchline)
   and `stepFootball()` runs the ball and both teams outside the path
-  planner. The arena is built around the campfire (`RING`, wall and gate
-  obstacles in `ARENA_OBST`); `stepRing()` plays the station's bout
-  (gather → intro → fight → outro, `RING.phase`) and `stepMatch()` the
-  station's football match. `addGear()` puts the style's props on a hero's
+  planner. The mud arena is built around the campfire, its size from the
+  number of heroes (`ARENA_W`; wall and gate obstacles in `ARENA_OBST`);
+  in the Campfire dance everyone else dances round it (`CAMP`,
+  `campSlot()`, `stepCamp()`: the party's dances, ring dances move the
+  ring), `stepRing()` plays the station's bout (gather → intro → fight →
+  outro, `RING.phase`) or the champion's ceremony, and in the Play park
+  `stepMatch()` plays the station's football match. The fire is drawn
+  with a noise shader on camera-facing planes (`FLAME_FS`, `flameBoard()`,
+  also the torches) with a glow, ground light, embers, smoke and a
+  flickering light (`FIREFX`); `FARM_DARK` / `lightTarget()` keep the farm
+  in daylight unless the sun / moon button says night, and the campfire
+  dims to dusk. `addGear()` puts the style's props on a hero's
   arms, head and body and `removeGear()` takes them off.
 - **Games** — `games.py` decides the matches the farm shows, so everyone
   watching sees the same one and the results can be kept. Powers come from
   the logs (`SKILL_WORK`, plus days active, event check-ins and volunteer
   jobs), the level and the class; `effective()` compresses them and
   `contest()` turns two of them into the chance a move lands. `now_playing()`
-  makes the current and next arena bout (45 s slots) and football match
+  makes the current and next campfire slot (32 s: the tournament's next
+  bout, or the champion's ceremony, or a new tournament; `game_tournaments`
+  keeps the field, the rounds and the champion) and football match
   (60 s slots) the first time the farm asks (`/api/games/now`), picking
   whoever played least lately and never the same hero in both at once.
   Tables: `game_matches` (the script the farm plays, as JSON),

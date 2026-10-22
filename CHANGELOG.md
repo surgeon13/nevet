@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-10-22 (the campfire's mud tournament, daylight, a fire in full glory)
+
+- **No fighting in the play park**: it's football, swings, slide, seesaw,
+  trampoline and sandbox again.
+- **The campfire is the mud arena**: a gladiators' mud ring round a bigger
+  fire pit, its size growing with the number of heroes, with the wall,
+  columns, torches and gates. Everyone dances round it with the party's
+  dances (a new one every 16 beats; the Hora and the Conga move the whole
+  ring round, Mayim Mayim steps in to the fire and out).
+- **The campfire tournament** (decided on the station): every hero enters;
+  groups of three (a pair or a free pass when the numbers don't divide),
+  group winners go through, the top two of the last three, then the
+  final; the champion gets a ceremony by the fire (hands up, gold sparks),
+  then a new tournament starts. It carries on from where it was the next
+  time the campfire is on. The Campfire dance now lasts longer in Auto.
+- **Stats**: glory (points, +5 per round won, +10 per final, +25 per grand
+  victory; just for fun, never XP), grand victories, finals, rounds won,
+  grabs, throws, dodges, slips, times thrown; the tournament's bracket
+  (no spoilers), the hall of champions and records on the XP tab; glory
+  and the tournament on hero pages.
+- **Daylight by default**: every activity is in full sunlight, the party
+  too. A ☀️ / 🌙 button on the farm switches to night (remembered in your
+  browser). The Campfire dance dims to a warm dusk with a sunset sky.
+- **The fire**: bigger fire pit with a log tepee on glowing coals, flames
+  drawn with a noise shader (and the same flames on the torches), a glow,
+  warm light on the ground, embers and sparks, smoke and a flickering
+  light. It flares up and dies down smoothly.
+- The cart and the chalkboard moved a little west to give the dance ring
+  room.
+
 ## 2026-10-22 (the fire pit arena, powers and game stats)
 
 - **The arena** moved from the play park to the campfire: a gladiators'

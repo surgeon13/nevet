@@ -521,7 +521,7 @@ def grower_page(grower_id):
         rel_options=relations.form_options(), my_groups=farm_db.list_groups(grower_id),
         group_kind_names=relations.GROUP_KIND,
         rel_candidates=[r for r in farm_db.list_growers() if r["id"] != grower_id],
-        powers=pw, skills=games.SKILLS, game_stats=games.hero_stats(grower_id),
+        powers=pw, skills=games.SKILLS, game_stats=games.hero_stats(grower_id), glory=games.glory(games.hero_stats(grower_id)),
         matches=games.recent_matches(6, grower_id), styles=games.ARENA_STYLES,
     )
 
@@ -1036,10 +1036,12 @@ def stats():
     period = request.args.get("period", "30")
     days = {"7": 7, "30": 30, "all": None}.get(period, 30)
     board = games.leaderboard(days)
-    fighters = sorted((r for r in board if r.get("bouts")), key=lambda r: (-r.get("wins", 0), -r.get("points", 0), r["name"].lower()))
+    fighters = sorted((r for r in board if r.get("bouts")), key=lambda r: (-r.get("glory", 0), -r.get("wins", 0), r["name"].lower()))
     players = sorted((r for r in board if r.get("matches")), key=lambda r: (-r.get("goals", 0), -r.get("match_wins", 0), r["name"].lower()))
     return render_template("stats.html", latest=latest, history=history, fighters=fighters, players=players, period=period if period in ("7", "30", "all") else "30",
                            recent=games.recent_matches(10), totals=games.totals(), styles=games.ARENA_STYLES,
+                           bracket=games.bracket(), champions=games.champions(8), records=games.records(games.leaderboard(None)),
+                           moves=[k for k in ("punches", "pushes", "strikes") if any(r.get(k) for r in fighters)],
                            names={g["id"]: g["name"] for g in farm_db.list_growers()})
 
 
@@ -1055,9 +1057,10 @@ def powers_page():
 
 @app.route("/api/games/now")
 def api_games_now():
-    """The current and next arena bout and football match (made here, the same for everyone). The farm calls this
-    while it shows the Play activity; each match is made the first time someone asks for it."""
-    return jsonify(games.now_playing())
+    """The current and next match of an activity (made here, the same for everyone): ?mode=campfire for the mud
+    tournament, ?mode=play for football. The farm calls this while it shows that activity; each match is made the
+    first time someone asks for it."""
+    return jsonify(games.now_playing(mode=request.args.get("mode", "play")))
 
 
 @app.route("/logs")

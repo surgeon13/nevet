@@ -546,14 +546,15 @@ Full request/response shapes and the DB schema are in [`docs/API.md`](API.md).
 
 ### Games and powers
 
-Everything about the arena, football and powers is in `webapp/games.py`, at
+Everything about the campfire tournament, football and powers is in `webapp/games.py`, at
 the top, in plain numbers: how much each kind of work counts (`SKILL_WORK`),
 the base power (`BASE`), growth (`GROWTH`), the level bonus, the class
 bonus, the fairness rules (`LUCK`, `SPREAD`, `ROOKIE_*`, `COMEBACK_*`) and
-the match timing (`ARENA`, `FOOTBALL`). Matches are only made while someone
-watches the farm's Play activity, so a quiet station doesn't fill up with
-games nobody saw. They're kept in `game_matches`, `game_players` and
-`game_stats` in the farm database.
+the match timing (`ARENA`, `CEREMONY`, `FOOTBALL`) and glory (`GLORY`).
+Matches are only made while someone watches the Campfire dance (the
+tournament) or the Play park (football), so a quiet station doesn't fill
+up with games nobody saw. They're kept in `game_tournaments`,
+`game_matches`, `game_players` and `game_stats` in the farm database.
 
 ### Adding things
 

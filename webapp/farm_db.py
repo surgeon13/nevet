@@ -350,6 +350,21 @@ def get_conn():
         );
         CREATE INDEX IF NOT EXISTS idx_game_stats_grower ON game_stats(grower_id, stat);
     """)
+    # The campfire tournament (games.py): who entered, the rounds so far, the champion
+    conn.execute("""CREATE TABLE IF NOT EXISTS game_tournaments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            started_at TEXT NOT NULL,
+            ended_at TEXT,
+            field TEXT NOT NULL,
+            state TEXT NOT NULL,
+            rounds INTEGER NOT NULL DEFAULT 0,
+            champion_id INTEGER,
+            runner_up_id INTEGER
+        )""")
+    gm_cols = {r[1] for r in conn.execute("PRAGMA table_info(game_matches)")}
+    for col in ("tournament_id", "round"):
+        if col not in gm_cols:
+            conn.execute(f"ALTER TABLE game_matches ADD COLUMN {col} INTEGER")
     # Event QR codes (added later): how many opened the event's link, and how many signed up from it
     ev_cols = {r[1] for r in conn.execute("PRAGMA table_info(events)")}
     for col in ("qr_scans", "qr_joins"):

@@ -191,9 +191,13 @@ together. **Nothing on the farm changes the garden's real records**: it's
 just for fun.
 
 **How to look around:** drag to turn, pinch to zoom, tap a hero to follow
-them (they wave at you), tap the ground to let go. The camera button saves
-a picture. On a keyboard: keys 1-7 pick an activity, A turns auto on and
-off, Esc goes back.
+them (they wave at you, and you see their powers), tap the ground to let
+go. The camera button saves a picture. On a keyboard: keys 1-7 pick an
+activity, A turns auto on and off, Esc goes back.
+
+**Day or night:** the farm is in full daylight. The ☀️ / 🌙 button turns
+it to night (your browser remembers it). The Campfire dance dims to a warm
+dusk by itself, so the fire can glow.
 
 **What the heroes do** (Auto changes it about every minute):
 
@@ -202,24 +206,30 @@ off, Esc goes back.
   that really haven't been watered for 3 days droop and get a water drop,
   and heroes go to them first.
 - **Planting day**: sowing the new field and watching it sprout.
-- **Campfire dance**: night falls and everyone dances around the fire.
+- **Campfire dance** 🔥: dusk falls and the fire roars up in the middle of
+  **the mud arena**: a gladiators' ring round the fire pit, as big as the
+  crowd, with a sandstone wall, columns with torches and two gates.
+  Everyone dances round it, the same dances as the party (Disco, Pogo,
+  the Robot, the Chicken dance, and ring dances: the Hora steps round,
+  Mayim Mayim steps in to the fire and out, the Conga marches round).
+  Meanwhile the **campfire tournament** goes on: every hero enters, and
+  three at a time walk in, salute, bow and wrestle in the mud round the
+  fire. Grabs and throws pop up as "SPLAT!" and "SPLASHDOWN!", a big
+  throw lays a hero flat with stars round their head (they bounce back
+  up), and the one with the most points goes through. When three are
+  left, the top two go through; the last two wrestle **the final** for the
+  grand victory, and the champion gets a ceremony by the fire while
+  everyone dances with their hands up. Then a new tournament begins. The
+  board over the north gate shows the bout and the points.
 - **Animal care**: feeding the worms, the chickens (they come running) and
   the ducks, and checking the beehives.
 - **Play park** ⚽: football in two teams (the Tomatoes and the
   Blueberries) with a scoreboard, plus swings, a slide, a seesaw, a
-  trampoline, a sandbox where a sandcastle grows, and kites overhead.
-  Meanwhile, in the yard, the campfire becomes **the arena** 🔥: a
-  gladiators' fire pit with a sand floor, a sandstone wall, columns with
-  torches and two gates. Three heroes walk in, salute, bow and spar round
-  the fire in a silly, friendly way. Every bout is different: **giant
-  gloves**, puffy **sumo suits**, bamboo **kendo swords** with helmets, or
-  **mud wrestling** (they get muddier and muddier). Hits pop up as "POW!",
-  "BOING!" or "SPLAT!", a big one knocks a hero flat with stars round their
-  head (they hop right back up), and the most points wins. The board over
-  the north gate shows the score, and other heroes come to watch.
+  trampoline, a sandbox where a sandcastle grows, and kites overhead. No
+  fighting here: the wrestling is at the campfire.
 - **The matches are real (well, real-ish)**: the station decides every
   bout and football match, so everyone watching sees the same thing, and
-  every punch, throw, goal and win is kept. See [Powers and game
+  every grab, throw, goal and win is kept. See [Powers and game
   stats](#powers-and-game-stats).
 - **Party!**: a stage with a DJ (whoever opened the farm), a light-up
   dance floor, lasers, a disco ball and confetti. Everyone does the same
@@ -383,7 +393,7 @@ them, and your hero's class adds a little to one. **Nothing can be
 bought**: clothes and gear are only for looks, and nobody can set powers by
 hand. Those who do, grow.
 
-The powers decide how the arena and football go, but they're kept fair: a
+The powers decide how the mud arena and football go, but they're kept fair: a
 veteran is stronger than a newcomer, not unbeatable. Strength is
 compressed before every match, luck always plays a part, a hero's first
 few matches and a losing streak get a little extra spirit, everyone gets
@@ -392,12 +402,17 @@ half of their bouts against two brand-new heroes; each newcomer still wins
 about one in five. The page **How powers work** (from the XP tab) shows
 every number, and they're all in the open in `webapp/games.py`.
 
-The **XP** tab keeps the stats: arena wins, points, punches (thrown and
-landed), pushes, sword strikes, grabs, throws, knockdowns, dodges and
-slips, and football goals, assists, shots, saves and wins, for the last 7
-or 30 days or all time, plus the latest matches. Your own are on your hero
-page. Matches only happen while someone watches the farm's Play activity,
-so every stat is from a match that was shown.
+The **XP** tab keeps the stats. For the mud arena: **glory** (points, +5
+for every round won, +10 for reaching a final, +25 for a grand victory),
+grand victories, finals, bouts and bouts won, points, grabs (tried and
+landed), throws, dodges, slips and times thrown; the bracket of the
+tournament that's on; the hall of champions; and records like the most
+throws, the best dodger, the slipperiest hero and the biggest bout. For
+football: goals, assists, shots, saves and wins. For the last 7 or 30
+days or all time, plus the latest matches; your own are on your hero
+page. Glory is just for fun: it never adds XP or powers. Matches only
+happen while someone watches the Campfire dance (the tournament) or the
+Play park (football), so every stat is from a match that was shown.
 
 ## Small questions
 

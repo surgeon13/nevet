@@ -7,34 +7,68 @@
   <a class="hub-tab active" href="{{ url_for('stats') }}" aria-current="page">XP</a>
 </div>
 <h2>XP &amp; games</h2>
-<p class="muted" style="margin-top: -6px;">The arena around the fire pit and football in the play park, decided on the station and the same for
+<p class="muted" style="margin-top: -6px;">The mud arena at the campfire and football in the play park, decided on the station and the same for
   everyone watching. Powers come from real garden work, never from buying anything. <a href="{{ url_for('powers_page') }}">How powers work</a></p>
 
 <section class="summary-bar">
-  <div class="stat-card"><span class="num">{{ totals.arena }}</span><span class="label">Arena bouts</span></div>
+  <div class="stat-card"><span class="num">{{ totals.arena }}</span><span class="label">Mud bouts</span></div>
+  <div class="stat-card"><span class="num">{{ champions | length }}</span><span class="label">Champions crowned</span></div>
   <div class="stat-card"><span class="num">{{ totals.football }}</span><span class="label">Football matches</span></div>
   <div class="stat-card"><span class="num">{{ totals.goals }}</span><span class="label">Goals</span></div>
 </section>
 
-<h3>🔥 The arena</h3>
+<h3>🔥 The mud arena</h3>
+<p class="muted" style="margin-top: -6px;">At the campfire dance: everyone enters, wrestling in groups of three round the fire pit; group winners go
+  through, the last two wrestle for the grand victory. Glory = points + {{ 5 }} for each round won + 10 for a final + 25 for a grand victory.</p>
+{% if records %}
+<div class="records">
+  {% for r in records %}<div class="record"><span>{{ r.title }}</span><a href="{{ url_for('grower_page', grower_id=r.id) }}">{{ r.name }}</a><b>{{ r.value }}</b></div>{% endfor %}
+</div>
+{% endif %}
+{% if bracket %}
+<details class="bracket-box" {% if not bracket.done %}open{% endif %}>
+  <summary><b>{{ 'Last' if bracket.done else 'This' }} tournament</b> · {{ bracket.entered }} heroes
+    {% if bracket.done %}· 🏆 {{ bracket.champion }}{% if bracket.runner_up %} (runner-up {{ bracket.runner_up }}){% endif %}{% endif %}</summary>
+  <div class="bracket">
+    {% for r in bracket.rounds %}
+    <div class="bracket-round">
+      <h4>{% if r.field == 2 %}Final{% elif r.field == 3 %}Final three{% else %}Round {{ r.n }}{% endif %} <small class="muted">· {{ r.field }}</small></h4>
+      {% for g in r.groups %}
+      <div class="bracket-group{% if g.played %} played{% endif %}">
+        {% for nm in g.names %}{% set gid = g.ids[loop.index0] %}
+        <span class="{{ 'through' if gid in g.advance }}">{{ nm }}{% if g.played %} <small>{{ g.points.get(gid|string, 0) }}</small>{% endif %}</span>
+        {% endfor %}
+        {% if not g.played %}<small class="muted">to come</small>{% endif %}
+      </div>
+      {% endfor %}
+      {% if r.byes %}<div class="bracket-group bye"><small class="muted">free pass:</small> {% for b in r.byes %}<span class="through">{{ b }}</span>{% endfor %}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</details>
+{% endif %}
+{% if champions %}
+<p class="champions"><b>Hall of champions:</b>
+  {% for c in champions %}🏆 {{ c.champion }} <small class="muted">({{ c.entered }} heroes, {{ c.ended_at[5:10] }})</small>{{ ' · ' if not loop.last }}{% endfor %}</p>
+{% endif %}
 <div class="seg-links">
   {% for k, lbl in [('7', '7 days'), ('30', '30 days'), ('all', 'All time')] %}<a href="{{ url_for('stats', period=k) }}" class="{{ 'on' if period == k }}">{{ lbl }}</a>{% endfor %}
 </div>
 {% if fighters %}
 <div class="board-wrap"><table class="history-table board-table">
-  <tr><th>Hero</th><th>Bouts</th><th>Wins</th><th>Draws</th><th>Points</th><th>Punches</th><th>Pushes</th><th>Strikes</th><th>Grabs</th><th>Throws</th><th>Knockdowns</th><th>Dodges</th><th>Slips</th><th>Accuracy</th></tr>
+  <tr><th>Hero</th><th>Glory</th><th>🏆</th><th>Finals</th><th>Rounds won</th><th>Bouts</th><th>Wins</th><th>Points</th><th>Grabs</th><th>Throws</th><th>Dodges</th><th>Slips</th><th>Thrown</th>
+    {% for k in moves %}<th>{{ {'punches': 'Punches', 'pushes': 'Pushes', 'strikes': 'Strikes'}[k] }}</th>{% endfor %}</tr>
   {% for r in fighters %}
   <tr>
     <td><a href="{{ url_for('grower_page', grower_id=r.id) }}">{{ r.name }}</a></td>
-    <td>{{ r.bouts or 0 }}</td><td><b>{{ r.wins or 0 }}</b></td><td>{{ r.draws or 0 }}</td><td>{{ r.points or 0 }}</td>
-    <td>{{ r.punches_landed or 0 }}/{{ r.punches or 0 }}</td><td>{{ r.pushes_landed or 0 }}/{{ r.pushes or 0 }}</td>
-    <td>{{ r.strikes_landed or 0 }}/{{ r.strikes or 0 }}</td><td>{{ r.grabs_landed or 0 }}/{{ r.grabs or 0 }}</td>
-    <td>{{ r.throws or 0 }}</td><td>{{ r.knockdowns or 0 }}</td><td>{{ r.dodges or 0 }}</td><td>{{ r.slips or 0 }}</td>
-    <td>{{ (r.accuracy ~ '%') if r.accuracy is not none else '–' }}</td>
+    <td><b>{{ r.glory or 0 }}</b></td><td>{{ r.championships or 0 }}</td><td>{{ r.finals or 0 }}</td><td>{{ r.advanced or 0 }}</td>
+    <td>{{ r.bouts or 0 }}</td><td>{{ r.wins or 0 }}</td><td>{{ r.points or 0 }}</td>
+    <td>{{ r.grabs_landed or 0 }}/{{ r.grabs or 0 }}</td><td>{{ r.throws or 0 }}</td><td>{{ r.dodges or 0 }}</td><td>{{ r.slips or 0 }}</td><td>{{ r.knocked_down or 0 }}</td>
+    {% for k in moves %}<td>{{ r[k ~ '_landed'] or 0 }}/{{ r[k] or 0 }}</td>{% endfor %}
   </tr>
   {% endfor %}
 </table></div>
-{% else %}<p class="muted">No bouts yet in this period. Open the farm's Play activity: three heroes at a time spar around the fire pit.</p>{% endif %}
+{% else %}<p class="muted">No bouts yet in this period. Open the farm's Campfire dance: the heroes wrestle in the mud round the fire pit.</p>{% endif %}
 
 <h3>⚽ Football</h3>
 {% if players %}
@@ -54,7 +88,8 @@
 <h3>Latest</h3>
 <ul class="game-recent">
   {% for m in recent %}
-  <li>{% if m.game == 'arena' %}🔥 <b>{{ m.name }}</b>:
+  <li>{% if m.game == 'arena' and m.style == 'ceremony' %}🏆 <b>{{ m.champion_name }}</b> won the tournament{% if m.runner_up_name %} (runner-up {{ m.runner_up_name }}){% endif %}
+    {% elif m.game == 'arena' %}🔥 <b>{% if m.stage == 'final' %}Final{% elif m.stage == 'semi' %}Final three{% elif m.round %}Round {{ m.round }}{% else %}{{ m.name }}{% endif %}</b>:
     {% for f in m.fighters %}{{ f.name }} {{ m.points.get(f.id|string, 0) }}{{ ', ' if not loop.last }}{% endfor %}
     · {% if m.winner == 'draw' %}a draw{% else %}{{ names.get(m.winner|int, '?') }} won{% endif %}
     {% else %}⚽ {% for t in m.teams %}{{ t | map(attribute='name') | join(', ') }}{{ ' ' ~ m.score[0] ~ ':' ~ m.score[1] ~ ' ' if loop.first }}{% endfor %}{% endif %}
