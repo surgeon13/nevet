@@ -20,6 +20,7 @@ import extras
 import events
 import garden_map
 import qr
+import games
 import tags
 import netaccess
 import relations
@@ -509,6 +510,7 @@ def grower_page(grower_id):
         abort(404)
     hero = hero_view(grower, farm_db.grower_counts(grower_id))
     bundle = av.activity_bundle(grower_id)
+    pw = games.powers(grower_id)
     return render_template(
         "grower_detail.html", grower=grower, hero=hero, b=bundle, is_me=g.user["id"] == grower_id,
         catalog=heroes.catalog(), can_edit=can_edit_hero(grower_id),
@@ -519,6 +521,8 @@ def grower_page(grower_id):
         rel_options=relations.form_options(), my_groups=farm_db.list_groups(grower_id),
         group_kind_names=relations.GROUP_KIND,
         rel_candidates=[r for r in farm_db.list_growers() if r["id"] != grower_id],
+        powers=pw, skills=games.SKILLS, game_stats=games.hero_stats(grower_id),
+        matches=games.recent_matches(6, grower_id), styles=games.ARENA_STYLES,
     )
 
 
@@ -1029,7 +1033,31 @@ def stats():
     latest = conn.execute("SELECT * FROM stats_log ORDER BY id DESC LIMIT 1").fetchone()
     history = conn.execute("SELECT * FROM stats_log ORDER BY id DESC LIMIT 50").fetchall()
     conn.close()
-    return render_template("stats.html", latest=latest, history=history)
+    period = request.args.get("period", "30")
+    days = {"7": 7, "30": 30, "all": None}.get(period, 30)
+    board = games.leaderboard(days)
+    fighters = sorted((r for r in board if r.get("bouts")), key=lambda r: (-r.get("wins", 0), -r.get("points", 0), r["name"].lower()))
+    players = sorted((r for r in board if r.get("matches")), key=lambda r: (-r.get("goals", 0), -r.get("match_wins", 0), r["name"].lower()))
+    return render_template("stats.html", latest=latest, history=history, fighters=fighters, players=players, period=period if period in ("7", "30", "all") else "30",
+                           recent=games.recent_matches(10), totals=games.totals(), styles=games.ARENA_STYLES,
+                           names={g["id"]: g["name"] for g in farm_db.list_growers()})
+
+
+@app.route("/powers")
+def powers_page():
+    """How heroes' powers work: where they come from, and how matches are kept fair."""
+    P = games.all_powers()
+    rows = sorted(({"id": r["id"], "name": r["name"], **P[r["id"]]} for r in farm_db.list_growers() if r["id"] in P),
+                  key=lambda r: (-r["level"], r["name"].lower()))
+    return render_template("powers.html", g_=games, rows=rows, mine=P.get(g.user["id"]),
+                           classes={c["id"]: c for c in heroes.catalog()["classes"]})
+
+
+@app.route("/api/games/now")
+def api_games_now():
+    """The current and next arena bout and football match (made here, the same for everyone). The farm calls this
+    while it shows the Play activity; each match is made the first time someone asks for it."""
+    return jsonify(games.now_playing())
 
 
 @app.route("/logs")
@@ -1766,16 +1794,21 @@ def farm_world_set():
 @app.route("/farm")
 def farm_page():
     rows = farm_db.list_growers()
+    POWERS = games.all_powers()
     # players who log in come first, most recently active first; the current player always joins
     rows = sorted(rows, key=lambda r: r["last_login"] or "", reverse=True)            # most recent first...
     rows = sorted(rows, key=lambda r: (r["id"] != g.user["id"], not r["password_hash"]))  # ...within each group (stable)
+    playing = set(games.participants())              # heroes in the current matches always come along
+    keep = [r for r in rows if r["id"] in playing]
+    rows = keep + [r for r in rows if r["id"] not in playing] if len(rows) > FARM_MAX_HEROES else rows
     party = [hero_view(r) for r in rows[:FARM_MAX_HEROES]]
     current = sorted(farm_db.plants(current=True), key=lambda a: a["last_action"] or a["created_at"] or "", reverse=True)
     growing = [plant_view(a) for a in current[:FARM_MAX_PLANTS]]          # the most recently tended ones
     numbers = farm_db.farm_numbers()
     data = {
-        "heroes": [{"id": h["id"], "name": h["name"], "level": h["progress"]["level"], "appearance": h["appearance"]}
-                   for h in party],
+        "heroes": [{"id": h["id"], "name": h["name"], "level": h["progress"]["level"], "appearance": h["appearance"],
+                    "powers": (POWERS.get(h["id"]) or {}).get("powers")} for h in party],
+        "gamesUrl": url_for("api_games_now"),
         "more": max(0, len(rows) - FARM_MAX_HEROES),
         "plants": [{"id": p["id"], "name": p["name"], "type": p["type"], "species": p["species"], "stage": p["model_stage"],
                     "dry": numbers["assets"].get(p["id"], {}).get("dry", 0),

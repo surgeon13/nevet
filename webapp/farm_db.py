@@ -315,6 +315,41 @@ def get_conn():
     if "event_id" not in map_cols:
         conn.execute("ALTER TABLE map_features ADD COLUMN event_id INTEGER")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_map_features_event ON map_features(event_id)")
+    # Games on the 3D farm (games.py): matches decided on the station, who played, and every stat
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS game_matches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            game TEXT NOT NULL,
+            slot INTEGER NOT NULL,
+            slot_start REAL NOT NULL,
+            slot_end REAL NOT NULL,
+            starts_at TEXT NOT NULL,
+            ends_at TEXT NOT NULL,
+            style TEXT,
+            data TEXT NOT NULL,
+            winner TEXT,
+            created_at TEXT NOT NULL,
+            UNIQUE (game, slot)
+        );
+        CREATE INDEX IF NOT EXISTS idx_game_matches_time ON game_matches(game, slot_start);
+        CREATE TABLE IF NOT EXISTS game_players (
+            match_id INTEGER NOT NULL REFERENCES game_matches(id) ON DELETE CASCADE,
+            grower_id INTEGER NOT NULL,
+            side INTEGER,
+            power REAL,
+            result TEXT,
+            PRIMARY KEY (match_id, grower_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_game_players_grower ON game_players(grower_id);
+        CREATE TABLE IF NOT EXISTS game_stats (
+            match_id INTEGER NOT NULL REFERENCES game_matches(id) ON DELETE CASCADE,
+            grower_id INTEGER NOT NULL,
+            stat TEXT NOT NULL,
+            value INTEGER NOT NULL,
+            PRIMARY KEY (match_id, grower_id, stat)
+        );
+        CREATE INDEX IF NOT EXISTS idx_game_stats_grower ON game_stats(grower_id, stat);
+    """)
     # Event QR codes (added later): how many opened the event's link, and how many signed up from it
     ev_cols = {r[1] for r in conn.execute("PRAGMA table_info(events)")}
     for col in ("qr_scans", "qr_joins"):

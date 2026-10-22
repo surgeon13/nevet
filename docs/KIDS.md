@@ -34,6 +34,13 @@ After you help in the garden:
 next to them. Hold the phone near the sticker, or point the camera at the
 code, and tap the big button. Done!
 
+## Your hero's powers 💪
+
+Your hero has five powers: Strength, Stamina, Agility, Wisdom and Heart.
+They grow when you really help in the garden: picking and planting make
+your hero stronger, watering gives stamina, feeding the worms grows a big
+heart 💚. You can't buy powers. You grow them!
+
 ## Visit the farm 🚜
 
 Tap the big brain picture on the first page. You'll see a 3D farm where
@@ -43,8 +50,9 @@ all the heroes play together! They can:
 - water the plants 💧
 - feed the chickens, ducks and worms 🐔🦆🪱
 - play football and go on the swings and the slide ⚽
-- have silly matches in the ring 🥊: giant gloves, puffy sumo suits,
-  bamboo swords or a big muddy splash fight, and then everyone bows
+- have silly matches in the arena round the campfire 🔥: giant gloves,
+  puffy sumo suits, bamboo swords or a big muddy splash fight, and then
+  everyone bows
 - dance at a party with lights and music 🪩
 - dance around a campfire at night 🔥
 

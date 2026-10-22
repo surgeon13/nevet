@@ -23,7 +23,8 @@ page on a phone, you can play. Younger players: there's a
 10. [Family and groups](#family-and-groups)
 11. [Our farm story (Time)](#our-farm-story-time)
 12. [XP and levels](#xp-and-levels)
-13. [Small questions](#small-questions)
+13. [Powers and game stats](#powers-and-game-stats)
+14. [Small questions](#small-questions)
 
 ## Joining
 
@@ -207,14 +208,19 @@ off, Esc goes back.
 - **Play park** ⚽: football in two teams (the Tomatoes and the
   Blueberries) with a scoreboard, plus swings, a slide, a seesaw, a
   trampoline, a sandbox where a sandcastle grows, and kites overhead.
-  There's also **the ring** 🥊: three heroes climb in, bow, and spar in a
-  silly, friendly way. Every round is different: **giant gloves**, puffy
-  **sumo suits**, bamboo **kendo swords** with helmets, or **mud
-  wrestling** (they get muddier and muddier). Hits pop up as "POW!",
+  Meanwhile, in the yard, the campfire becomes **the arena** 🔥: a
+  gladiators' fire pit with a sand floor, a sandstone wall, columns with
+  torches and two gates. Three heroes walk in, salute, bow and spar round
+  the fire in a silly, friendly way. Every bout is different: **giant
+  gloves**, puffy **sumo suits**, bamboo **kendo swords** with helmets, or
+  **mud wrestling** (they get muddier and muddier). Hits pop up as "POW!",
   "BOING!" or "SPLAT!", a big one knocks a hero flat with stars round their
-  head (they hop right back up), and after the round the one with the
-  most points wins and everyone bows. The board by the ring shows the
-  round and the score, and other heroes come over to cheer.
+  head (they hop right back up), and the most points wins. The board over
+  the north gate shows the score, and other heroes come to watch.
+- **The matches are real (well, real-ish)**: the station decides every
+  bout and football match, so everyone watching sees the same thing, and
+  every punch, throw, goal and win is kept. See [Powers and game
+  stats](#powers-and-game-stats).
 - **Party!**: a stage with a DJ (whoever opened the farm), a light-up
   dance floor, lasers, a disco ball and confetti. Everyone does the same
   dance, from Disco and the Robot to the Chicken dance, the Hora, Debka
@@ -355,8 +361,43 @@ until today.
 
 ## XP and levels
 
-The **XP** tab shows points and levels. Your hero earns XP from real
-garden work: the more you log, the higher your level.
+Your hero earns XP from real garden work: the more you log, the higher
+your level.
+
+## Powers and game stats
+
+Every hero has five **powers**, shown on their hero page (and when you tap
+a hero on the farm):
+
+| Power | Grows with |
+|---|---|
+| 💪 Strength | harvesting, planting, transplanting and pruning |
+| 🫀 Stamina | watering, and showing up on many different days |
+| 🤸 Agility | weeding, pest control and spotting sprouts |
+| 🦉 Wisdom | check-ups and fertilizing |
+| 💚 Heart | feeding the worms, giving produce away and helping at events |
+
+Everyone starts with the same basic powers (10 each). Your work makes them
+grow (your first actions count the most), every level adds +1 to all of
+them, and your hero's class adds a little to one. **Nothing can be
+bought**: clothes and gear are only for looks, and nobody can set powers by
+hand. Those who do, grow.
+
+The powers decide how the arena and football go, but they're kept fair: a
+veteran is stronger than a newcomer, not unbeatable. Strength is
+compressed before every match, luck always plays a part, a hero's first
+few matches and a losing streak get a little extra spirit, everyone gets
+their turn, and football teams are balanced. A level-5 veteran wins about
+half of their bouts against two brand-new heroes; each newcomer still wins
+about one in five. The page **How powers work** (from the XP tab) shows
+every number, and they're all in the open in `webapp/games.py`.
+
+The **XP** tab keeps the stats: arena wins, points, punches (thrown and
+landed), pushes, sword strikes, grabs, throws, knockdowns, dodges and
+slips, and football goals, assists, shots, saves and wins, for the last 7
+or 30 days or all time, plus the latest matches. Your own are on your hero
+page. Matches only happen while someone watches the farm's Play activity,
+so every stat is from a match that was shown.
 
 ## Small questions
 

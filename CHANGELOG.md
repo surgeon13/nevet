@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-10-22 (the fire pit arena, powers and game stats)
+
+- **The arena** moved from the play park to the campfire: a gladiators'
+  fire pit with a sand floor (clay for sumo, mud for mud wrestling), a
+  sandstone wall with north and south gates, marble columns with torches,
+  arches (the board over the north gate, NEVET ARENA over the south),
+  banners and shields. Fighters salute and bow at the bell and spar round
+  the fire; the fire and torches light up during a bout. The campfire dance
+  still happens inside it. The seesaw went back to its old spot.
+- **Matches decided on the station** (`games.py`, `/api/games/now`): the
+  arena bouts and football matches are the same for everyone watching. The
+  station picks who plays (whoever played least lately; never in both at
+  once), balanced football teams and every move, goal, save and miss; the
+  farm plays it. Matches are only made while someone watches Play.
+- **Powers**: Strength, Stamina, Agility, Wisdom and Heart, from real garden
+  work (harvests, watering and days active, weeding, check-ups, feeding the
+  worms and helping at events), +1 per level and a small class bonus.
+  Everyone starts with the same basic powers; nothing can be bought.
+- **Fair play**: powers are compressed before a match, luck always counts,
+  rookies and heroes on a losing streak get a little spirit, teams are
+  balanced. A level-5 veteran wins about half their bouts against two
+  newcomers; each newcomer still wins about one in five.
+- **Stats**: every bout and match is kept (wins, draws, points, punches,
+  pushes, strikes, grabs, throws, knockdowns, dodges, slips, goals,
+  assists, shots, saves, goals let in). The XP tab has the arena and
+  football leaderboards (7 days, 30 days, all time) and the latest matches;
+  hero pages show powers and games; a new page, How powers work, explains
+  every number. Tapping a hero on the farm shows their powers.
+- Fix: the campfire could show flames when it shouldn't (a 0 instead of
+  false for "hidden").
+
 ## 2026-10-22 (the ring in the play park)
 
 - **The ring**: a round sparring ring in the play park (the seesaw moved

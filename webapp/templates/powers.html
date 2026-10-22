@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Nevet — How powers work{% endblock %}
+{% block content %}
+<p style="margin: 0 0 10px;"><a href="{{ url_for('stats') }}" class="muted" style="text-decoration:none;">← XP &amp; games</a></p>
+<h2>How powers work</h2>
+<p>Every hero has five powers. They grow from <b>real work in the garden</b>, the work you log on Nevet. Those who do, grow:
+  nothing can be bought, gear and clothes are only for looks, and nobody (not even an admin) can set powers by hand.
+  It's all in the open, in <code>webapp/games.py</code>, so anyone can read it and suggest changes.</p>
+
+<section class="panel" style="margin: 14px 0;">
+  <h3 class="panel-title">The five powers</h3>
+  <div class="board-wrap"><table class="history-table">
+    <tr><th>Power</th><th>Grows with</th></tr>
+    {% for sid, sname, emoji, from in g_.SKILLS %}<tr><td>{{ emoji }} <b>{{ sname }}</b></td><td>{{ from }}</td></tr>{% endfor %}
+  </table></div>
+  <ul style="margin: 10px 0 0; padding-left: 20px;">
+    <li>Every hero starts at <b>{{ g_.BASE }}</b> in every power.</li>
+    <li>Work adds <b>{{ g_.GROWTH | int }} × log₂(1 + work)</b>: your first actions count the most, so steady work beats grinding
+      (1 action ≈ +4, 15 ≈ +16, 100 ≈ +27).</li>
+    <li>Every <b>level</b> adds +{{ g_.LEVEL_BONUS | int }} to every power. Level up by logging what you do.</li>
+    <li>Your hero's <b>class</b> adds +{{ g_.CLASS_BONUS }} to one power:
+      {% for cid, sid in g_.CLASS_POWER.items() %}{{ classes[cid].name if cid in classes else cid }} → {{ sid }}{{ ', ' if not loop.last }}{% endfor %}.</li>
+    <li>Stamina also grows with every different day you log something ({{ g_.DAY_WORK }} each); Heart with every event check-in
+      and volunteer job ({{ g_.EVENT_WORK | int }} each).</li>
+  </ul>
+</section>
+
+<section class="panel" style="margin: 14px 0;">
+  <h3 class="panel-title">Keeping matches fair</h3>
+  <ul style="margin: 0; padding-left: 20px;">
+    <li><b>Strength is normalized</b>: powers are compressed before a match (power 10 → 30, 20 → 48, 40 → 70, 70 → 90), so a veteran is
+      stronger than a newcomer, not unbeatable.</li>
+    <li><b>Luck always plays a part</b>: equals land half their moves; even the strongest hero never lands more than
+      {{ (50 + g_.LUCK * 100) | int }}% against the weakest.</li>
+    <li><b>Spirit</b>: a hero's first {{ g_.ROOKIE_MATCHES }} matches of a game get +{{ g_.ROOKIE_BOOST }}, and after {{ g_.COMEBACK_LOSSES }}
+      losses in a row they get +{{ g_.COMEBACK_BOOST }}.</li>
+    <li><b>Turns</b>: whoever played least in the last week goes first, so everyone gets their turn in the arena and on the pitch.</li>
+    <li><b>Balanced teams</b>: football teams are picked in turns (A B B A …) from the strongest down, and the best keeper goes in goal.</li>
+    <li>Each arena style uses different powers:
+      {% for sid, st in g_.ARENA_STYLES.items() %}{{ st.name }} ({{ st.uses.keys() | join(' + ') }}){{ ', ' if not loop.last }}{% endfor %}.
+      Football uses Strength and Wisdom to shoot, Wisdom and Agility to keep goal.</li>
+  </ul>
+  <p class="formula">chance a move lands = 50% + {{ (g_.LUCK * 100) | int }}% × tanh((attacker − defender) ÷ {{ g_.SPREAD }})</p>
+  <p class="muted" style="margin: 6px 0 0;">So a level-5 veteran wins about half of their bouts against two brand-new heroes, and each newcomer
+    still wins about one in five.</p>
+</section>
+
+{% if mine %}
+<section class="panel" style="margin: 14px 0;">
+  <h3 class="panel-title">Yours</h3>
+  <div class="power-grid">
+    {% for sid, sname, emoji, from in g_.SKILLS %}
+    <div class="power"><span class="power-name">{{ emoji }} {{ sname }}</span>
+      <span class="power-bar"><span style="width: {{ [mine.powers[sid], 99] | min }}%"></span></span><b class="power-val">{{ mine.powers[sid] }}</b></div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="panel" style="margin: 14px 0;">
+  <h3 class="panel-title">Everyone</h3>
+  <div class="board-wrap"><table class="history-table board-table">
+    <tr><th>Hero</th><th>Level</th>{% for sid, sname, emoji, from in g_.SKILLS %}<th title="{{ sname }}">{{ emoji }}</th>{% endfor %}</tr>
+    {% for r in rows %}<tr><td><a href="{{ url_for('grower_page', grower_id=r.id) }}">{{ r.name }}</a></td><td>{{ r.level }}</td>
+      {% for sid, sname, emoji, from in g_.SKILLS %}<td>{{ r.powers[sid] }}</td>{% endfor %}</tr>{% endfor %}
+  </table></div>
+</section>
+{% endblock %}

@@ -27,7 +27,7 @@
                petals: ['#ffffff', '#f6d743', '#f29bc0'], yard: '#d8c497', path: '#d2bb8c', pitch: '#7cc25c', border: '#4f9a3e', borderStyle: 'hedge' }
   };                                                   // (the settings live in farm-worlds.js)
   var WORLD = WORLDS[D.world] ? D.world : 'classic', WD = WORLDS[WORLD];
-  // the play park outside the gate: football, the sparring ring, swings, a slide, a seesaw, a trampoline and a sandbox
+  // the play park outside the gate: football, swings, a slide, a seesaw, a trampoline and a sandbox
   var PLAY = { minX: -19.6, maxX: 19.6, minZ: 16, maxZ: 34.4 };
 
   // seeded random, so the farm looks the same on every visit
@@ -1274,26 +1274,18 @@
   })();
 
   // ---------------------------------------------------------------- the play park, outside the gate
-  // A football pitch with goals and a scoreboard, a round sparring ring (see "the ring" below), swings, a slide,
-  // a seesaw, a trampoline, a sandbox with a sandcastle, two kites and a low border (a hedge, an adobe wall, a
-  // picket fence or logs, by setting).
+  // A football pitch with goals and a scoreboard, swings, a slide, a seesaw, a trampoline, a sandbox with a
+  // sandcastle, two kites and a low border (a hedge, an adobe wall, a picket fence or logs, by setting).
+  // (The sparring arena is in the yard, around the campfire: see "the arena".)
   var PLAY_OBST = [];
   var FB = { c: V(-10.5, 0, 25.5), hx: 7, hz: 4.2, mouth: 1.15, ball: null, v: V(0, 0, 0), score: [0, 0], resetAt: 0, idle: 0,
              kits: ['#e8473c', '#2f7be0'], names: ['Tomatoes', 'Blueberries'], board: null, banner: null, bannerAt: -9 };
   var SWING = { x: 8, z: 20.3, pivot: 2.45, seatY: 0.58, seats: [] };
   var SLIDE = { x: 14.6, top: 19.6, bottom: 24.4, h: 2.0, ladder: V(14.6, 0, 18.75), busyBy: null, busyUntil: 0 };
-  var SEESAW = { c: V(8, 0, 28.7), half: 1.85, plank: null, angle: 0.3, seats: [] };
+  var SEESAW = { c: V(8, 0, 27.2), half: 1.85, plank: null, angle: 0.3, seats: [] };
   var TRAMP = { c: V(14.6, 0, 29.4), r: 1.55, y: 0.62, mat: null, seats: [] };
   var SANDBOX = { c: V(5.2, 0, 31.6), castle: null, built: 0.25, seats: [] };
   var KITES = [], CHEER_SPOTS = [];
-  // the sparring ring: three heroes a round, and every round a new way to spar (RING_STYLES below)
-  var RING = { c: V(7.6, 0, 24.8), r: 2.4, fight: 1.8, h: 0.2, round: 1, styleK: 0, phase: 'idle', fighters: [], since: 0, t0: 0, until: 0,
-               colors: ['#e8473c', '#2f7be0', '#f2b33d'], floor: null, apron: null, ropes: [], pads: [], board: null, banner: null, bannerAt: -9,
-               bannerY: 3.4, pops: [], winner: null };
-  var RING_SIDES = [0, PI * 0.78, -PI * 0.78];        // east, south-west and north-west (clear of the swings and the seesaw)
-  RING.waits = RING_SIDES.map(function (a) { return V(RING.c.x + Math.cos(a) * 3.1, 0, RING.c.z + Math.sin(a) * 3.1); });
-  RING.starts = RING_SIDES.map(function (a) { return V(RING.c.x + Math.cos(a) * 1.2, 0, RING.c.z + Math.sin(a) * 1.2); });
-  var RING_CHEER = [V(11.7, 0, 23.1), V(11.8, 0, 26.2), V(3.9, 0, 24.8), V(3.6, 0, 23.0), V(10.0, 0, 27.6)];
   (function () {
     var lineMat = mat('#ffffff');
     // the pitch: grass (or sand), white lines, two goals with nets
@@ -1464,91 +1456,129 @@
     });
   })();
 
-  // ---------------------------------------------------------------- the ring: build
-  // A round ring on a low platform with six posts and three ropes. Its floor, apron and ropes change with the
-  // round's style: a blue boxing canvas, a sumo clay circle with its straw ring, a wooden kendo floor, or mud.
+  // ---------------------------------------------------------------- the arena: build
+  // A gladiators' fire pit arena around the campfire: a sand floor, a low sandstone wall with two gates (north to
+  // the lane and south to the farm gate, where the path runs), columns with torches, an arch over each gate (the
+  // south one carries the arena's board), banners and shields. Three heroes at a time spar around the fire pit.
+  // The bouts are decided on the station (games.py, /api/games/now): everyone watching sees the same bout, and
+  // every punch, throw and point is kept as stats.
+  var RING = { c: V(FIRE.x, 0, FIRE.z), wall: 4.2, inner: 1.7, fight: 3.35, h: 0, phase: 'idle', fighters: [], bout: null,
+               colors: ['#e8473c', '#2f7be0', '#f2b33d'], floor: null, board: null, banner: null, bannerAt: -9, bannerY: 3.9, pops: [],
+               torches: [], evI: 0, pending: [], points: {}, styleId: 'gloves', ready: false };
+  var RING_SIDES = [0, TAU / 3, -TAU / 3];             // the three corners: east, south-west and north-west (clear of the gates)
+  var ARENA_GATES = [PI / 2, -PI / 2], GATE_HALF = 0.27;   // south and north, about 2.2 m wide
+  RING.starts = RING_SIDES.map(function (a) { return V(RING.c.x + Math.cos(a) * 2.45, 0, RING.c.z + Math.sin(a) * 2.45); });
+  var RING_CHEER = [25, 55, 125, 235, 305, 335].map(function (d) { var a = d * PI / 180; return V(RING.c.x + Math.cos(a) * 5.2, 0, RING.c.z + Math.sin(a) * 5.2); });
+  var ARENA_OBST = [];
   var RING_STYLES = [
-    { id: 'gloves', name: 'Giant gloves', reach: 0.95, speed: 2.0, cd: [0.7, 1.4], impact: 0.16, kb: 2.4, ko: 0.12, pow: ['POW!', 'BAM!', 'BOP!', 'WHAM!'],
-      apron: '#e9edf2', ropes: ['#e8473c', '#ffffff', '#2f7be0'], pad: '#e8473c' },
-    { id: 'sumo', name: 'Sumo suits', reach: 0.95, speed: 1.35, cd: [1.1, 2.0], impact: 0.32, kb: 4.4, ko: 0.2, pow: ['BOING!', 'BUMP!', 'OOF!', 'BOINK!'],
-      apron: '#c9a46a', ropes: ['#e6cd8f', '#e6cd8f', '#e6cd8f'], pad: '#f4efe4' },
-    { id: 'kendo', name: 'Kendo swords', reach: 1.45, speed: 1.8, cd: [1.0, 1.8], impact: 0.34, kb: 1.9, ko: 0.1, pow: ['THWACK!', 'MEN!', 'KOTE!', 'DŌ!'],
-      apron: '#b8874f', ropes: ['#ffffff', '#e8473c', '#ffffff'], pad: '#1f2a4a' },
-    { id: 'mud', name: 'Mud wrestling', reach: 0.75, speed: 1.3, cd: [0.9, 1.7], impact: 0.3, kb: 2.6, ko: 0.24, pow: ['SPLAT!', 'SPLOSH!', 'GLOOP!', 'SPLODGE!'],
-      apron: '#6e4a2a', ropes: ['#ff9f1c', '#ffd84d', '#ff9f1c'], pad: '#ff9f1c' }
+    { id: 'gloves', name: 'Giant gloves', reach: 0.95, speed: 2.0, impact: 0.16, kb: 2.4, pow: ['POW!', 'BAM!', 'BOP!', 'WHAM!'] },
+    { id: 'sumo', name: 'Sumo suits', reach: 0.95, speed: 1.35, impact: 0.32, kb: 4.0, pow: ['BOING!', 'BUMP!', 'OOF!', 'BOINK!'] },
+    { id: 'kendo', name: 'Kendo swords', reach: 1.45, speed: 1.8, impact: 0.34, kb: 1.9, pow: ['THWACK!', 'MEN!', 'KOTE!', 'DŌ!'] },
+    { id: 'mud', name: 'Mud wrestling', reach: 0.75, speed: 1.3, impact: 0.3, kb: 2.6, pow: ['SPLAT!', 'SPLOSH!', 'GLOOP!', 'SPLODGE!'] }
   ];
-  function ringStyle() { return RING_STYLES[RING.styleK % RING_STYLES.length]; }
+  function ringStyle() { for (var i = 0; i < RING_STYLES.length; i++) if (RING_STYLES[i].id === RING.styleId) return RING_STYLES[i]; return RING_STYLES[0]; }
   var RING_TEX = {};
-  function ringFloorTex(id) {                          // the ring's floor for each style, drawn once
+  function ringFloorTex(id) {                          // the arena's floor for each style (the fire pit in the middle)
     if (RING_TEX[id]) return RING_TEX[id];
-    var cv = document.createElement('canvas'); cv.width = cv.height = 256;
-    var g = cv.getContext('2d'), m = 128, rs = rng(id.length * 97 + 5);
-    function circle(r, color, w) { g.beginPath(); g.arc(m, m, r, 0, TAU); g.strokeStyle = color; g.lineWidth = w; g.stroke(); }
+    var cv = document.createElement('canvas'); cv.width = cv.height = 512;
+    var g = cv.getContext('2d'), m = 256, px = 256 / RING.wall, rs = rng(id.length * 97 + 5);
+    function circle(r, color, w) { g.beginPath(); g.arc(m, m, r * px, 0, TAU); g.strokeStyle = color; g.lineWidth = w; g.stroke(); }
     function blob(x, y, rx, ry, color) { g.beginPath(); g.ellipse(x, y, rx, ry, rs() * PI, 0, TAU); g.fillStyle = color; g.fill(); }
-    if (id === 'gloves') {
-      var gr = g.createRadialGradient(m, m, 10, m, m, 128); gr.addColorStop(0, '#4f8fe0'); gr.addColorStop(1, '#245fae');
-      g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
-      circle(112, '#ffffff', 6); circle(20, 'rgba(255,255,255,0.8)', 4);
-      g.fillStyle = 'rgba(255,255,255,0.22)'; g.font = 'bold 40px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('NEVET', m, m + 56);
-    } else if (id === 'sumo') {
-      g.fillStyle = '#d9b47c'; g.fillRect(0, 0, 256, 256);
-      for (var i = 0; i < 260; i++) blob(rs() * 256, rs() * 256, 1 + rs() * 3, 1 + rs() * 2, rs() < 0.5 ? 'rgba(160,120,70,0.35)' : 'rgba(255,240,200,0.35)');
-      circle(104, '#b8924e', 16); circle(104, '#e8cf8f', 5);           // the straw ring (tawara)
-      g.fillStyle = '#ffffff'; g.fillRect(m - 26, m - 16, 7, 32); g.fillRect(m + 19, m - 16, 7, 32);   // the two starting lines
-    } else if (id === 'kendo') {
-      for (var x = 0; x < 256; x += 32) {
-        g.fillStyle = (x / 32) % 2 ? '#d4a466' : '#dcb075'; g.fillRect(x, 0, 32, 256);
-        g.strokeStyle = 'rgba(120,80,40,0.25)'; g.lineWidth = 1;
-        for (var k = 0; k < 4; k++) { g.beginPath(); g.moveTo(x + 6 + k * 7, 0); g.bezierCurveTo(x + 2 + k * 7, 90, x + 12 + k * 7, 170, x + 6 + k * 7, 256); g.stroke(); }
-      }
-      circle(110, '#ffffff', 5);
-      g.fillStyle = '#e8473c'; g.fillRect(m - 34, m - 3, 18, 6); g.fillRect(m + 16, m - 3, 18, 6);      // the starting marks
-      g.fillStyle = '#ffffff'; g.fillRect(m - 3, m - 30, 6, 16);
+    var gr = g.createRadialGradient(m, m, 20, m, m, 256);
+    if (id === 'sumo') { gr.addColorStop(0, '#d9ad74'); gr.addColorStop(1, '#c4955c'); }
+    else if (id === 'mud') { gr.addColorStop(0, '#5b3b20'); gr.addColorStop(0.82, '#5b3b20'); gr.addColorStop(0.9, '#c9a46a'); gr.addColorStop(1, '#d8b98a'); }
+    else { gr.addColorStop(0, '#ecd5a4'); gr.addColorStop(1, '#d8b680'); }
+    g.fillStyle = gr; g.fillRect(0, 0, 512, 512);
+    if (id === 'mud') {
+      for (var j = 0; j < 90; j++) { var a = rs() * TAU, r = (1.3 + rs() * 2.0) * px; blob(m + Math.cos(a) * r, m + Math.sin(a) * r, 8 + rs() * 26, 6 + rs() * 16, rs() < 0.5 ? '#4a2f18' : '#6e4a2a'); }
+      for (var q = 0; q < 40; q++) { var a2 = rs() * TAU, r2 = (1.3 + rs() * 2.0) * px; blob(m + Math.cos(a2) * r2, m + Math.sin(a2) * r2, 3 + rs() * 10, 2 + rs() * 4, 'rgba(255,255,255,0.16)'); }
     } else {
-      g.fillStyle = '#5b3b20'; g.fillRect(0, 0, 256, 256);
-      for (var j = 0; j < 70; j++) blob(rs() * 256, rs() * 256, 8 + rs() * 22, 6 + rs() * 14, rs() < 0.5 ? '#4a2f18' : '#6e4a2a');
-      for (var q = 0; q < 26; q++) blob(rs() * 256, rs() * 256, 3 + rs() * 10, 2 + rs() * 4, 'rgba(255,255,255,0.16)');   // wet shine
+      for (var k = 0; k < 900; k++) blob(rs() * 512, rs() * 512, 1 + rs() * 2.5, 1 + rs() * 1.5, rs() < 0.5 ? 'rgba(150,110,60,0.25)' : 'rgba(255,245,215,0.3)');
+      for (var rr2 = 1.4; rr2 < RING.wall; rr2 += 0.28) circle(rr2, 'rgba(140,100,55,0.16)', 2);          // raked sand
     }
+    if (id === 'sumo') { circle(3.55, '#a9823f', 18); circle(3.55, '#e2c98a', 6); }                     // the straw ring
+    else if (id === 'kendo') circle(3.45, '#ffffff', 6);
+    else if (id === 'gloves') circle(3.45, 'rgba(255,255,255,0.75)', 5);
+    RING_SIDES.forEach(function (a, i) {                // each corner's mark, in its colour
+      var x = m + Math.cos(a) * 2.45 * px, y = m + Math.sin(a) * 2.45 * px;
+      if (id === 'sumo') { g.fillStyle = '#ffffff'; g.fillRect(x - 3, y - 14, 6, 28); }
+      else { g.beginPath(); g.arc(x, y, 18, 0, TAU); g.strokeStyle = RING.colors[i]; g.lineWidth = 6; g.stroke(); }
+    });
+    circle(1.05, 'rgba(60,40,25,0.55)', 14);           // scorched round the fire
     var t = new THREE.CanvasTexture(cv);
     RING_TEX[id] = t;
     return t;
   }
   (function () {
-    var c = RING.c, top = RING.h;
-    RING.apron = new THREE.MeshToonMaterial({ color: new THREE.Color('#e9edf2') });
-    var plat = new THREE.Mesh(new THREE.CylinderGeometry(RING.r + 0.14, RING.r + 0.22, top, 40), RING.apron);
-    plat.position.set(c.x, top / 2, c.z); scene.add(plat);
+    var c = RING.c, W = RING.wall, stone = '#d4bb8f', cap = '#b59a6c', marble = '#efe6d2', bronze = '#8c5a2b';
     RING.floor = new THREE.MeshToonMaterial({ color: 0xffffff, map: ringFloorTex('gloves') });
-    var fl = new THREE.Mesh(new THREE.CircleGeometry(RING.r + 0.12, 48), RING.floor);
-    fl.rotation.x = -PI / 2; fl.position.set(c.x, top + 0.004, c.z); scene.add(fl);
-    for (var i = 0; i < 6; i++) {                       // six posts, padded at the top
-      var a = i / 6 * TAU + PI / 6, px = c.x + Math.cos(a) * RING.r, pz = c.z + Math.sin(a) * RING.r;
-      statics.add(cyl(0.065, 0.075, 1.3, '#cfd5dc', [px, top + 0.65, pz], 8));
-      var padM = new THREE.MeshToonMaterial({ color: new THREE.Color('#e8473c') });
-      var pad = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.5, 10), padM); pad.position.set(px, top + 1.02, pz);
-      scene.add(pad); RING.pads.push(padM);
+    var fl = new THREE.Mesh(new THREE.CircleGeometry(W - 0.05, 64), RING.floor);
+    fl.rotation.x = -PI / 2; fl.position.set(c.x, 0.016, c.z); scene.add(fl);
+    function inGate(a) { return ARENA_GATES.some(function (gA) { return Math.abs(((a - gA + PI * 3) % TAU) - PI) < GATE_HALF; }); }
+    var N = 44;                                         // the wall, in sandstone blocks with a darker cap
+    for (var i = 0; i < N; i++) {
+      var a = (i + 0.5) / N * TAU;
+      if (inGate(a)) continue;
+      var len = TAU * W / N + 0.03, x = c.x + Math.cos(a) * W, z = c.z + Math.sin(a) * W;
+      var blk = box(0.42, 0.78, len, i % 3 ? stone : '#cbb086', [x, 0.39, z]); blk.rotation.y = -a; statics.add(blk);
+      var cp = box(0.52, 0.1, len + 0.02, cap, [x, 0.83, z]); cp.rotation.y = -a; statics.add(cp);
     }
-    for (var j = 0; j < 3; j++) {                       // three ropes all the way round
-      var rm = new THREE.MeshToonMaterial({ color: new THREE.Color('#ffffff') });
-      var rope = new THREE.Mesh(new THREE.TorusGeometry(RING.r, 0.03, 6, 72), rm);
-      rope.rotation.x = PI / 2; rope.position.set(c.x, top + 0.45 + j * 0.3, c.z);
-      scene.add(rope); RING.ropes.push(rm);
+    for (var o = 0; o < 140; o++) {                     // heroes walk round the wall (and in through the gates)
+      var ao = o / 140 * TAU;
+      if (!inGate(ao)) ARENA_OBST.push([c.x + Math.cos(ao) * W, c.z + Math.sin(ao) * W, 0.3]);
     }
-    RING.waits.forEach(function (w) {                   // a step up into the ring by each waiting spot
-      var a2 = Math.atan2(w.z - c.z, w.x - c.x), st = box(0.7, 0.12, 0.45, '#8a8f96', [c.x + Math.cos(a2) * (RING.r + 0.42), 0.06, c.z + Math.sin(a2) * (RING.r + 0.42)]);
-      st.rotation.y = -a2 + PI / 2; statics.add(st);
+    function column(a, torch) {
+      var x = c.x + Math.cos(a) * (W + 0.05), z = c.z + Math.sin(a) * (W + 0.05), col = group([x, 0, z]);
+      col.add(box(0.56, 0.26, 0.56, cap, [0, 0.13, 0]));
+      col.add(cyl(0.2, 0.23, 2.2, marble, [0, 1.36, 0], 12));
+      for (var f = 0; f < 6; f++) { var fa = f / 6 * TAU; col.add(cyl(0.03, 0.03, 2.1, '#ddd2bb', [Math.cos(fa) * 0.205, 1.36, Math.sin(fa) * 0.205], 4)); }   // fluting
+      col.add(box(0.6, 0.18, 0.6, cap, [0, 2.55, 0]));
+      if (torch) {
+        col.add(cyl(0.3, 0.16, 0.24, bronze, [0, 2.76, 0], 12));
+        [[0.26, 0.75, '#ff7a1c'], [0.16, 0.55, '#ffc23d'], [0.08, 0.35, '#fff2a8']].forEach(function (fl2, k) {
+          var flame = mesh(new THREE.ConeGeometry(fl2[0], fl2[1], 8), new THREE.MeshBasicMaterial({ color: fl2[2], transparent: true, opacity: 0.92 }), [x, 2.88 + fl2[1] / 2, z]);
+          flame.userData.k = k + a; flame.visible = false; scene.add(flame); RING.torches.push(flame);
+        });
+      }
+      statics.add(outline(col));
+      ARENA_OBST.push([x, z, 0.36]);
+      return V(x, 0, z);
+    }
+    ARENA_GATES.forEach(function (gA, gi) {            // an arch over each gate, with columns either side
+      var l = column(gA - GATE_HALF - 0.06, gi === 1), r = column(gA + GATE_HALF + 0.06, gi === 1);
+      var mid = l.clone().add(r).multiplyScalar(0.5), span = l.distanceTo(r) + 0.6;
+      var lintel = box(span, 0.34, 0.5, cap, [mid.x, 2.81, mid.z]); lintel.rotation.y = -gA + PI / 2; statics.add(outline(lintel));
+      if (gi === 0) {                                   // south: the arena's name, readable from both sides
+        var nameTex = new THREE.CanvasTexture(textCanvas('NEVET ARENA', { px: 44, bg: '#3a2a1a', color: '#ffd84d', radius: 6 }));
+        [0.27, -0.27].forEach(function (off, k) {
+          var nm = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.42), new THREE.MeshBasicMaterial({ map: nameTex }));
+          nm.position.set(mid.x + Math.cos(gA) * off, 2.81, mid.z + Math.sin(gA) * off); nm.rotation.y = -gA + PI / 2 + (k ? PI : 0); statics.add(nm);
+        });
+      }
     });
-    PLAY_OBST.push(['c', c.x, c.z, RING.r + 0.32]);
-    // the ring's board: the round, the style and who is in it
+    [PI / 4, 3 * PI / 4, -PI / 4, -3 * PI / 4].forEach(function (a, i) {   // columns with torches, and banners hanging outside
+      var p = column(a, true);
+      var ban = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 1.25), new THREE.MeshToonMaterial({ color: new THREE.Color(i % 2 ? '#b8202a' : '#d9a21b'), side: THREE.DoubleSide }));
+      ban.position.set(p.x + Math.cos(a) * 0.3, 1.75, p.z + Math.sin(a) * 0.3); ban.rotation.y = -a + PI / 2; statics.add(ban);
+    });
+    [PI / 8, -PI / 8, PI - PI / 8, PI + PI / 8, PI * 0.55, -PI * 0.55].forEach(function (a, i) {   // round shields on the wall
+      var sh = group([c.x + Math.cos(a) * (W + 0.23), 0.5, c.z + Math.sin(a) * (W + 0.23)]);
+      var disc = cyl(0.26, 0.26, 0.05, RING.colors[i % 3], [0, 0, 0], 16); disc.rotation.z = PI / 2; sh.add(disc);
+      var boss = sphere(0.08, '#d9c27a', [0.03, 0, 0]); sh.add(boss);
+      sh.rotation.y = -a; statics.add(sh);
+    });
+    // the board over the north gate (seen across the arena from the farm's usual view): the bout, the style,
+    // the fighters and their points
     var cv = document.createElement('canvas'); cv.width = 512; cv.height = 220;
     RING.board = { canvas: cv, tex: new THREE.CanvasTexture(cv) };
-    var bd = group([4.3, 0, 21.9], 0.55);
-    [-0.85, 0.85].forEach(function (x) { bd.add(cyl(0.06, 0.07, 2.0, '#5a5f66', [x, 1.0, 0], 6)); });
-    bd.add(box(2.1, 0.95, 0.1, '#22262b', [0, 2.15, -0.02]));
-    var face2 = new THREE.Mesh(new THREE.PlaneGeometry(1.98, 0.85), new THREE.MeshBasicMaterial({ map: RING.board.tex })); face2.position.set(0, 2.15, 0.04); bd.add(face2);
-    statics.add(bd);
-    PLAY_OBST.push(['c', 4.3 - Math.cos(0.55) * 0.85, 21.9 + Math.sin(0.55) * 0.85, 0.12], ['c', 4.3 + Math.cos(0.55) * 0.85, 21.9 - Math.sin(0.55) * 0.85, 0.12]);
-    // the banner over the ring (ROUND 2: SUMO SUITS!, ... WINS!) and the comic pops (POW!)
+    var sA = ARENA_GATES[1], bx = c.x + Math.cos(sA) * (W + 0.05), bz = c.z + Math.sin(sA) * (W + 0.05);
+    [0, PI].forEach(function (flip) {
+      var face2 = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.03), new THREE.MeshBasicMaterial({ map: RING.board.tex }));
+      face2.position.set(bx + Math.cos(sA) * (flip ? -0.27 : 0.27), 3.55, bz + Math.sin(sA) * (flip ? -0.27 : 0.27));
+      face2.rotation.y = -sA + PI / 2 + flip; scene.add(face2);
+    });
+    statics.add(box(2.6, 1.15, 0.5, '#22262b', [bx, 3.55, bz]));
+    // the banner over the arena (BOUT: SUMO SUITS!, ... WINS!) and the comic pops (POW!)
     RING.banner = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, opacity: 0, depthTest: false }));
     RING.banner.renderOrder = 22; RING.banner.visible = false; scene.add(RING.banner);
     for (var k = 0; k < 4; k++) {
@@ -1558,30 +1588,27 @@
     }
     var starC = textCanvas('★ ★ ★', { px: 40, bg: 'rgba(0,0,0,0)', color: '#ffd84d', pad: 6 });
     RING.starTex = new THREE.CanvasTexture(starC); RING.starAspect = starC.width / starC.height;
-    setRingStyle(ringStyle());
+    setRingStyle('gloves');
   })();
-  function setRingStyle(st) {
-    RING.floor.map = ringFloorTex(st.id); RING.floor.needsUpdate = true;
-    RING.apron.color.set(st.apron);
-    RING.ropes.forEach(function (m, i) { m.color.set(st.ropes[i]); });
-    RING.pads.forEach(function (m) { m.color.set(st.pad); });
+  function setRingStyle(id) {
+    RING.styleId = id;
+    RING.floor.map = ringFloorTex(id); RING.floor.needsUpdate = true;
     drawRingBoard();
   }
   function drawRingBoard() {
-    var b = RING.board, g = b.canvas.getContext('2d'), st = ringStyle();
+    var b = RING.board, g = b.canvas.getContext('2d'), st = ringStyle(), m = RING.bout;
     g.fillStyle = '#1a1d21'; g.fillRect(0, 0, 512, 220);
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillStyle = '#ffd84d'; g.font = 'bold 40px sans-serif'; g.fillText('THE RING · ROUND ' + RING.round, 256, 40);
-    g.fillStyle = '#ffffff'; g.font = 'bold 46px sans-serif'; g.fillText(st.name, 256, 100);
-    var F = RING.fighters;
-    if (F.length) {
-      var w = 512 / F.length;
-      F.forEach(function (h, i) {
-        g.fillStyle = RING.colors[h.sp.corner]; g.font = 'bold 30px sans-serif';
-        var nm = h.name.length > 9 ? h.name.slice(0, 8) + '…' : h.name;
-        g.fillText(nm + (RING.phase === 'fight' || RING.phase === 'outro' ? ' ' + h.sp.score : ''), w * (i + 0.5), 170);
+    g.fillStyle = '#ffd84d'; g.font = 'bold 38px sans-serif'; g.fillText('🔥 THE ARENA 🔥', 256, 38);
+    g.fillStyle = '#ffffff'; g.font = 'bold 46px sans-serif'; g.fillText(m ? st.name : 'Next bout soon', 256, 100);
+    if (m) {
+      var w = 512 / m.fighters.length;
+      m.fighters.forEach(function (f, i) {
+        g.fillStyle = RING.colors[f.corner]; g.font = 'bold 30px sans-serif';
+        var nm = f.name.length > 9 ? f.name.slice(0, 8) + '…' : f.name;
+        g.fillText(nm + ' ' + (RING.points[f.id] || 0), w * (i + 0.5), 170);
       });
-    } else { g.fillStyle = '#9aa3ab'; g.font = '28px sans-serif'; g.fillText('waiting for three heroes…', 256, 170); }
+    } else { g.fillStyle = '#9aa3ab'; g.font = '28px sans-serif'; g.fillText('three heroes spar around the fire', 256, 170); }
     b.tex.needsUpdate = true;
   }
   function ringBanner(text, color, now) {
@@ -1855,6 +1882,7 @@
     obstacleRect(CART.x, CART.z + 0.35, 0.75, 1.65);
     obstacleCircle(PUMP.x, PUMP.z + 0.3, 0.55);
     obstacleCircle(FIRE.x, FIRE.z, 1.0);
+    ARENA_OBST.forEach(function (o) { obstacleCircle(o[0], o[1], o[2]); });     // the arena's wall and columns
     obstacleRect(-15.5, -9.5, 3.2, 3.7);                     // barn
     obstacleRect(-15, 5.5, 1.75, 2.45);                      // greenhouse
     obstacleCircle(13.5, -17.5, 1.9);                        // windmill
@@ -1947,7 +1975,7 @@
     if (h.carry) h.root.add(h.carry);
   }
   var gateQueue = (D.heroes || []).map(function (info, i) {
-    return { i: i, id: info.id, name: info.name, level: info.level, appearance: info.appearance || {},
+    return { i: i, id: info.id, name: info.name, level: info.level, appearance: info.appearance || {}, powers: info.powers || null,
              pos: V(0, 0, FARM.maxZ + 3 + i * 0.01), facing: PI, path: [], onArrive: null, act: null, actEnd: 0,
              actStart: 0, carry: null, watered: 0, emoteAt: 0, speedK: rr(0.9, 1.1), phase: rr(0, TAU) };
   });
@@ -2170,7 +2198,7 @@
       name: 'Play park', tool: 'none', night: 0, centre: V(1.5, 0.6, 25.8),
       stat: function () {
         var fb = PST.football.users.length, rest = heroes.filter(function (h) { return h.play && h.play.st !== PST.football; }).length;
-        var ring = RING.phase !== 'idle' ? 'Ring round ' + RING.round + ': ' + ringStyle().name + ' · ' : '';
+        var ring = RING.bout ? 'Arena: ' + ringStyle().name + ' · ' : '';
         return ring + (fb >= 2 ? 'Football ' + FB.score[0] + ':' + FB.score[1] + ' · ' : '') + (fb + rest) + ' playing';
       },
       next: function (h, now) { playAssign(h, now); }
@@ -2211,7 +2239,7 @@
   var EVENT = D.event && ACTS[D.event.act] ? D.event : null;      // an event on the farm right now (events.py): the heroes join in
   var current = D.start && ACTS[D.start] ? D.start : EVENT ? EVENT.act : 'harvest';
   var ringTurn = 0;
-  function ringRadius() { return Math.max(2.9, heroes.length * 1.5 / TAU); }   // about 1.5 units between neighbours
+  function ringRadius() { return Math.min(3.5, Math.max(2.9, heroes.length * 1.5 / TAU)); }   // about 1.5 units between neighbours, inside the arena's wall
   function ringSlot(h) {
     var n = Math.max(1, heroes.length), k = heroes.indexOf(h);
     var a = (k / n) * TAU + ringTurn;
@@ -2277,10 +2305,11 @@
   }
 
   // ---------------------------------------------------------------- the play park: who plays what
-  // Three heroes at a time spar in the ring (a new style every round); about 40% of the others play football
-  // (two teams, a keeper each once a team has three); the rest take turns on the swings, the slide (three
-  // goes each), the seesaw, the trampoline and in the sandbox, or watch the ring, and whoever finds
-  // everything taken cheers along the touchline.
+  // The matches come from the station (games.py): three heroes at a time spar in the arena round the campfire,
+  // and a football match (two teams, a keeper each once a team has three) is on most of the time. The matches
+  // call their heroes in themselves (arenaStart, footballStart). Everyone else takes turns on the swings, the
+  // slide (three goes each), the seesaw, the trampoline and in the sandbox, goes to watch the arena, or cheers
+  // along the touchline.
   var PST = { football: { users: [] }, slide: { users: [] }, swing: { slots: SWING.seats }, seesaw: { slots: SEESAW.seats },
               tramp: { slots: TRAMP.seats }, sandbox: { slots: SANDBOX.seats }, cheer: { users: [] }, ring: { users: [] }, watch: { users: [] } };
   var SLIDE_WAIT = [V(13.5, 0, 17.4), V(15.7, 0, 17.4), V(12.6, 0, 18.4), V(16.6, 0, 18.4)];
@@ -2291,22 +2320,19 @@
     if (pl.slot && pl.slot.user === h) pl.slot.user = null;
     if (pl.st.users) pl.st.users = pl.st.users.filter(function (o) { return o !== h; });
     if (SLIDE.busyBy === h) { SLIDE.busyBy = null; SLIDE.busyUntil = 0; }
-    if (h.fbTeam !== undefined) { h.fbTeam = undefined; h.fbMove = false; heroLabel(h, follow === h); }
+    if (h.fbTeam !== undefined) { h.fbTeam = undefined; h.fbMove = false; heroLabel(h, follow === h); if (!PST.football.users.length) FB.match = null; }
     if (h.sp) ringLeave(h);
   }
   function playDone(h, kind) { return function () { h.lastPlay = kind; playAssign(h, clockNow()); }; }
   function playAssign(h, now) {
     playLeave(h);
-    if (ringWants(h)) return joinRing(h, now);
-    var fb = PST.football.users.length, wantFb = Math.min(8, Math.max(2, Math.round(heroes.length * 0.4)));
-    if (heroes.length >= 2 && fb < wantFb && h.lastPlay !== 'football') return joinFootball(h, now);
     var opts = [];
     ['swing', 'seesaw', 'tramp', 'sandbox'].forEach(function (k) { PST[k].slots.forEach(function (sl) { if (!sl.user) opts.push([k, sl]); }); });
     if (PST.slide.users.length < 3) opts.push(['slide', null], ['slide', null]);
-    if ((RING.phase === 'fight' || RING.phase === 'intro') && PST.watch.users.length < RING_CHEER.length) opts.push(['watch', null], ['watch', null]);
+    if (RING.bout && RING.phase !== 'outro' && PST.watch.users.length < RING_CHEER.length) opts.push(['watch', null], ['watch', null], ['watch', null]);
     var fresh = opts.filter(function (o) { return o[0] !== h.lastPlay; });
     if (fresh.length) opts = fresh;
-    if (!opts.length) return fb < 8 && heroes.length >= 2 && h.lastPlay !== 'football' ? joinFootball(h, now) : cheerOn(h, now);
+    if (!opts.length) return cheerOn(h, now);
     var o = opts[Math.floor(R() * opts.length)], kind = o[0], slot = o[1];
     if (kind === 'slide') { PST.slide.users.push(h); h.play = { st: PST.slide }; h.laps = 0; return slideTurn(h); }
     if (kind === 'watch') return watchRing(h, now);
@@ -2337,18 +2363,20 @@
       doAct(h, 'slide', 3.0, function () { h.laps++; h.root.position.set(SLIDE.x, 0, SLIDE.bottom + 0.6); slideTurn(h); }, clockNow());
     });
   }
+  function fbTeamOf(side) {                           // a team's players on the farm, in the station's order (the keeper last)
+    return PST.football.users.filter(function (o) { return o.fbTeam === side; }).sort(function (a, b) { return a.fbIdx - b.fbIdx; });
+  }
   function fbHome(h) {                                 // where a footballer stands when the ball is elsewhere
-    var team = PST.football.users.filter(function (o) { return o.fbTeam === h.fbTeam; }), k = Math.max(0, team.indexOf(h)), dir = h.fbTeam === 0 ? 1 : -1;
+    var team = fbTeamOf(h.fbTeam), k = Math.max(0, team.indexOf(h)), dir = h.fbTeam === 0 ? 1 : -1;
     return V(FB.c.x - dir * (1.4 + (k % 2) * 2.2), 0, FB.c.z + ((k % 3) - 1) * 2.3);
   }
-  function joinFootball(h, now) {
-    var cnt = [0, 0];
-    PST.football.users.forEach(function (o) { cnt[o.fbTeam]++; });
-    h.fbTeam = cnt[0] <= cnt[1] ? 0 : 1;
+  function joinFootball(h, side, idx) {               // called in by the station's match (footballStart)
+    playLeave(h);
+    h.fbTeam = side; h.fbIdx = idx;
     PST.football.users.push(h);
     h.play = { st: PST.football };
     heroLabel(h, follow === h);
-    goTo(h, fbHome(h), function () { doAct(h, 'football', rr(35, 50), playDone(h, 'football'), clockNow()); });
+    goTo(h, fbHome(h), function () { if (h.fbTeam !== undefined) doAct(h, 'football', 9999, null, clockNow()); });
   }
   function cheerOn(h, now) {
     var at = pickSpot(h, CHEER_SPOTS);
@@ -2356,187 +2384,202 @@
     if (!at) return wanderNear(h, V(FB.c.x, 0, FB.c.z + FB.hz + 1.4), 3, now, playDone(h, 'cheer'));
     goTo(h, at, function () { face(h, FB.c); doAct(h, 'cheer', rr(6, 10), playDone(h, 'cheer'), clockNow()); });
   }
-  // ---------------------------------------------------------------- the ring: rounds and sparring
-  // Three heroes wait by the ropes, hop in, bow and spar for a while: they circle, close in and swing, the one
-  // hit is knocked back (now and then right off their feet, with stars), and every hit scores. Then the one
-  // with the most points wins the round, everyone bows, and the next round has a new style and new heroes.
-  var RING_TIMES = { intro: 2.6, fight: 18, outro: 4.2, exit: 1.0 };
-  function ringWants(h) {
-    return heroes.length >= 2 && RING.phase === 'idle' && RING.fighters.length < 3 && h.lastPlay !== 'ring' && h.lastPlay !== 'watch';
+  // ---------------------------------------------------------------- matches from the station (games.py)
+  // While the farm shows the Play activity it asks the station for the current and next arena bout and football
+  // match every few seconds. The station decides who plays and every move; the farm walks the heroes there and
+  // acts it out, so everyone watching sees the same thing (and the stats match what was shown).
+  var GAMES = { arena: [], football: [], timing: null, base: null, asked: -99, busy: false, fixed: false };
+  function wallNow() { return GAMES.base === null ? null : clockNow() + GAMES.base; }
+  function setGames(j) {
+    GAMES.arena = j.arena || []; GAMES.football = j.football || []; GAMES.timing = j.timing;
+    GAMES.base = j.now - clockNow();
   }
-  function joinRing(h, now) {
-    var used = RING.fighters.map(function (o) { return o.sp.corner; }), k = [0, 1, 2].filter(function (i) { return used.indexOf(i) < 0; })[0];
-    if (!RING.fighters.length) RING.since = now;
-    RING.fighters.push(h); PST.ring.users.push(h);
-    h.play = { st: PST.ring };
-    h.sp = { corner: k, score: 0, inK: 0, vx: 0, vz: 0, kx: 0, kz: 0, atk: 0, atkHit: true, hitT: -9, down: -9, downAt: -9, dodge: -9,
-             mud: 0, target: null, retarget: 0, cool: 0, orbit: R() < 0.5 ? 1 : -1, stars: null };
-    heroLabel(h, follow === h);
-    drawRingBoard();
-    goTo(h, RING.waits[k], function () { face(h, RING.c); doAct(h, 'ringwait', 9999, null, clockNow()); });
+  function pollGames(now) {
+    if (GAMES.fixed || !D.gamesUrl || !window.fetch || GAMES.busy || now - GAMES.asked < 8) return;
+    GAMES.asked = now; GAMES.busy = true;
+    fetch(D.gamesUrl, { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { GAMES.busy = false; if (j) setGames(j); })
+      .catch(function () { GAMES.busy = false; });
   }
+  function heroById(id) { for (var i = 0; i < heroes.length; i++) if (heroes[i].id === id) return heroes[i]; return null; }
+
+  // ---------------------------------------------------------------- the arena: bouts
+  // The three heroes walk in to their corners, salute and bow at the bell, then spar round the fire pit: they
+  // circle and close in, and every move happens when the station says, landing, dodged or knocking someone flat
+  // (with stars). The most points wins; everyone bows, and they go back to play.
   function watchRing(h, now) {
     var at = pickSpot(h, RING_CHEER);
     if (!at) return cheerOn(h, now);
     h.play = { st: PST.watch }; PST.watch.users.push(h);
     goTo(h, at, function () { face(h, RING.c); doAct(h, 'cheer', rr(7, 11), playDone(h, 'watch'), clockNow()); });
   }
+  function ringJoin(h, f) {                            // a fighter in this bout: walk in to your corner
+    playLeave(h);
+    h.sp = { corner: f.corner, inK: 1, vx: 0, vz: 0, kx: 0, kz: 0, atk: 0, hitT: -9, down: -9, downAt: -9, dodge: -9,
+             mud: 0, target: null, retarget: 0, orbit: R() < 0.5 ? 1 : -1, stars: null, speed: 0, force: null, forceUntil: 0 };
+    h.play = { st: PST.ring }; PST.ring.users.push(h);
+    RING.fighters.push(h);
+    heroLabel(h, follow === h);
+    goTo(h, RING.starts[f.corner], function () {
+      if (!h.sp) return;
+      face(h, RING.c);
+      doAct(h, RING.ready ? 'spar' : 'ringwait', 9999, null, clockNow());
+    });
+  }
   function ringLeave(h) {
     removeGear(h);
     if (h.sp.stars) { scene.remove(h.sp.stars); h.sp.stars.material.dispose(); }
-    if (h.sp.inK > 0) { var w = RING.waits[h.sp.corner]; h.root.position.set(w.x, 0, w.z); }   // step out of the ring first
-    var was = RING.fighters.indexOf(h) >= 0;
     RING.fighters = RING.fighters.filter(function (o) { return o !== h; });
     h.sp = null;
     heroLabel(h, follow === h);
-    if (was && RING.phase !== 'idle' && RING.fighters.length < 2) {    // not enough fighters left: call the round off
-      var rest = RING.fighters.slice();
-      RING.phase = 'idle';
-      rest.forEach(function (o) { o.lastPlay = 'ring'; playDone(o, 'ring')(); });
-    }
-    drawRingBoard();
+    if (!RING.fighters.length) { RING.bout = null; RING.phase = 'idle'; drawRingBoard(); }
   }
-  function startRound(now) {
-    var st = ringStyle();
-    RING.phase = 'intro'; RING.t0 = now; RING.winner = null;
-    setRingStyle(st);
-    RING.fighters.forEach(function (h) {
-      setTool(h, 'none');
-      addGear(h, st);
-      h.sp.score = 0; h.sp.inK = 0; h.sp.mud = 0; h.sp.down = -9; h.sp.kx = h.sp.kz = h.sp.vx = h.sp.vz = 0;
-      doAct(h, 'spar', 9999, null, now);
-    });
-    ringBanner('ROUND ' + RING.round + ': ' + st.name.toUpperCase() + '!', '#c2185b', now);
-    drawRingBoard();
+  function arenaStart(m, now) {
+    RING.bout = m; RING.fighters = []; RING.evI = 0; RING.pending = []; RING.points = {}; RING.ready = false; RING.phase = 'gather';
+    RING.winner = null;
+    setRingStyle(m.style);
+    m.fighters.forEach(function (f) { RING.points[f.id] = 0; var h = heroById(f.id); if (h) ringJoin(h, f); });
   }
-  function endRound(now) {
-    var F = RING.fighters, best = Math.max.apply(null, F.map(function (h) { return h.sp.score; }));
-    var top = F.filter(function (h) { return h.sp.score === best; });
-    RING.winner = best > 0 && top.length === 1 ? top[0] : null;
-    RING.phase = 'outro'; RING.t0 = now;
-    F.forEach(function (h) { h.sp.down = Math.min(h.sp.down, now + 0.3); });
-    if (RING.winner) ringBanner(RING.winner.name + ' WINS!', RING.colors[RING.winner.sp.corner], now);
-    else ringBanner(best > 0 ? 'A DRAW!' : 'FRIENDS FOREVER!', '#2e7d32', now);
-    drawRingBoard();
-  }
-  function finishRound() {
-    RING.fighters.slice().forEach(function (h) {
-      var w = RING.waits[h.sp.corner];
-      removeGear(h);
-      if (h.sp.stars) { scene.remove(h.sp.stars); h.sp.stars.material.dispose(); }
-      h.root.position.set(w.x, 0, w.z);
-      h.sp = null; h.act = null;
-      heroLabel(h, follow === h);
+  function arenaFinish() {                             // the bout is over: gear off, back to play
+    var F = RING.fighters.slice();
+    RING.bout = null; RING.phase = 'idle';
+    F.forEach(function (h) {
       PST.ring.users = PST.ring.users.filter(function (o) { return o !== h; });
       h.play = null;
+      removeGear(h);
+      if (h.sp && h.sp.stars) { scene.remove(h.sp.stars); h.sp.stars.material.dispose(); }
+      h.sp = null; h.act = null;
+      heroLabel(h, follow === h);
       playDone(h, 'ring')();
     });
     RING.fighters = [];
-    RING.phase = 'idle'; RING.round++; RING.styleK++;
-    setRingStyle(ringStyle());
-  }
-  var _rv = V(0, 0, 0);
-  function ringHit(a, t, st, now) {
-    var as = a.sp, ts = t.sp, ap = a.root.position, tp = t.root.position;
-    var dx = tp.x - ap.x, dz = tp.z - ap.z, d = Math.hypot(dx, dz) || 1;
-    if (d > st.reach + 0.35 || now < ts.down) return;
-    if (now - ts.dodge < 0.4 || R() < 0.28) { ts.dodge = now; return; }       // ducked out of the way
-    var big = R() < st.ko, kb = st.kb * (big ? 1.5 : 1);
-    ts.kx += dx / d * kb; ts.kz += dz / d * kb; ts.hitT = now;
-    as.score += big ? 3 : 1;
-    if (big) { ts.down = now + (st.id === 'mud' ? 1.7 : 1.4); ts.downAt = now; }
-    var mid = V((ap.x + tp.x) / 2, RING.h + 2.3, (ap.z + tp.z) / 2);
-    ringPop(st.pow[Math.floor(R() * st.pow.length)], mid, RING.colors[as.corner], now);
-    var at = tp.clone().setY(RING.h + (st.id === 'sumo' ? 0.8 : st.id === 'mud' ? 0.4 : 1.4));
-    var n = st.id === 'mud' ? 14 : 7, m2 = st.id === 'mud' ? DIRT_MAT : st.id === 'sumo' ? SAND_MAT : SPARK_MAT;
-    for (var i = 0; i < n; i++) emit(at.clone(), V(rr(-1.4, 1.4), rr(1.2, 2.6), rr(-1.4, 1.4)), m2, 0.7);
-    if (st.id === 'mud') { ts.mud = Math.min(1, ts.mud + 0.22); as.mud = Math.min(1, as.mud + 0.1); }
     drawRingBoard();
   }
+  function arenaBell(now) {                            // the bout begins (or we joined in the middle): gear on, everyone in place
+    var st = ringStyle();
+    RING.ready = true;
+    RING.fighters.forEach(function (h) {
+      var s2 = RING.starts[h.sp.corner];
+      if (h.root.position.distanceTo(s2) > 0.8) { h.path = []; h.onArrive = null; h.root.position.set(s2.x, 0, s2.z); }   // late: straight in
+      setTool(h, 'none');
+      addGear(h, st);
+      face(h, RING.c);
+      doAct(h, 'spar', 9999, null, now);
+    });
+    ringBanner('BOUT ' + (RING.bout.slot % 1000) + ': ' + st.name.toUpperCase() + '!', '#c2185b', now);
+    drawRingBoard();
+  }
+  function ringApply(e, now) {                         // a move the station decided lands (or doesn't)
+    var st = ringStyle(), a = heroById(e.a), d = e.d ? heroById(e.d) : null;
+    if (e.p) { RING.points[e.a] = (RING.points[e.a] || 0) + e.p; drawRingBoard(); }
+    var as = a && a.sp, ds = d && d.sp;
+    if (e.r === 'slip') {
+      if (!as) return;
+      as.down = now + 1.3; as.downAt = now; as.mud = Math.min(1, as.mud + 0.2);
+      ringPop('WHOOPS!', a.root.position.clone().setY(2.2), '#6e4a2a', now);
+      for (var i = 0; i < 10; i++) emit(a.root.position.clone().setY(0.2), V(rr(-1.2, 1.2), rr(1, 2.2), rr(-1.2, 1.2)), DIRT_MAT, 0.7);
+      return;
+    }
+    if (!ds) return;
+    if (e.r === 'dodge') { ds.dodge = now; return; }
+    var ap = as ? a.root.position : RING.c, tp = d.root.position, dx = tp.x - ap.x, dz = tp.z - ap.z, dd = Math.hypot(dx, dz) || 1;
+    var big = e.r === 'ko', kb = st.kb * (big ? 1.5 : 1);
+    ds.kx += dx / dd * kb; ds.kz += dz / dd * kb; ds.hitT = now;
+    if (big) { ds.down = now + 1.4; ds.downAt = now; }
+    var word = e.m === 'throw' ? (st.id === 'mud' ? 'SPLASHDOWN!' : 'THROW!') : st.pow[Math.floor(R() * st.pow.length)];
+    ringPop(word, V((ap.x + tp.x) / 2, 2.3, (ap.z + tp.z) / 2), RING.colors[as ? as.corner : 0], now);
+    var at = tp.clone().setY(st.id === 'sumo' ? 0.8 : st.id === 'mud' ? 0.4 : 1.4);
+    var n = st.id === 'mud' ? 14 : 7, m2 = st.id === 'mud' ? DIRT_MAT : st.id === 'sumo' ? SAND_MAT : SPARK_MAT;
+    for (var k = 0; k < n; k++) emit(at.clone(), V(rr(-1.4, 1.4), rr(1.2, 2.6), rr(-1.4, 1.4)), m2, 0.7);
+    if (st.id === 'mud') { ds.mud = Math.min(1, ds.mud + 0.22); if (as) as.mud = Math.min(1, as.mud + 0.1); }
+  }
   function stepRing(now, dt) {
-    var F = RING.fighters, st = ringStyle(), c = RING.c;
+    var c = RING.c;
     var bk = Math.max(0, 1 - (now - RING.bannerAt) / 2.6);            // the banner rises and fades
     RING.banner.visible = bk > 0;
     if (bk > 0) { RING.banner.material.opacity = Math.min(1, bk * 3); RING.banner.position.set(c.x, RING.bannerY + (1 - bk) * 0.7, c.z); }
     RING.pops.forEach(function (p) {
       var k = (now - p.at) / 0.8;
       p.s.visible = k >= 0 && k < 1;
-      if (p.s.visible) { p.s.material.opacity = Math.min(1, (1 - k) * 2.5); p.s.position.y = p.base + k * 0.6; p.s.scale.multiplyScalar(k < 0.15 ? 1.04 : 1); }
+      if (p.s.visible) { p.s.material.opacity = Math.min(1, (1 - k) * 2.5); p.s.position.y = p.base + k * 0.6; }
+    });
+    if (current !== 'play') return;
+    pollGames(now);
+    var w = wallNow(), T = GAMES.timing && GAMES.timing.arena;
+    if (w === null || !T) return;
+    var len = T.intro + T.fight + T.outro, live = null;
+    GAMES.arena.forEach(function (m) { if (!live && w >= m.start - T.lead && w < m.start + len) live = m; });
+    if (RING.bout && (!live || live.id !== RING.bout.id)) arenaFinish();
+    if (live && !RING.bout) arenaStart(live, now);
+    if (!RING.bout) return;
+    var m = RING.bout, st = ringStyle(), t = w - m.start, F = RING.fighters;
+    m.fighters.forEach(function (f) {                  // a fighter who only just arrived on the farm
+      var h = heroById(f.id);
+      if (h && !h.sp) { ringJoin(h, f); if (RING.ready) arenaBell(now); }
     });
     F.forEach(function (h) { if (h.gear && h.gear.root !== h.root) addGear(h, st); });   // the hero was rebuilt: put the gear back on
-    if (RING.phase === 'idle') {
-      if (!F.length) { RING.since = now; return; }
-      var ready = F.filter(function (h) { return h.act === 'ringwait'; }).length;
-      var others = heroes.filter(function (h) { return !h.sp && ringWants(h); }).length;
-      if (ready === 3 || (ready === F.length && ready >= 2 && (now - RING.since > 14 || !others))) startRound(now);
+    var ph = t < 0 ? 'gather' : t < T.intro ? 'intro' : t < T.intro + T.fight ? 'fight' : 'outro';
+    if (ph !== 'gather' && !RING.ready) arenaBell(now);
+    if (ph !== RING.phase) {
+      RING.phase = ph; RING.t0 = now - (ph === 'intro' ? t : ph === 'fight' ? t - T.intro : t - T.intro - T.fight);
+      if (ph === 'outro') {
+        var win = m.winner !== 'draw' ? m.fighters.filter(function (f) { return String(f.id) === m.winner; })[0] : null;
+        RING.winner = win ? heroById(win.id) : null; RING.winnerId = win ? win.id : null;
+        ringBanner(win ? win.name + ' WINS!' : 'A DRAW!', win ? RING.colors[win.corner] : '#2e7d32', now);
+      }
+    }
+    while (RING.evI < m.events.length && m.events[RING.evI].t - st.impact <= t) {     // moves starting now
+      var e = m.events[RING.evI++];
+      if (e.t < t - 0.5) { if (e.p) RING.points[e.a] = (RING.points[e.a] || 0) + e.p; continue; }   // already over (we joined late)
+      var a = heroById(e.a);
+      if (a && a.sp && e.r !== 'slip') {
+        a.sp.atk = now - Math.max(0, t - (e.t - st.impact)); a.sp.atkSide = R() < 0.5 ? 1 : -1;
+        a.sp.force = heroById(e.d); a.sp.forceUntil = now + st.impact + 0.25;
+      }
+      RING.pending.push(e);
+    }
+    for (var pi = RING.pending.length - 1; pi >= 0; pi--) {
+      if (RING.pending[pi].t <= t) { ringApply(RING.pending[pi], now); RING.pending.splice(pi, 1); }
+    }
+    if (ph === 'gather') return;
+    if (ph === 'outro') {
+      F.forEach(function (h) { h.sp.kx *= 0.9; h.sp.kz *= 0.9; if (RING.winner && h !== RING.winner) face(h, RING.winner.root.position); else face(h, RING.c); });
       return;
     }
-    var t = now - RING.t0;
-    if (RING.phase === 'intro') {
-      F.forEach(function (h) { h.sp.inK = Math.min(1, t / 0.9); ringPlace(h); face(h, c); });
-      if (t > RING_TIMES.intro) { RING.phase = 'fight'; RING.t0 = now; RING.until = now + RING_TIMES.fight; drawRingBoard(); }
-      return;
-    }
-    if (RING.phase === 'outro') {
-      F.forEach(function (h) { h.sp.kx *= 0.9; h.sp.kz *= 0.9; if (RING.winner && h !== RING.winner) face(h, RING.winner.root.position); });
-      if (t > RING_TIMES.outro) { RING.phase = 'exit'; RING.t0 = now; F.forEach(function (h) { h.sp.from = h.root.position.clone(); }); }
-      return;
-    }
-    if (RING.phase === 'exit') {
-      F.forEach(function (h) {
-        var k = Math.min(1, t / RING_TIMES.exit), w = RING.waits[h.sp.corner];
-        h.sp.inK = 1 - k;
-        h.root.position.x = h.sp.from.x + (w.x - h.sp.from.x) * k; h.root.position.z = h.sp.from.z + (w.z - h.sp.from.z) * k;
-        h.wantFacing = Math.atan2(w.x - c.x, w.z - c.z);
-      });
-      if (t > RING_TIMES.exit) finishRound();
-      return;
-    }
-    // the fight
-    if (now > RING.until) return endRound(now);
-    F.forEach(function (h) {
+    if (ph === 'intro') { F.forEach(function (h) { face(h, RING.c); }); return; }
+    F.forEach(function (h) {                           // sparring: circle round the fire, close in for each move
       var s = h.sp, p = h.root.position;
       s.kx *= Math.max(0, 1 - dt * 3.5); s.kz *= Math.max(0, 1 - dt * 3.5);
-      if (now < s.down) { p.x += s.kx * dt; p.z += s.kz * dt; ringClamp(p); return; }       // flat out for a moment
-      if (!s.target || F.indexOf(s.target) < 0 || now > s.retarget) {
-        var pool = F.filter(function (o) { return o !== h; });
-        s.target = pool[Math.floor(R() * pool.length)]; s.retarget = now + rr(2.5, 5); s.orbit = R() < 0.5 ? 1 : -1;
-      }
-      var tp = s.target.root.position, dx = tp.x - p.x, dz = tp.z - p.z, d = Math.hypot(dx, dz) || 1e-3;
-      var stag = now - s.hitT < 0.45 ? 0.2 : 1;
-      var radial = Math.max(-1, Math.min(1, (d - st.reach * 0.85) * 1.6)), tang = s.orbit * (st.id === 'sumo' ? 0.35 : 0.8);
+      if (now < s.down) { p.x += s.kx * dt; p.z += s.kz * dt; ringClamp(p); return; }
+      var pool = F.filter(function (o) { return o !== h; });
+      if (!pool.length) return;
+      if (!s.target || pool.indexOf(s.target) < 0 || now > s.retarget) { s.target = pool[Math.floor(R() * pool.length)]; s.retarget = now + rr(2.5, 5); s.orbit = R() < 0.5 ? 1 : -1; }
+      var tgt = s.force && now < s.forceUntil && pool.indexOf(s.force) >= 0 ? s.force : s.target;
+      var tp = tgt.root.position, dx = tp.x - p.x, dz = tp.z - p.z, d = Math.hypot(dx, dz) || 1e-3;
+      var stag = now - s.hitT < 0.45 ? 0.2 : 1, closing = tgt === s.force && now < s.forceUntil;
+      var radial = Math.max(-1, Math.min(1, (d - st.reach * (closing ? 0.7 : 1.1)) * 1.6)), tang = closing ? 0 : s.orbit * (st.id === 'sumo' ? 0.35 : 0.8);
       var mx = dx / d * radial - dz / d * tang, mz = dz / d * radial + dx / d * tang;
-      F.forEach(function (o) {                         // keep a little room from the third fighter
-        if (o === h || o === s.target) return;
+      pool.forEach(function (o) {                      // keep a little room from the third fighter
+        if (o === tgt) return;
         var ox = p.x - o.root.position.x, oz = p.z - o.root.position.z, od = Math.hypot(ox, oz);
         if (od < 1.0 && od > 1e-3) { mx += ox / od * (1.0 - od) * 3; mz += oz / od * (1.0 - od) * 3; }
       });
       var ml = Math.hypot(mx, mz);
       if (ml > 1) { mx /= ml; mz /= ml; }
-      s.vx += (mx * st.speed * stag - s.vx) * Math.min(1, dt * 5); s.vz += (mz * st.speed * stag - s.vz) * Math.min(1, dt * 5);
+      var sp2 = st.speed * stag * (closing ? 1.6 : 1);
+      s.vx += (mx * sp2 - s.vx) * Math.min(1, dt * 5); s.vz += (mz * sp2 - s.vz) * Math.min(1, dt * 5);
       p.x += (s.vx + s.kx) * dt; p.z += (s.vz + s.kz) * dt;
       if (d < 0.62) { p.x -= dx / d * (0.62 - d) * 0.5; p.z -= dz / d * (0.62 - d) * 0.5; }   // never inside each other
       ringClamp(p);
       h.wantFacing = Math.atan2(dx, dz);
       s.speed = Math.hypot(s.vx, s.vz);
-      if (st.id === 'mud' && s.speed > 0.9 && R() < dt * 0.12) {        // whoops: slipped in the mud
-        s.down = now + 1.3; s.downAt = now; s.mud = Math.min(1, s.mud + 0.2);
-        ringPop('WHOOPS!', p.clone().setY(RING.h + 2.2), '#6e4a2a', now);
-        for (var i = 0; i < 10; i++) emit(p.clone().setY(RING.h + 0.2), V(rr(-1.2, 1.2), rr(1, 2.2), rr(-1.2, 1.2)), DIRT_MAT, 0.7);
-      }
-      if (!s.atkHit && now - s.atk > st.impact) { s.atkHit = true; ringHit(h, s.atkTarget, st, now); }
-      if (d < st.reach + 0.2 && now > s.cool && stag === 1 && now > s.atk + 0.5) {
-        s.atk = now; s.atkHit = false; s.atkTarget = s.target; s.atkSide = R() < 0.5 ? 1 : -1; s.cool = now + rr(st.cd[0], st.cd[1]);
-      }
     });
   }
-  function ringClamp(p) {
-    var dx = p.x - RING.c.x, dz = p.z - RING.c.z, d = Math.hypot(dx, dz);
-    if (d > RING.fight) { p.x = RING.c.x + dx / d * RING.fight; p.z = RING.c.z + dz / d * RING.fight; }
-  }
-  function ringPlace(h) {                              // hopping in over the ropes, from the waiting spot to the start
-    var k = h.sp.inK, w = RING.waits[h.sp.corner], s2 = RING.starts[h.sp.corner];
-    h.root.position.x = w.x + (s2.x - w.x) * k; h.root.position.z = w.z + (s2.z - w.z) * k;
+  function ringClamp(p) {                              // stay on the sand: off the fire pit and inside the wall
+    var dx = p.x - RING.c.x, dz = p.z - RING.c.z, d = Math.hypot(dx, dz) || 1e-3;
+    var k = d < RING.inner ? RING.inner / d : d > RING.fight ? RING.fight / d : 1;
+    if (k !== 1) { p.x = RING.c.x + dx * k; p.z = RING.c.z + dz * k; }
   }
   // ---- the gear for each style, put on at the bell and taken off after the round
   function gearMat(c, o) { var m = { color: new THREE.Color(c) }; for (var k in o || {}) m[k] = o[k]; return new THREE.MeshToonMaterial(m); }
@@ -2606,25 +2649,20 @@
   function ringPose(h, u, arms, legs, now, dt) {
     var s = h.sp, st = ringStyle();
     if (!s) return;
-    var inside = s.inK, ph = RING.phase, y = RING.h * inside;
-    if (ph === 'intro' || ph === 'exit') {             // the hop over the ropes
-      if (inside > 0 && inside < 1) {
-        y += Math.sin(inside * PI) * 0.75;
-        [1, -1].forEach(function (s2) { armSet(arms, s2, -2.6, 0.3); if (legs[s2]) legs[s2].rotation.x = -0.6; });
-      } else if (ph === 'intro') {                     // in the ring: a bow, then a stomp or a salute
-        var bt = (now - RING.t0 - 0.9) / (RING_TIMES.intro - 0.9);
-        if (bt < 0.45) u.hero.rotation.x = Math.sin(bt / 0.45 * PI) * 0.55;
-        else if (st.id === 'sumo') { var lk = Math.sin((bt - 0.45) / 0.55 * PI); if (legs[1]) legs[1].rotation.z = lk * 0.9; u.hero.rotation.z = -lk * 0.15; }
-        else ringStance(h, u, arms, legs, now, st);
-      }
-      u.hero.position.y += y;
+    var ph = RING.phase, T = (GAMES.timing && GAMES.timing.arena) || { intro: 4, outro: 4.2 };
+    if (ph === 'intro' || ph === 'gather') {           // at the bell: a gladiator's salute, a bow, then a stomp (sumo) or the guard
+      var bt = ph === 'gather' ? 0 : (now - RING.t0) / T.intro;
+      if (bt < 0.4) { armSet(arms, 1, -2.9, 0.1); armSet(arms, -1, -0.2, 0); u.hero.position.y += Math.abs(Math.sin(bt * 20)) * 0.04; }   // ave!
+      else if (bt < 0.7) u.hero.rotation.x = Math.sin((bt - 0.4) / 0.3 * PI) * 0.55;
+      else if (st.id === 'sumo') { var lk = Math.sin((bt - 0.7) / 0.3 * PI); if (legs[1]) legs[1].rotation.z = lk * 0.9; u.hero.rotation.z = -lk * 0.15; }
+      else ringStance(h, u, arms, legs, now, st);
       if (st.id === 'mud') mudGrow(h);
       return;
     }
     if (ph === 'outro') {
       u.hero.position.y += RING.h;
       var ot = now - RING.t0;
-      if (ot > RING_TIMES.outro - 1.3) u.hero.rotation.x = Math.sin((ot - RING_TIMES.outro + 1.3) / 1.3 * PI) * 0.55;   // everyone bows
+      if (ot > T.outro - 1.3) u.hero.rotation.x = Math.sin((ot - T.outro + 1.3) / 1.3 * PI) * 0.55;   // everyone bows
       else if (RING.winner === h || !RING.winner) {
         u.hero.position.y += Math.abs(Math.sin(now * 7 + h.phase)) * 0.35;
         [1, -1].forEach(function (s2) { armSet(arms, s2, -2.95, 0.3); });
@@ -2696,9 +2734,75 @@
     var k = 0.6 + h.sp.mud * 0.8;                     // a little muddy from the first step in, much muddier later
     h.gear.mud.forEach(function (b, i) { var kk = Math.max(0.01, k - (i % 3) * 0.15); b.scale.set(kk, kk * 0.8, kk * 0.6); });
   }
+  // ---------------------------------------------------------------- football: the station's match
+  // The station picks balanced teams and decides every goal, save and miss; the farm plays it: the players chase the
+  // ball as usual, and for each of the station's shots the shooter gets the ball and kicks (in, at the keeper, or
+  // wide). Only the station's goals count: anything else bounces off the post or the keeper.
+  function footballStart(m) {
+    FB.match = m; FB.evI = 0; FB.shot = null; FB.score = [0, 0]; FB.allow = -1;
+    m.teams.forEach(function (tm, side) { tm.forEach(function (p, k) { var h = heroById(p.id); if (h) joinFootball(h, side, k); }); });
+    drawScore();
+  }
+  function footballFinish() {
+    var list = PST.football.users.slice();
+    FB.match = null; FB.shot = null;
+    list.forEach(function (h) { h.act = null; playDone(h, 'football')(); });
+  }
+  function footballGoal(team, now, e) {                // a goal the station decided: score, banner, cheering
+    if (e.counted) return;
+    e.counted = true;
+    FB.score[team]++; drawScore();
+    var c = FB.c, dir = team === 0 ? 1 : -1;
+    FB.resetAt = now + 2.4; FB.bannerAt = now;
+    FB.banner.position.set(c.x + dir * (FB.hx - 1.5), 2.6, c.z);
+    PST.football.users.forEach(function (h) { if (h.fbTeam === team) h.fbCheer = now + 2.0; });
+  }
+  function stepMatch(now, dt) {                        // which match is on, who plays, and the station's shots
+    var w = wallNow(), T = GAMES.timing && GAMES.timing.football;
+    if (w === null || !T || current !== 'play') return;
+    var live = null;
+    GAMES.football.forEach(function (m) { if (!live && w >= m.start - T.lead && w < m.end + 1) live = m; });
+    if (FB.match && (!live || live.id !== FB.match.id)) footballFinish();
+    if (live && !FB.match) {
+      footballStart(live);
+      live.events.forEach(function (e) { if (e.t < w - live.start - 0.5) { e.done = true; if (e.type === 'goal' && !e.counted) { e.counted = true; FB.score[e.team]++; } } });
+      drawScore();
+    }
+    var m = FB.match;
+    if (!m) return;
+    m.teams.forEach(function (tm, side) { tm.forEach(function (p, k) { var h = heroById(p.id); if (h && h.fbTeam === undefined && !h.sp) joinFootball(h, side, k); }); });
+    var el = w - m.start, ball = FB.ball, bp = ball.position, c = FB.c;
+    var e = m.events.filter(function (x) { return !x.done; })[0];
+    if (e && el >= e.t - 1.1 && !FB.shot) FB.shot = { e: e, kicked: false };
+    var sh = FB.shot;
+    if (!sh) return;
+    var ev = sh.e, shooter = heroById(ev.by), dir = ev.team === 0 ? 1 : -1;
+    if (!sh.kicked && shooter && shooter.fbTeam !== undefined) {   // the shooter gets the ball
+      var sp = shooter.root.position, front = V(sp.x + dir * 0.45, 0.22, sp.z);
+      bp.lerp(front, Math.min(1, dt * 9)); FB.v.multiplyScalar(0.5); FB.resetAt = 0;
+    }
+    if (!sh.kicked && el >= ev.t - 0.75) {             // ...and kicks
+      sh.kicked = true;
+      var goalX = c.x + dir * (FB.hx + 0.4), tz;
+      if (ev.type === 'goal') tz = c.z + rr(-0.55, 0.55);
+      else if (ev.type === 'save') { var kp = heroById(ev.keeper); tz = kp ? kp.root.position.z : c.z; goalX = c.x + dir * (FB.hx - 0.5); }
+      else tz = c.z + (R() < 0.5 ? -1 : 1) * (FB.mouth + rr(0.5, 1.1));
+      if (!shooter || shooter.fbTeam === undefined) { bp.set(goalX - dir * 5, 0.22, c.z); }
+      var dx = goalX - bp.x, dz = tz - bp.z, D2 = Math.hypot(dx, dz) || 1, speed = Math.min(17, D2 * 1.8);
+      FB.v.set(dx / D2 * speed, 0, dz / D2 * speed);
+      FB.allow = ev.type === 'goal' ? ev.team : -1;
+      if (shooter) { shooter.kickT = now; shooter.kickAt = now + 0.7; shooter.wantFacing = Math.atan2(dx, dz); }
+      if (ev.type === 'save') { var kp2 = heroById(ev.keeper); if (kp2) kp2.saveAt = now + 0.7; }
+    }
+    if (sh.kicked && el >= ev.t + 0.6) {               // done (a goal that missed the net still counts: the station said so)
+      if (ev.type === 'goal') footballGoal(ev.team, now, ev);
+      ev.done = true; FB.shot = null; FB.allow = -1;
+    }
+  }
   var _fbT = V(0, 0, 0);
   function stepFootball(now, dt) {
     var ball = FB.ball, bp = ball.position, v = FB.v, c = FB.c;
+    stepMatch(now, dt);
     var players = PST.football.users.filter(function (h) { return h.act === 'football'; });
     if (FB.resetAt && now > FB.resetAt) { FB.resetAt = 0; bp.set(c.x, 0.22, c.z); v.set(0, 0, 0); }
     bp.x += v.x * dt; bp.z += v.z * dt;
@@ -2709,13 +2813,10 @@
     if (bp.z > c.z + FB.hz - 0.22) { bp.z = c.z + FB.hz - 0.22; v.z = -Math.abs(v.z) * 0.7; }
     var end = bp.x - c.x;
     if (!FB.resetAt && Math.abs(end) > FB.hx - 0.15) {
-      if (Math.abs(bp.z - c.z) < FB.mouth - 0.2 && players.length >= 2) {         // GOAL!
-        var team = end > 0 ? 0 : 1;
-        FB.score[team]++; drawScore();
-        FB.resetAt = now + 2.4; FB.bannerAt = now;
-        FB.banner.position.set(c.x + Math.sign(end) * (FB.hx - 1.5), 2.6, c.z);
-        players.forEach(function (h) { if (h.fbTeam === team) h.fbCheer = now + 2.0; });
-      } else { bp.x = c.x + Math.sign(end) * (FB.hx - 0.15); v.x = -v.x * 0.6; }
+      var team = end > 0 ? 0 : 1;
+      if (Math.abs(bp.z - c.z) < FB.mouth - 0.2 && FB.allow === team && FB.shot) {     // GOAL! (one the station decided)
+        footballGoal(team, now, FB.shot.e); FB.allow = -1;
+      } else { bp.x = c.x + Math.sign(end) * (FB.hx - 0.15); v.x = -v.x * 0.6; }     // off the post, or the keeper's hands
     }
     if (FB.resetAt && Math.abs(end) > FB.hx + 0.6) { bp.x = c.x + Math.sign(end) * (FB.hx + 0.6); v.set(0, 0, 0); }   // in the net
     var bk = Math.max(0, 1 - (now - FB.bannerAt) / 2.2);
@@ -2730,7 +2831,7 @@
     }
     FB.idle = 0;
     [0, 1].forEach(function (team) {
-      var mine = players.filter(function (h) { return h.fbTeam === team; });
+      var mine = players.filter(function (h) { return h.fbTeam === team; }).sort(function (a, b) { return a.fbIdx - b.fbIdx; });
       if (!mine.length) return;
       var dir = team === 0 ? 1 : -1, goalX = c.x + dir * FB.hx, ownX = c.x - dir * FB.hx;
       var keeper = mine.length >= 3 ? mine[mine.length - 1] : null, chaser = null, best = Infinity;
@@ -2740,6 +2841,7 @@
         if (h.fbCheer > now) { h.fbMove = false; face(h, V(c.x, 0, c.z + 10)); return; }
         if (FB.resetAt) _fbT.copy(fbHome(h));
         else if (h === keeper) { _fbT.set(ownX + dir * 0.8, 0, Math.max(c.z - 1.0, Math.min(c.z + 1.0, bp.z))); speed = 2.8; }
+        else if (FB.shot && !FB.shot.kicked && h.id === FB.shot.e.by) { _fbT.set(bp.x - dir * 0.38, 0, bp.z); speed = 3.6; }   // the station's shooter
         else if (h === chaser) { _fbT.set(bp.x - dir * 0.38, 0, bp.z); speed = 3.3; }
         else _fbT.set(Math.max(c.x - FB.hx + 0.8, Math.min(c.x + FB.hx - 0.8, bp.x - dir * (1.8 + (k % 2) * 2) )), 0, c.z + ((k % 3) - 1) * 2.4);
         var dx = _fbT.x - p.x, dz = _fbT.z - p.z, d = Math.hypot(dx, dz);
@@ -2749,7 +2851,7 @@
           h.fbMove = true; h.wantFacing = Math.atan2(dx, dz);
         } else { h.fbMove = false; face(h, bp); }
         p.x = Math.max(c.x - FB.hx - 0.2, Math.min(c.x + FB.hx + 0.2, p.x)); p.z = Math.max(c.z - FB.hz - 0.5, Math.min(c.z + FB.hz + 0.5, p.z));
-        if (FB.resetAt || now < (h.kickAt || 0) || (h !== chaser && h !== keeper)) return;
+        if (FB.resetAt || FB.shot || now < (h.kickAt || 0) || (h !== chaser && h !== keeper)) return;   // the station's shots aren't interrupted
         if (Math.hypot(bp.x - p.x, bp.z - p.z) > 0.62) return;
         var mate = mine.filter(function (o) { return o !== h && o !== keeper && (o.root.position.x - p.x) * dir > 0.5; })[0];
         var aim = mate && R() < 0.35 ? V(mate.root.position.x - bp.x, 0, mate.root.position.z - bp.z)
@@ -3613,14 +3715,19 @@
     cloudMat.opacity = 0.95 * (1 - n * 0.75);
     cloudMat.color.setRGB(1 - n * 0.55, 1 - n * 0.5, 1 - n * 0.35);
     var fireOn = current === 'campfire' || current === 'party' ? 1 : 0;
+    var arenaLit = RING.bout && current === 'play' && RING.phase !== 'gather' ? 1 : 0;   // a bout is on: light the fire pit and the torches
+    RING.torches.forEach(function (f) {
+      f.visible = !!(arenaLit || n > 0.3);
+      f.scale.set(1 + Math.sin(now * 12 + f.userData.k) * 0.1, 0.85 + Math.sin(now * 9 + f.userData.k * 2) * 0.15, 1);
+    });
     flames.forEach(function (f) {
-      f.visible = n > 0.15 && fireOn;
+      f.visible = !!((n > 0.15 && fireOn) || arenaLit);         // a real true/false: three.js only hides on false
       var k = f.userData.k;
       f.scale.set(1 + Math.sin(now * 13 + k) * 0.08, 0.85 + Math.sin(now * 9 + k * 2) * 0.12 + Math.sin(now * 23) * 0.05, 1 + Math.cos(now * 11 + k) * 0.08);
       f.rotation.y = now * (k + 1) * 0.7;
     });
     fireLight.intensity = n * fireOn * (1.5 + Math.sin(now * 11) * 0.15 + Math.sin(now * 23) * 0.1);
-    embers.material.opacity = n * fireOn * 0.9;
+    embers.material.opacity = Math.max(n * fireOn, arenaLit * 0.7) * 0.9;
     if (embers.material.opacity > 0.01) {
       var ep = embers.geometry.attributes.position;
       embers.userData.seeds.forEach(function (s, i) {
@@ -3762,7 +3869,8 @@
       NevetHero.emote(h.root, 'wave');
       controls.autoRotate = false;
       userTouched = clockNow();
-      if (ui.follow) { ui.follow.hidden = false; ui.follow.textContent = h.name + (h.level ? ' · Lv ' + h.level : '') + ' — tap the ground to let go'; }
+      var pw = h.powers ? ' · 💪' + h.powers.strength + ' 🫀' + h.powers.stamina + ' 🤸' + h.powers.agility + ' 🦉' + h.powers.wisdom + ' 💚' + h.powers.heart : '';
+      if (ui.follow) { ui.follow.hidden = false; ui.follow.textContent = h.name + (h.level ? ' · Lv ' + h.level : '') + pw + ' — tap the ground to let go'; }
     } else if (ui.follow) ui.follow.hidden = true;
   }
   // keyboard / USB button boxes: 1-7 pick an activity, A toggles auto, Esc goes back
@@ -3904,10 +4012,14 @@
     blocked: function (x, z, pad) { return blockedAt(x, z, pad); },
     party: function () { return { dance: dance.cur.id, name: dance.cur.name, form: form.on ? form.kind : null, moving: form.moving }; },
     ring: function () {
-      return { phase: RING.phase, round: RING.round, style: ringStyle().id, winner: RING.winner && RING.winner.name,
-               fighters: RING.fighters.map(function (h) { return { name: h.name, act: h.act, score: h.sp.score, gear: !!h.gear, x: +h.root.position.x.toFixed(2), z: +h.root.position.z.toFixed(2), down: h.sp.down > clockNow() }; }),
-               watching: PST.watch.users.length };
+      return { phase: RING.phase, bout: RING.bout && RING.bout.id, style: ringStyle().id, winner: RING.winner && RING.winner.name, points: RING.points,
+               fighters: RING.fighters.map(function (h) { return { id: h.id, name: h.name, act: h.act, gear: !!h.gear, x: +h.root.position.x.toFixed(2), z: +h.root.position.z.toFixed(2), down: h.sp.down > clockNow() }; }),
+               watching: PST.watch.users.length,
+               football: FB.match && { id: FB.match.id, score: FB.score.slice(), players: PST.football.users.map(function (h) { return h.name + ':' + h.fbTeam + ':' + h.act; }) },
+               wall: wallNow() };
     },
+    setGames: function (j) { GAMES.fixed = true; setGames(j); },
+    games: function () { return GAMES; },
     blockedHeroes: function () { return heroes.filter(function (h) { return blockedAt(h.root.position.x, h.root.position.z, 0.2); }).length; }
   };
 })();

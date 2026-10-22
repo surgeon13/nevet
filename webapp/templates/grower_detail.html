@@ -97,6 +97,53 @@
 </section>
 
 <div class="panel-grid profile-activity">
+<section class="panel panel-wide" id="powers">
+  <h3 class="panel-title">Powers <span class="muted">· from real garden work</span></h3>
+  {% if powers %}
+  <div class="power-grid">
+    {% for sid, sname, emoji, from in skills %}
+    <div class="power" title="Grows with {{ from }}">
+      <span class="power-name"><span aria-hidden="true">{{ emoji }}</span> {{ sname }}</span>
+      <span class="power-bar"><span style="width: {{ [powers.powers[sid], 99] | min }}%"></span></span>
+      <b class="power-val">{{ powers.powers[sid] }}</b>
+      <small class="muted">{{ from }}</small>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="muted power-note">Every hero starts at 10 in each power. Level {{ powers.level }} adds +{{ powers.level - 1 }} to all of them.
+    Gear and clothes are only for looks. <a href="{{ url_for('powers_page') }}">How powers work</a></p>
+  {% endif %}
+  {% set gs = game_stats %}
+  {% if gs %}
+  <h3 class="panel-title panel-sub">Games</h3>
+  <div class="game-kpis">
+    <div><b>{{ gs.bouts or 0 }}</b><span>Arena bouts</span></div>
+    <div><b>{{ gs.wins or 0 }}</b><span>Wins</span></div>
+    <div><b>{{ gs.points or 0 }}</b><span>Points</span></div>
+    <div><b>{{ gs.punches_landed or 0 }}/{{ gs.punches or 0 }}</b><span>Punches landed</span></div>
+    <div><b>{{ gs.throws or 0 }}</b><span>Throws</span></div>
+    <div><b>{{ gs.strikes_landed or 0 }}</b><span>Sword strikes</span></div>
+    <div><b>{{ gs.knockdowns or 0 }}</b><span>Knockdowns</span></div>
+    <div><b>{{ gs.dodges or 0 }}</b><span>Dodges</span></div>
+    <div><b>{{ gs.matches or 0 }}</b><span>Football matches</span></div>
+    <div><b>{{ gs.goals or 0 }}</b><span>Goals</span></div>
+    <div><b>{{ gs.assists or 0 }}</b><span>Assists</span></div>
+    <div><b>{{ gs.saves or 0 }}</b><span>Saves</span></div>
+  </div>
+  {% if matches %}
+  <ul class="game-recent">
+    {% for m in matches %}
+    <li>{% if m.game == 'arena' %}🔥 {{ m.name }}: {% set me = m.points.get(hero.id|string, 0) %}{{ me }} point{{ 's' if me != 1 }}
+      {%- if m.winner == hero.id|string %} · <b>won</b>{% elif m.winner == 'draw' %} · draw{% endif %}
+      {% else %}⚽ Football {{ m.score[0] }}:{{ m.score[1] }}{% endif %} <span class="muted">· {{ m.starts_at[5:16].replace('T', ' ') }}</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% else %}
+  <p class="muted">No games yet. Open the farm's Play activity to see the arena and football.</p>
+  {% endif %}
+</section>
+
 <section class="panel panel-wide" id="connections">
   <h3 class="panel-title">Family &amp; connections</h3>
   {% if rel_error %}<p class="hero-error" role="alert">{{ rel_error }}</p>{% endif %}

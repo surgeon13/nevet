@@ -43,7 +43,8 @@ in one go.
 - 🗺️ **A garden map** on real streets or satellite photos, where you draw
   beds, paths, taps and trees.
 - 🚜 **A 3D farm** where all the heroes harvest, water, play football, spar
-  in a silly ring (giant gloves, sumo suits, kendo swords, mud),
+  in a fire pit arena round the campfire (giant gloves, sumo suits, kendo
+  swords, mud),
   feed the animals and party, in nine different lands (desert, seaside,
   snowy mountains, jungle, a city...). It can run as a live channel on a TV.
 - 🎈 **Events** for parties, festivals and work days: the next ones on the
@@ -51,6 +52,9 @@ in one go.
   people, volunteer jobs, a map of the site, check-ins and photos.
 - 🏷️ **Tags**: stickers and QR labels on plants. Tap one with a phone and
   the job is logged.
+- 💪 **Powers and game stats**: every hero's powers grow from real garden
+  work (never bought), matches are kept fair, and every goal, punch, throw
+  and win is recorded.
 - 💚 **Family and groups**, connected only when both people say yes.
 - 📖 **Our farm story**: the garden's whole history as two vines growing
   together.

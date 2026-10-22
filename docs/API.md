@@ -36,9 +36,11 @@ Every page needs a logged-in player except `/login`, `/register`,
 | POST | `/assets/<id>/species` | Pick which plant model it's drawn with: `species` = a catalog id, or `auto` (from the name) |
 | GET | `/gallery` | Photos/videos grouped by date |
 | GET | `/media/<path>` | One media file (guarded to stay inside `CAMERA_BASE_DIR`) |
-| GET | `/stats` | Game stats (latest snapshot + history) |
+| GET | `/stats` | The XP tab: arena and football leaderboards (`?period=7`, `30` or `all`), the latest matches, and the stats other programs send |
 | GET | `/logs` | System logs (watchdog, capture, web app, updates), refreshes every 5s |
 | GET | `/healthz` | `ok` when the app and database respond (used by the watchdog and updater) |
+| GET | `/powers` | How powers work: where each power comes from, the fairness rules and everyone's powers |
+| GET | `/api/games/now` | The current and next arena bout and football match, made on first ask (JSON: `now`, `arena`, `football`, `timing`). Each bout has its `style`, `fighters` (id, name, corner, level, effective power, spirit) and `events` (`t` seconds from the bell, `a` attacker, `d` defender, `m` move, `r` hit / ko / dodge / slip, `p` points); each match its `teams` (the keeper last), `keepers`, `events` (`t` from kick-off, `type` goal / save / miss, `team`, `by`, `assist`, `keeper`) and `score` |
 | GET | `/join` | Short link in the welcome screen's QR code: counts the scan, then sign-up (`?i=` invite code). Public |
 | GET, POST | `/events` | All events (now, upcoming, past); POST creates one |
 | GET | `/events/<id>` | One event: answers, volunteers, check-ins, walk-in counter, log, feedback, photos, numbers, Invite card. `?join=1` (from a QR code) highlights "Are you coming?" |

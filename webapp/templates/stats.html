@@ -6,34 +6,80 @@
   <a class="hub-tab" href="{{ url_for('time_page') }}">Time</a>
   <a class="hub-tab active" href="{{ url_for('stats') }}" aria-current="page">XP</a>
 </div>
-<h2>XP &amp; game stats</h2>
-<p class="muted" style="margin-top: -6px;">XP, time played, compost, credits and plant growth, as the game logs them.</p>
-<h3>Latest</h3>
-{% if latest %}
+<h2>XP &amp; games</h2>
+<p class="muted" style="margin-top: -6px;">The arena around the fire pit and football in the play park, decided on the station and the same for
+  everyone watching. Powers come from real garden work, never from buying anything. <a href="{{ url_for('powers_page') }}">How powers work</a></p>
+
 <section class="summary-bar">
-  <div class="stat-card"><span class="num">{{ latest.xp or 0 }}</span><span class="label">XP</span></div>
-  <div class="stat-card"><span class="num">{{ latest.time_played or 0 }}</span><span class="label">Time played</span></div>
-  <div class="stat-card"><span class="num">{{ latest.compost or 0 }}</span><span class="label">Compost</span></div>
-  <div class="stat-card"><span class="num">{{ latest.credits or 0 }}</span><span class="label">Credits</span></div>
-  <div class="stat-card"><span class="num">{{ latest.plant_growth or 0 }}</span><span class="label">Plant growth</span></div>
+  <div class="stat-card"><span class="num">{{ totals.arena }}</span><span class="label">Arena bouts</span></div>
+  <div class="stat-card"><span class="num">{{ totals.football }}</span><span class="label">Football matches</span></div>
+  <div class="stat-card"><span class="num">{{ totals.goals }}</span><span class="label">Goals</span></div>
 </section>
-<p class="timestamp">as of {{ latest.timestamp }}</p>
-{% else %}
-<p>No stats logged yet.</p>
+
+<h3>🔥 The arena</h3>
+<div class="seg-links">
+  {% for k, lbl in [('7', '7 days'), ('30', '30 days'), ('all', 'All time')] %}<a href="{{ url_for('stats', period=k) }}" class="{{ 'on' if period == k }}">{{ lbl }}</a>{% endfor %}
+</div>
+{% if fighters %}
+<div class="board-wrap"><table class="history-table board-table">
+  <tr><th>Hero</th><th>Bouts</th><th>Wins</th><th>Draws</th><th>Points</th><th>Punches</th><th>Pushes</th><th>Strikes</th><th>Grabs</th><th>Throws</th><th>Knockdowns</th><th>Dodges</th><th>Slips</th><th>Accuracy</th></tr>
+  {% for r in fighters %}
+  <tr>
+    <td><a href="{{ url_for('grower_page', grower_id=r.id) }}">{{ r.name }}</a></td>
+    <td>{{ r.bouts or 0 }}</td><td><b>{{ r.wins or 0 }}</b></td><td>{{ r.draws or 0 }}</td><td>{{ r.points or 0 }}</td>
+    <td>{{ r.punches_landed or 0 }}/{{ r.punches or 0 }}</td><td>{{ r.pushes_landed or 0 }}/{{ r.pushes or 0 }}</td>
+    <td>{{ r.strikes_landed or 0 }}/{{ r.strikes or 0 }}</td><td>{{ r.grabs_landed or 0 }}/{{ r.grabs or 0 }}</td>
+    <td>{{ r.throws or 0 }}</td><td>{{ r.knockdowns or 0 }}</td><td>{{ r.dodges or 0 }}</td><td>{{ r.slips or 0 }}</td>
+    <td>{{ (r.accuracy ~ '%') if r.accuracy is not none else '–' }}</td>
+  </tr>
+  {% endfor %}
+</table></div>
+{% else %}<p class="muted">No bouts yet in this period. Open the farm's Play activity: three heroes at a time spar around the fire pit.</p>{% endif %}
+
+<h3>⚽ Football</h3>
+{% if players %}
+<div class="board-wrap"><table class="history-table board-table">
+  <tr><th>Hero</th><th>Matches</th><th>Won</th><th>Drawn</th><th>Goals</th><th>Assists</th><th>Shots</th><th>On target</th><th>Saves</th><th>Let in</th></tr>
+  {% for r in players %}
+  <tr>
+    <td><a href="{{ url_for('grower_page', grower_id=r.id) }}">{{ r.name }}</a></td>
+    <td>{{ r.matches or 0 }}</td><td><b>{{ r.match_wins or 0 }}</b></td><td>{{ r.match_draws or 0 }}</td><td><b>{{ r.goals or 0 }}</b></td>
+    <td>{{ r.assists or 0 }}</td><td>{{ r.shots or 0 }}</td><td>{{ r.on_target or 0 }}</td><td>{{ r.saves or 0 }}</td><td>{{ r.conceded or 0 }}</td>
+  </tr>
+  {% endfor %}
+</table></div>
+{% else %}<p class="muted">No matches yet in this period.</p>{% endif %}
+
+{% if recent %}
+<h3>Latest</h3>
+<ul class="game-recent">
+  {% for m in recent %}
+  <li>{% if m.game == 'arena' %}🔥 <b>{{ m.name }}</b>:
+    {% for f in m.fighters %}{{ f.name }} {{ m.points.get(f.id|string, 0) }}{{ ', ' if not loop.last }}{% endfor %}
+    · {% if m.winner == 'draw' %}a draw{% else %}{{ names.get(m.winner|int, '?') }} won{% endif %}
+    {% else %}⚽ {% for t in m.teams %}{{ t | map(attribute='name') | join(', ') }}{{ ' ' ~ m.score[0] ~ ':' ~ m.score[1] ~ ' ' if loop.first }}{% endfor %}{% endif %}
+    <span class="muted">· {{ m.starts_at[5:16].replace('T', ' ') }}</span></li>
+  {% endfor %}
+</ul>
 {% endif %}
 
-<h3>History</h3>
-<table class="history-table">
-<tr><th>Time</th><th>XP</th><th>Time played</th><th>Compost</th><th>Credits</th><th>Plant growth</th></tr>
-{% for row in history %}
-<tr>
-  <td>{{ row.timestamp }}</td>
-  <td>{{ row.xp }}</td>
-  <td>{{ row.time_played }}</td>
-  <td>{{ row.compost }}</td>
-  <td>{{ row.credits }}</td>
-  <td>{{ row.plant_growth }}</td>
-</tr>
-{% endfor %}
-</table>
+<details style="margin-top: 22px;">
+  <summary>Game stats sent by other programs ({{ history | length }})</summary>
+  {% if latest %}
+  <section class="summary-bar">
+    <div class="stat-card"><span class="num">{{ latest.xp or 0 }}</span><span class="label">XP</span></div>
+    <div class="stat-card"><span class="num">{{ latest.time_played or 0 }}</span><span class="label">Time played</span></div>
+    <div class="stat-card"><span class="num">{{ latest.compost or 0 }}</span><span class="label">Compost</span></div>
+    <div class="stat-card"><span class="num">{{ latest.credits or 0 }}</span><span class="label">Credits</span></div>
+    <div class="stat-card"><span class="num">{{ latest.plant_growth or 0 }}</span><span class="label">Plant growth</span></div>
+  </section>
+  <p class="timestamp">as of {{ latest.timestamp }}</p>
+  <table class="history-table">
+  <tr><th>Time</th><th>XP</th><th>Time played</th><th>Compost</th><th>Credits</th><th>Plant growth</th></tr>
+  {% for row in history %}
+  <tr><td>{{ row.timestamp }}</td><td>{{ row.xp }}</td><td>{{ row.time_played }}</td><td>{{ row.compost }}</td><td>{{ row.credits }}</td><td>{{ row.plant_growth }}</td></tr>
+  {% endfor %}
+  </table>
+  {% else %}<p class="muted">Nothing sent through <code>/api/stats</code> yet.</p>{% endif %}
+</details>
 {% endblock %}
