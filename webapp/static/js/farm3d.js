@@ -44,6 +44,12 @@
   var PARTY_C = V(-37.5, 0, 7.5), STAGE_N = PARTY_C.z - STAGE_HZ;     // the floor's middle and its north edge (the stage)
   var WHEEL = { x: -47.5, z: -12.5, r: 6.2 };          // the big wheel behind the stage
   var PATH_E = 4.5, PATH_W = 10;                       // the paths from the yard to the campfire field and the party field
+  // The farm blooms with its people (invites.community on the station): the more heroes join, invite friends and
+  // connect, the taller the plants, the more flowers, the bigger the mother tree, and wonders appear one by one.
+  var BLOOM = D.community || { level: 0, unlocked: [] }, BL = Math.max(0, Math.min(1, +BLOOM.level || 0));
+  function blooms(k) { return (BLOOM.unlocked || []).indexOf(k) >= 0; }
+  var PG = { x: 1 + 0.1 * BL, y: 1 + 0.45 * BL };      // how much taller (and a little wider) the plants grow
+  var MOTHER = { x: -37.5, z: 26.5 };                  // the farm's mother tree, south of the party field
 
   // seeded random, so the farm looks the same on every visit
   function rng(seed) {
@@ -319,6 +325,7 @@
     else if (WORLD === 'seaside') { tuftGeo = new THREE.ConeGeometry(0.055, 0.6, 4); tuftGeo.translate(0, 0.3, 0); tuftN = 930; }
     else { tuftGeo = new THREE.ConeGeometry(0.09, 0.32, 5); tuftGeo.translate(0, 0.16, 0); }
     if (WD.sparse) { tuftN = 290; flowerN = 160; }
+    flowerN = Math.round(flowerN * (1 + 1.6 * BL));                 // the community's bloom: more wild flowers
     if (WD.flowers === false) flowerN = 0;
     var tufts = new THREE.InstancedMesh(tuftGeo, mat(WD.tuft), tuftN);
     var shroom = WORLD === 'forest';
@@ -334,7 +341,7 @@
         var inYard = x > -9.8 && x < 17 && z > (MAPG ? -19.5 : -13.5) && z < 9;
         var onPath = (Math.abs(x) < 2 && z > 5 && z < 18) || onFieldPath(x, z);
         var onStage = x > PARTY_C.x - STAGE_HX - 1.6 && x < PARTY_C.x + STAGE_HX + 1.6 && z > STAGE_N - 4.6 && z < PARTY_C.z + STAGE_HZ + 1.6;   // the party stage
-        var inArena = Math.hypot(x - FIRE.x, z - FIRE.z) < CAMP_R + 1.4 || Math.hypot(x - WHEEL.x, z - WHEEL.z) < 3.2;
+        var inArena = Math.hypot(x - FIRE.x, z - FIRE.z) < CAMP_R + 1.4 || Math.hypot(x - WHEEL.x, z - WHEEL.z) < 3.2 || Math.hypot(x - MOTHER.x, z - MOTHER.z) < 2.2;
         var inPond = Math.hypot(x - POND.x, z - POND.z) < 4.3;
         var wet = (WORLD === 'seaside' && z < -21.5) || (WORLD === 'island' && hillH(x, z) < 0.02) || (WORLD === 'city' && boxDist(x, z, 0) > 0);
         if (!inYard && !onPath && !onStage && !inArena && !inPond && !wet && !parkBusy(x, z)) return [x, z];
@@ -2035,14 +2042,15 @@
   (function () {
     var wingGeo = new THREE.CircleGeometry(0.13, 8);
     var colors = ['#f6b93b', '#ffffff', '#e77fbf', '#7fb8e2', '#f6b93b', '#c9a7f2'];
-    for (var i = 0; i < 13; i++) {
+    var NBF = 9 + Math.round((blooms('butterflies') ? 30 : 6) * BL);   // clouds of them on a blooming farm
+    for (var i = 0; i < NBF; i++) {
       var b = group();
       var m = new THREE.MeshBasicMaterial({ color: colors[i % colors.length], side: THREE.DoubleSide });
       var l = new THREE.Mesh(wingGeo, m), r = new THREE.Mesh(wingGeo, m);
       l.position.x = -0.12; r.position.x = 0.12;
       var lw = group(), rw = group(); lw.add(l); rw.add(r);
       b.add(lw); b.add(rw);
-      var bc = i < 7 ? V(rr(-14, 16), 0, rr(-14, 12)) : V((i % 2 ? 1 : -1) * rr(24, 50), 0, rr(-17, 32));    // the yard, then the two fields
+      var bc = i % 2 === 0 ? V(rr(-14, 16), 0, rr(-14, 12)) : V((i % 4 === 1 ? 1 : -1) * rr(24, 50), 0, rr(-17, 32));    // the yard and the two fields
       b.userData = { lw: lw, rw: rw, c: bc, r: rr(1.2, 3), h: rr(0.8, 1.8), sp: rr(0.4, 0.9), ph: rr(0, TAU) };
       butterflies.push(b);
       scene.add(b);
@@ -2054,6 +2062,200 @@
   var fireflies = new THREE.Points(fireflyGeo, new THREE.PointsMaterial({ color: 0xe8ff7a, size: 0.16, transparent: true, opacity: 0, depthWrite: false }));
   fireflies.frustumCulled = false;
   scene.add(fireflies);
+
+  // ---------------------------------------------------------------- the community bloom: the mother tree and the wonders
+  // The farm's own mother tree grows with its people (one blossom for every hero, in their outfit's colour); as the
+  // bloom rises, wonders appear: plants in blossom and petals on the wind, a rainbow, flocks of birds, shooting
+  // stars, hot-air balloons, the northern lights, and at last the mother tree in golden bloom.
+  var BLOOMFX = { blossoms: null, blossomCores: null, bPlants: [], petals: null, petalSeeds: [], rainbow: null, flocks: [], stars: [], nextStar: 0,
+                  balloons: [], aurora: [], tree: null, treeBlossoms: [], gold: null };
+  var OUTFIT = {};
+  ((D.catalog && D.catalog.looks) || []).forEach(function (l) { if (l.id === 'outfitColor') l.options.forEach(function (o) { OUTFIT[o.id] = o.color; }); });
+  (function () {
+    var hT = 3.4 + 5.6 * BL, rC = 2.3 + 3.4 * BL, tr = 0.42 + 0.45 * BL, g = group([MOTHER.x, 0, MOTHER.z]);
+    g.add(cyl(tr * 0.75, tr, hT, '#7a5233', [0, hT / 2, 0], 12));
+    for (var r = 0; r < 6; r++) {                       // roots and branches
+      var ra = r / 6 * TAU + 0.4;
+      g.add(rot(cyl(tr * 0.32, tr * 0.5, 1.6, '#6b4423', [Math.cos(ra) * tr * 1.3, 0.25, Math.sin(ra) * tr * 1.3], 7), Math.sin(ra) * 0.9, 0, -Math.cos(ra) * 0.9));
+      var br = cyl(tr * 0.2, tr * 0.42, rC * 0.95, '#7a5233', [Math.cos(ra) * rC * 0.32, hT - 0.4 + (r % 2) * 0.5, Math.sin(ra) * rC * 0.32], 7);
+      br.rotation.set(Math.sin(ra) * 0.95, 0, -Math.cos(ra) * 0.95); g.add(br);
+    }
+    var leaf = ['#5fae48', '#4c9a3c', '#7cc35a'], pink = ['#ffb3d1', '#ff8fb8', '#ffd6e7'];
+    var crown = [[0, hT + rC * 0.55, 0, 1.0], [rC * 0.6, hT + rC * 0.25, rC * 0.15, 0.7], [-rC * 0.55, hT + rC * 0.3, -rC * 0.2, 0.72],
+                 [rC * 0.1, hT + rC * 0.35, rC * 0.62, 0.68], [-rC * 0.15, hT + rC * 0.4, -rC * 0.6, 0.66], [rC * 0.25, hT + rC * 0.95, -rC * 0.1, 0.6]];
+    crown.forEach(function (c, i) { g.add(sphere(rC * c[3], i % 3 === 0 ? leaf[i % 3] : (BL > 0.3 ? pink[i % 3] : leaf[(i + 1) % 3]), [c[0], c[1], c[2]], [1, 0.82, 1], 14)); });
+    statics.add(outline(g, 1.02));
+    statics.add(blobShadow(rC * 1.25, MOTHER.x, MOTHER.z));
+    for (var f = 0; f < 18; f++) { var fa = f / 18 * TAU; statics.add(sphere(0.12, WD.petals[f % WD.petals.length], [MOTHER.x + Math.cos(fa) * (tr + 1.0), 0.14, MOTHER.z + Math.sin(fa) * (tr + 1.0)], [1, 0.7, 1], 8)); }
+    var sg = group([MOTHER.x + tr + 1.6, 0, MOTHER.z + tr + 1.2], -0.5);
+    sg.add(cyl(0.06, 0.06, 1.5, '#8a5f3a', [0, 0.75, 0], 6));
+    var cv = textCanvas('Our mother tree · ' + (BLOOM.heroes || (D.heroes || []).length) + ' heroes', { px: 36, bg: '#f3e6c8', color: '#5a3d22', radius: 10, stroke: '#8a5f3a' });
+    var bd = new THREE.Mesh(new THREE.PlaneGeometry(0.42 * cv.width / cv.height, 0.42), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), side: THREE.DoubleSide }));
+    bd.position.set(0, 1.45, 0.05); sg.add(bd); statics.add(sg);
+    // one blossom for every hero: the heroes on the farm in their outfit's colour, the rest in pinks
+    var n = Math.min(80, Math.max((D.heroes || []).length, BLOOM.heroes || 0)), rs = rng(4242);
+    var geo = new THREE.SphereGeometry(0.3, 8, 6); geo.scale(1, 0.45, 1);
+    var gold = blooms('golden'), bm = new THREE.InstancedMesh(geo, gold ? new THREE.MeshBasicMaterial({ color: 0xffffff }) : new THREE.MeshToonMaterial({ color: 0xffffff }), Math.max(1, n));
+    var m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = V(1, 1, 1), col = new THREE.Color();
+    for (var k = 0; k < n; k++) {
+      var c = crown[k % crown.length], th = rs() * TAU, ph = 0.15 + rs() * 1.1, rr2 = rC * c[3] * 1.05;
+      var p = V(MOTHER.x + c[0] + Math.cos(th) * Math.cos(ph) * rr2, c[1] + Math.sin(ph) * rr2 * 0.82, MOTHER.z + c[2] + Math.sin(th) * Math.cos(ph) * rr2);
+      q.setFromEuler(new THREE.Euler(rs() * 0.8 - 0.4, rs() * TAU, rs() * 0.8 - 0.4)); sc.setScalar(1.3 + rs() * 0.7);
+      m4.compose(p, q, sc); bm.setMatrixAt(k, m4);
+      var h = (D.heroes || [])[k], hex = h && h.appearance && OUTFIT[h.appearance.outfitColor];
+      bm.setColorAt(k, col.set(hex || ['#ff8fb8', '#ffffff', '#ffd6e7', '#ec407a', '#fff3b0'][k % 5]));
+      BLOOMFX.treeBlossoms.push(p);
+    }
+    scene.add(bm); BLOOMFX.tree = bm;
+    if (gold) {
+      BLOOMFX.gold = new THREE.Sprite(new THREE.SpriteMaterial({ map: FIREFX.glow.material.map, color: 0xffe08a, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0.35 }));
+      BLOOMFX.gold.position.set(MOTHER.x, hT + rC * 0.5, MOTHER.z); BLOOMFX.gold.scale.setScalar(rC * 4.2); scene.add(BLOOMFX.gold);
+    }
+    MOTHER.trunk = tr; MOTHER.top = hT + rC * 1.4;
+  })();
+  if (blooms('blossom')) (function () {                // plants in blossom (ripe ones), and petals drifting over the farm
+    var list = plants.filter(function (p) { return p.where !== 'greenhouse' && p.height > 0.25; }).slice(0, 90), rs = rng(99);
+    var n = list.length * 3;
+    if (!n) return;
+    var disc = new THREE.CylinderGeometry(0.11, 0.07, 0.03, 7), core = new THREE.SphereGeometry(0.045, 6, 5);
+    var bm = new THREE.InstancedMesh(disc, new THREE.MeshToonMaterial({ color: 0xffffff }), n), cm = new THREE.InstancedMesh(core, mat('#ffd84d'), n), col = new THREE.Color();
+    list.forEach(function (p, i) {
+      for (var j = 0; j < 3; j++) {
+        var a = rs() * TAU, rr3 = (p.model.userData.radius || 0.3) * (0.3 + rs() * 0.5);
+        BLOOMFX.bPlants.push({ p: p, ox: Math.cos(a) * rr3, oz: Math.sin(a) * rr3, oy: 0.75 + rs() * 0.3, ph: rs() * TAU, s: 0.8 + rs() * 0.5 });
+        bm.setColorAt(i * 3 + j, col.set(WD.petals[(i + j) % WD.petals.length] === '#ffffff' && j === 1 ? '#ffb3d1' : WD.petals[(i + j) % WD.petals.length]));
+      }
+    });
+    scene.add(bm); scene.add(cm); BLOOMFX.blossoms = bm; BLOOMFX.blossomCores = cm;
+    var PN = 520, pg = new THREE.BufferGeometry(), pc = new Float32Array(PN * 3);
+    pg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(PN * 3), 3));
+    for (var k = 0; k < PN; k++) {
+      col.set(['#ffb3d1', '#ffffff', '#ffd6e7', '#ff8fb8'][k % 4]); pc[k * 3] = col.r; pc[k * 3 + 1] = col.g; pc[k * 3 + 2] = col.b;
+      var near = k % 3 === 0;                          // a third swirl round the mother tree
+      BLOOMFX.petalSeeds.push([near ? MOTHER.x + rr(-9, 9) : rr(LAND.minX, LAND.maxX), near ? MOTHER.z + rr(-9, 9) : rr(LAND.minZ, LAND.maxZ), rr(0, 1), rr(0.05, 0.11), rr(0, TAU), near ? 11 : 8]);
+    }
+    pg.setAttribute('color', new THREE.BufferAttribute(pc, 3));
+    BLOOMFX.petals = new THREE.Points(pg, new THREE.PointsMaterial({ size: 0.16, vertexColors: true, transparent: true, depthWrite: false, map: SPARK_TEX, opacity: 0.9 }));
+    BLOOMFX.petals.frustumCulled = false; scene.add(BLOOMFX.petals);
+  })();
+  if (blooms('rainbow')) (function () {                // a rainbow in the north-west sky (by day)
+    var r1 = 150, r2 = 168;
+    var m = new THREE.Mesh(new THREE.RingGeometry(r1, r2, 120, 1, 0, PI), new THREE.ShaderMaterial({ transparent: true, depthWrite: false,
+      uniforms: { uOp: { value: 0.4 } },
+      vertexShader: 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: ['uniform float uOp; varying vec2 vP;',
+        'vec3 hsv(float h){ vec3 k = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0); return mix(vec3(1.0), k, 0.85); }',
+        'void main(){ float t = (length(vP) - ' + r1.toFixed(1) + ') / ' + (r2 - r1).toFixed(1) + ';',
+        '  float a = smoothstep(0.0, 0.16, t) * smoothstep(1.0, 0.84, t) * smoothstep(0.0, 25.0, vP.y) * uOp;',
+        '  gl_FragColor = vec4(hsv((1.0 - t) * 0.78), a); }'].join('\n') }));
+    m.position.set(-40, -38, -235); m.rotation.y = 0.18; m.renderOrder = -1;
+    scene.add(m); BLOOMFX.rainbow = m;
+  })();
+  if (blooms('birds')) for (var fk = 0; fk < 2; fk++) (function (fk) {   // flocks flying in V over the farm (by day)
+    var flock = group(), birds = [];
+    for (var bI = 0; bI < 9; bI++) {
+      var bd2 = group([(bI % 2 ? 1 : -1) * Math.ceil(bI / 2) * 1.6, 0, -Math.ceil(bI / 2) * 1.5]), wl = group(), wr = group();
+      wl.add(box(0.9, 0.05, 0.28, '#2f3a40', [-0.45, 0, 0])); wr.add(box(0.9, 0.05, 0.28, '#2f3a40', [0.45, 0, 0]));
+      bd2.add(wl); bd2.add(wr); bd2.add(sphere(0.16, '#2f3a40', [0, 0, 0.1], [1, 0.8, 2], 8));
+      flock.add(bd2); birds.push({ l: wl, r: wr, ph: bI * 0.7 });
+    }
+    scene.add(flock);
+    BLOOMFX.flocks.push({ g: flock, birds: birds, r: 75 + fk * 22, h: 26 + fk * 7, sp: (fk ? -1 : 1) * (0.045 + fk * 0.01), ph: fk * 2.6 });
+  })(fk);
+  if (blooms('balloons')) ['#ff6f61', '#ffd84d', '#4fc3f7'].forEach(function (hex, k) {   // hot-air balloons drifting round
+    var cv = document.createElement('canvas'); cv.width = 256; cv.height = 32;
+    var cg = cv.getContext('2d'), cols = [hex, '#ffffff', ['#4c9a5b', '#c2185b', '#9b7fd1'][k]];
+    for (var st = 0; st < 12; st++) { cg.fillStyle = cols[st % 3]; cg.fillRect(st * 256 / 12, 0, 256 / 12 + 1, 32); }
+    var b = group(), env = new THREE.Mesh(new THREE.SphereGeometry(3.0, 24, 16), new THREE.MeshToonMaterial({ map: new THREE.CanvasTexture(cv) }));
+    env.scale.set(1, 1.18, 1); env.position.y = 4.6; b.add(env);
+    var skirt = cone(1.4, 1.6, hex, [0, 1.75, 0], 16); skirt.rotation.x = PI; b.add(skirt);
+    b.add(box(1.1, 0.8, 1.1, '#a8743f', [0, 0, 0]));
+    [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]].forEach(function (c) { b.add(cyl(0.02, 0.02, 1.5, '#5a3d22', [c[0], 0.9, c[1]], 4)); });
+    var fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: FIREFX.glow.material.map, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0 }));
+    fl.position.y = 1.2; fl.scale.setScalar(1.6); b.add(fl);
+    scene.add(b);
+    BLOOMFX.balloons.push({ g: b, flame: fl, r: 55 + k * 14, h: 30 + k * 6, sp: 0.018 + k * 0.004, ph: k * 2.1 });
+  });
+  if (blooms('stars')) for (var sI2 = 0; sI2 < 3; sI2++) (function () {   // shooting stars (at night)
+    var lg = new THREE.BufferGeometry();
+    lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+    lg.setAttribute('color', new THREE.BufferAttribute(new Float32Array([1, 1, 1, 0, 0, 0]), 3));
+    var ln = new THREE.Line(lg, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    ln.frustumCulled = false; ln.visible = false; scene.add(ln);
+    BLOOMFX.stars.push({ line: ln, at: -99, from: V(0, 0, 0), dir: V(0, 0, 0) });
+  })();
+  if (blooms('aurora')) for (var aI = 0; aI < 3; aI++) (function (aI) {   // the northern lights (at night)
+    var geo = new THREE.PlaneGeometry(300, 46, 80, 1), pa = geo.attributes.position;
+    for (var v = 0; v < pa.count; v++) { var x = pa.getX(v); pa.setZ(v, Math.sin(x * 0.02 + aI * 1.7) * 22 + Math.sin(x * 0.051 + aI) * 9); }
+    var m = new THREE.Mesh(geo, new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      uniforms: { uTime: { value: 0 }, uOp: { value: 0 }, uSeed: { value: aI * 3.1 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: ['uniform float uTime; uniform float uOp; uniform float uSeed; varying vec2 vUv;',
+        'void main(){ float x = vUv.x * 12.0 + uSeed;',
+        '  float rays = 0.55 + 0.45 * sin(x * 3.1 + uTime * 0.7 + sin(x * 1.3 - uTime * 0.4) * 2.0);',
+        '  float curtain = smoothstep(0.0, 0.12, vUv.y) * pow(1.0 - vUv.y, 1.6) * smoothstep(0.0, 0.08, vUv.x) * smoothstep(1.0, 0.92, vUv.x);',
+        '  vec3 col = mix(vec3(0.15, 1.0, 0.55), vec3(0.2, 0.75, 1.0), vUv.y * 1.2);',
+        '  col = mix(col, vec3(1.0, 0.35, 0.75), smoothstep(0.55, 1.0, vUv.y) * (0.5 + 0.5 * sin(x * 0.7 + uTime * 0.3)));',
+        '  gl_FragColor = vec4(col * curtain * rays * uOp, 1.0); }'].join('\n') }));
+    m.position.set(-20 + aI * 30, 62 + aI * 8, -190 - aI * 18); m.rotation.y = aI * 0.15 - 0.15;
+    m.visible = false; m.renderOrder = -1; scene.add(m); BLOOMFX.aurora.push(m);
+  })(aI);
+  function stepBloom(now, dt, n) {
+    var day = 1 - n, i;
+    if (BLOOMFX.blossoms) {                            // ripe plants bloom (closed when picked), breathing gently
+      var m4 = BLOOMFX.m4 || (BLOOMFX.m4 = new THREE.Matrix4()), q = BLOOMFX.q || (BLOOMFX.q = new THREE.Quaternion()), sv = V(1, 1, 1), pv = V(0, 0, 0);
+      BLOOMFX.bPlants.forEach(function (b, k) {
+        var p = b.p, open = p.ripe ? Math.max(0, p.ripeK) : 0, s = open * b.s * (1 + (calm ? 0 : Math.sin(now * 1.6 + b.ph) * 0.08));
+        pv.set(p.pos.x + b.ox * PG.x, p.pos.y + p.height * b.oy * PG.y, p.pos.z + b.oz * PG.x);
+        q.setFromAxisAngle(V(0, 1, 0), b.ph + now * 0.1);
+        m4.compose(pv, q, sv.setScalar(Math.max(0.001, s))); BLOOMFX.blossoms.setMatrixAt(k, m4);
+        pv.y += 0.02; m4.compose(pv, q, sv.setScalar(Math.max(0.001, s))); BLOOMFX.blossomCores.setMatrixAt(k, m4);
+      });
+      BLOOMFX.blossoms.instanceMatrix.needsUpdate = true; BLOOMFX.blossomCores.instanceMatrix.needsUpdate = true;
+    }
+    if (BLOOMFX.petals) {
+      BLOOMFX.petals.visible = n < 0.7;
+      if (BLOOMFX.petals.visible) {
+        var pp = BLOOMFX.petals.geometry.attributes.position;
+        BLOOMFX.petalSeeds.forEach(function (sd, k) {
+          var u = (now * sd[3] * (calm ? 0.5 : 1) + sd[2]) % 1, y = sd[5] * (1 - u);
+          pp.setXYZ(k, sd[0] + Math.sin(now * 0.6 + sd[4]) * 1.6 + u * 3, y, sd[1] + Math.cos(now * 0.5 + sd[4]) * 1.2);
+        });
+        pp.needsUpdate = true; BLOOMFX.petals.material.opacity = 0.9 * day;
+      }
+    }
+    if (BLOOMFX.rainbow) { BLOOMFX.rainbow.material.uniforms.uOp.value = 0.42 * Math.max(0, day - 0.15); BLOOMFX.rainbow.visible = day > 0.2; }
+    BLOOMFX.flocks.forEach(function (f) {
+      f.g.visible = n < 0.7;
+      var a = now * f.sp + f.ph;
+      f.g.position.set(Math.cos(a) * f.r, f.h + Math.sin(now * 0.3 + f.ph) * 2, Math.sin(a) * f.r + 8);
+      f.g.rotation.y = -a + (f.sp > 0 ? PI : 0);
+      f.birds.forEach(function (b) { var fl = calm ? 0.2 : Math.sin(now * 7 + b.ph) * 0.55; b.l.rotation.z = fl; b.r.rotation.z = -fl; });
+    });
+    BLOOMFX.balloons.forEach(function (b) {
+      var a = now * b.sp + b.ph;
+      b.g.position.set(Math.cos(a) * b.r - 5, b.h + Math.sin(now * 0.25 + b.ph) * 2.5, Math.sin(a) * b.r + 6);
+      b.flame.material.opacity = (0.25 + 0.6 * n) * (0.7 + 0.3 * Math.sin(now * 9 + b.ph));
+    });
+    if (BLOOMFX.stars.length) {
+      if (n > 0.45 && now > BLOOMFX.nextStar && !calm) {
+        var st = BLOOMFX.stars.reduce(function (x, y) { return x.at < y.at ? x : y; });
+        var th = rr(-PI * 0.9, -PI * 0.1);
+        st.from.set(Math.cos(th) * 210, rr(70, 130), Math.sin(th) * 210); st.dir.set(rr(-1, 1), rr(-0.55, -0.25), rr(-0.3, 0.3)).normalize();
+        st.at = now; BLOOMFX.nextStar = now + rr(2.5, 6);
+      }
+      BLOOMFX.stars.forEach(function (st) {
+        var k = (now - st.at) / 0.9;
+        st.line.visible = k >= 0 && k < 1 && n > 0.4;
+        if (!st.line.visible) return;
+        var head = st.from.clone().addScaledVector(st.dir, k * 70), tail = head.clone().addScaledVector(st.dir, -14 * Math.sin(k * PI) - 2);
+        var pa = st.line.geometry.attributes.position; pa.setXYZ(0, head.x, head.y, head.z); pa.setXYZ(1, tail.x, tail.y, tail.z); pa.needsUpdate = true;
+        st.line.material.opacity = Math.sin(k * PI) * n;
+      });
+    }
+    BLOOMFX.aurora.forEach(function (a) { a.visible = n > 0.45; if (a.visible) { a.material.uniforms.uTime.value = now; a.material.uniforms.uOp.value = Math.min(1, (n - 0.45) * 2.2) * 0.8; } });
+    if (BLOOMFX.gold) BLOOMFX.gold.material.opacity = 0.22 + 0.12 * Math.sin(now * 1.3) + 0.15 * n;
+  }
 
   if (NevetHero.merge) NevetHero.merge(statics, function (o) { return movers.has(o); });
 
@@ -2293,6 +2495,7 @@
     addList(PARTY.obst);                               // the stage: booth, speakers, truss, screen, light poles, flame jets, searchlights
     addList(PARTY.partyObst).forEach(function (o) { o.party = true; });     // the neon arches' feet (only while the party is on)
     obstacleRect(WHEEL.x, WHEEL.z, 4.0, 1.75);              // the big wheel's frame
+    obstacleCircle(MOTHER.x, MOTHER.z, (MOTHER.trunk || 0.6) + 0.9);     // the mother tree and its ring of flowers
     buildNav();
     // where to stand to tend each map-garden plant: free spots around it, nearest first
     plants.forEach(function (p) {
@@ -4334,7 +4537,7 @@
     }
     if (BARN_WINDOW) BARN_WINDOW.material = n > 0.4 ? mat('#f7d77a') : mat('#3c2a1e');
     stepJets(now, camQ); stepWorks(now, n); stepCannons(now);
-    stepStage(now, dt, n);
+    stepStage(now, dt, n); stepBloom(now, dt, n);
     // things that move
     if (sails) sails.rotation.z = -now * 0.6;
     WORLD_ANIM.forEach(function (f) { f(now, dt, n); });
@@ -4387,10 +4590,10 @@
       (p.model.userData.produce || []).forEach(function (o) { if (!o.userData.s0) o.userData.s0 = o.scale.clone(); o.scale.copy(o.userData.s0).multiplyScalar(sc); });
       if (p.perk > 0) p.perk = Math.max(0, p.perk - dt * 0.8);
       p.droop = (p.droop || 0) + ((p.thirsty ? 1 : 0) - (p.droop || 0)) * Math.min(1, dt * 2);
-      p.holder.scale.set(1, 1 + Math.sin(p.perk * PI) * 0.18 - p.droop * 0.16, 1);
+      p.holder.scale.set(PG.x, PG.y * (1 + Math.sin(p.perk * PI) * 0.18 - p.droop * 0.16), PG.x);   // (taller as the community blooms)
       p.holder.rotation.z = calm ? 0 : Math.sin(now * 1.2 + p.pos.x + p.pos.z) * 0.03;
       p.holder.rotation.x = p.droop * 0.2;
-      if (p.drop) p.drop.position.y = p.pos.y + Math.min(2.2, p.height) + 0.45 + Math.sin(now * 3 + p.pos.x) * 0.06;
+      if (p.drop) p.drop.position.y = p.pos.y + Math.min(2.2, p.height) * PG.y + 0.45 + Math.sin(now * 3 + p.pos.x) * 0.06;
       var wet = Math.max(0, 1 - (now - p.wateredAt) / 40);
       p.soil.material.opacity = wet * 0.55;
       p.soil.visible = wet > 0.01;

@@ -161,3 +161,22 @@ html, body.farm-body { height: 100%; margin: 0; overflow: hidden; background: #6
 .farm-light .i-moon, .farm-light.dark .i-sun { display: none; }
 .farm-light.dark .i-moon { display: block; }
 .farm-light.dark { background: #283a63; color: #ffe9a8; }
+/* the community bloom: how far the farm has grown with its people (invites.community) */
+.farm-bloom { position: absolute; top: calc(64px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 6; font: 600 12.5px/1.3 -apple-system, Segoe UI, Roboto, sans-serif; }
+.farm-bloom summary { list-style: none; cursor: pointer; padding: 4px 12px; border-radius: 999px; background: linear-gradient(100deg, #ffd6e7, #e6f8ea);
+  color: #ad1457; box-shadow: 0 4px 14px rgba(173, 20, 87, 0.18); border: 1px solid #f6c0d6; white-space: nowrap; }
+.farm-bloom summary::-webkit-details-marker { display: none; }
+.farm-bloom-card { margin-top: 8px; width: min(320px, calc(100vw - 32px)); padding: 12px 14px; border-radius: 16px; background: rgba(255, 250, 252, 0.96);
+  box-shadow: 0 12px 30px rgba(31, 42, 32, 0.22); color: #3b2433; font-weight: 500; }
+.farm-bloom-card b { color: #c2185b; font-size: 14px; }
+.farm-bloom-card p { margin: 4px 0 6px; }
+.farm-bloom-note { color: #6b5560; font-size: 12px; }
+.farm-bloom-bar { height: 8px; border-radius: 99px; background: #f3e3ea; overflow: hidden; }
+.farm-bloom-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #2e9e5b, #ff8fb8, #ec407a); }
+.farm-bloom-card ul { margin: 6px 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 12.5px; color: #8a7a82; }
+.farm-bloom-card li.on { color: #1f6b3f; font-weight: 700; }
+.farm-bloom-card small { color: #b8a0ab; font-weight: 600; }
+.farm-bloom-next { font-size: 12px; color: #ad1457; }
+.farm-bloom-next a { color: #2e7d4f; font-weight: 700; }
+.farm-tv .farm-bloom { top: auto; bottom: 18px; left: 18px; transform: none; }
+@media (max-width: 520px) { .farm-bloom { top: calc(108px + env(safe-area-inset-top)); } }

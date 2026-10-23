@@ -207,6 +207,29 @@ them (they wave at you, and you see their powers), tap the ground to let
 go. The camera button saves a picture. On a keyboard: keys 1-7 pick an
 activity, A turns auto on and off, Esc goes back.
 
+**The farm blooms with its people** 🌸: the more heroes join, invite
+friends and connect, the more the farm grows. The **Bloom** badge under
+the title shows how far it has come (tap it for the details). Plants grow
+taller and there are more wild flowers and butterflies. The **mother
+tree** south of the party field has a blossom for every hero, in their
+outfit's colour, and grows bigger as you all do. New wonders appear as
+the bloom rises:
+
+| Bloom | What appears |
+|---|---|
+| 10% | clouds of butterflies |
+| 20% | a rainbow over the farm |
+| 30% | ripe plants in blossom, petals on the wind |
+| 40% | flocks of birds |
+| 50% | shooting stars at night |
+| 60% | hot-air balloons |
+| 70% | the northern lights at night |
+| 85% | the mother tree in golden bloom |
+
+Each hero counts, each friend invited counts again, each confirmed
+connection counts one and a half, and each group two. The first heroes
+make the biggest difference, so even a family's farm starts to bloom.
+
 **Day or night:** the farm is in full daylight. The ☀️ / 🌙 button turns
 it to night (your browser remembers it). The Campfire dance dims to a warm
 dusk by itself, so the fire can glow.

@@ -65,6 +65,20 @@
     </div>
   </div>
 
+  {% set cm = data.community %}
+  {% if cm %}
+  <details class="farm-bloom" id="farm-bloom">
+    <summary title="The farm blooms as more heroes join, invite friends and connect">🌸 Bloom {{ (cm.level * 100) | round | int }}%</summary>
+    <div class="farm-bloom-card">
+      <b>The farm blooms with its people</b>
+      <p>{{ cm.heroes }} hero{{ 'es' if cm.heroes != 1 }} · {{ cm.invited }} invited by a friend · {{ cm.connections }} connection{{ 's' if cm.connections != 1 }} · {{ cm.groups }} group{{ 's' if cm.groups != 1 }}</p>
+      <div class="farm-bloom-bar" aria-hidden="true"><i style="width: {{ (cm.level * 100) | round | int }}%"></i></div>
+      <p class="farm-bloom-note">Every hero who joins, every friend you invite and every connection makes the farm grow: taller plants, more flowers, a bigger mother tree, and wonders that appear one by one.</p>
+      <ul>{% for gft in cm.gifts %}<li class="{{ 'on' if gft.on else '' }}">{{ '✨' if gft.on else '🔒' }} {{ gft.name }} <small>{{ (gft.at * 100) | int }}%</small></li>{% endfor %}</ul>
+      {% if cm.next %}<p class="farm-bloom-next">Next at {{ (cm.next.at * 100) | int }}%: {{ cm.next.name | lower }}. <a href="{{ url_for('account') }}#invite">Invite a friend →</a></p>{% endif %}
+    </div>
+  </details>
+  {% endif %}
   <p class="farm-follow" id="farm-follow" hidden></p>
 
   <form class="farm-world" id="farm-world" method="post" action="{{ url_for('farm_world_set') }}" hidden>

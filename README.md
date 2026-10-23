@@ -58,6 +58,9 @@ in one go.
   work (never bought), matches are kept fair, and every goal, punch, throw
   and win is recorded.
 - 💚 **Family and groups**, connected only when both people say yes.
+- 🌳 **Invite friends** with your own link or QR code. A mother tree shows
+  who invited whom, and the 3D farm **blooms** as the community grows:
+  taller plants, flowers, a rainbow, balloons and the northern lights.
 - 📖 **Our farm story**: the garden's whole history as two vines growing
   together.
 

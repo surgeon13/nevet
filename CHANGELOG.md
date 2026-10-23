@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-23 (the farm blooms with its people)
+
+- **Bloom**: the farm grows as more heroes join, invite friends and
+  connect. A Bloom badge on the farm shows the level and what's next.
+  Plants grow up to 45% taller, wild flowers more than double, and
+  butterflies come in clouds.
+- **The mother tree** on the farm, south of the party field, grows with
+  the community. It has a blossom for every hero in their outfit's colour
+  and a sign with how many heroes there are.
+- **Wonders** appear one by one as the bloom rises: a rainbow, ripe plants
+  in blossom with petals on the wind, flocks of birds, shooting stars at
+  night, hot-air balloons, the northern lights, and at last the mother
+  tree in golden bloom.
+
 ## 2026-10-23 (who invited whom: invite links and the mother tree)
 
 - **Your own invite link**: every player has a personal link, code and QR

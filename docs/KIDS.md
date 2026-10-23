@@ -61,6 +61,13 @@ all the heroes play together! They can:
 The farm is sunny. Tap the 🌙 button to make it night, and ☀️ to make it
 day again.
 
+**The farm grows with its friends! 🌸** Every new hero, every friend you
+invite and every family or friend connection makes the farm bloom. The
+plants grow taller, more flowers come out, and the big mother tree gets a
+new blossom for every hero. As the farm blooms more, you'll see a
+rainbow 🌈, birds, hot-air balloons 🎈, shooting stars ✨ and even the
+northern lights at night!
+
 Tap a hero to follow them, and they'll wave at you! 👋
 
 **Make music:** tap the synth button and make your own beat. Tap the

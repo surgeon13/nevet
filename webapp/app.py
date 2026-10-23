@@ -1914,6 +1914,7 @@ def farm_page():
         "lastLog": (lambda c: (c.execute("SELECT COALESCE(MAX(id), 0) FROM logs").fetchone()[0], c.close())[0])(farm_db.get_conn()),
         "start": request.args.get("act") if request.args.get("act") in FARM_ACTS else None,
         "world": farm_world(),                    # the land around the farm (see FARM_WORLDS)
+        "community": invites.community(),         # how far the farm has bloomed with its people (invites.py)
         "event": (lambda e: {"id": e["id"], "title": e["title"], "emoji": e["kind_info"]["emoji"], "act": e["farm_act"] or e["kind_info"]["act"]}
                   if e else None)(next(iter(events.happening()), None)),
     }

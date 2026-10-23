@@ -242,6 +242,12 @@ A Flask app served by waitress on port 8000:
   (`treeG`: time runs up a twisted trunk, a radial layout by family size,
   branches and ribbons grown with `setDrawRange`) and golden arcs over the
   vine.
+  `invites.community()` turns heroes, invites, connections and groups into
+  a bloom level (`1 - e^(-score/40)`) and the wonders it unlocks
+  (`BLOOM`). The farm gets it as `data.community`: `PG` makes the plants
+  taller, the mother tree (`MOTHER`) grows with it, and `stepBloom()`
+  animates plant blossoms, petals, the rainbow, flocks, balloons,
+  shooting stars and the aurora (`BLOOMFX`).
 - **Tags** — `tags.py` keeps `tags` (code, kind plant/action/event/hero,
   target, the reader's action, an optional chip UID) and `tag_scans` (every
   phone tap and reader scan). `/t/<code>` is what NFC stickers and QR labels

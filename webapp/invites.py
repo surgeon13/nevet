@@ -7,10 +7,13 @@
   their code, added by them while logged in, or said so later ("Who invited you?").
 * The invite log (invite_events) keeps what happened: links opened, heroes who joined, who added whom,
   inviters set later and codes renewed.
+* community() is how far the farm has bloomed: the more heroes join, invite friends and connect, the more the 3D
+  farm grows (taller plants, more flowers, the mother tree, a rainbow, birds, shooting stars, balloons, the aurora).
 * tree() is the mother tree for the farm story page (time.html, static/js/time3d.js): every hero on the
   branch of the hero who invited them, at the height of the day they joined, with their connections.
 """
 import json
+import math
 import secrets
 from datetime import datetime
 
@@ -219,3 +222,37 @@ def tree():
                           "lb": relations.label(r["kind"], gender.get(r["b_id"]), False).lower(), "date": (r["created_at"] or "")[:10]})
     conn.close()
     return {"nodes": nodes, "links": links}
+
+
+# The farm blooms as the community grows: what each level brings to the 3D farm (static/js/farm3d.js)
+BLOOM = [
+    (0.10, "butterflies", "Clouds of butterflies"),
+    (0.20, "rainbow", "A rainbow over the farm"),
+    (0.30, "blossom", "Plants in blossom, petals on the wind"),
+    (0.40, "birds", "Flocks of birds"),
+    (0.50, "stars", "Shooting stars at night"),
+    (0.60, "balloons", "Hot-air balloons"),
+    (0.70, "aurora", "The northern lights at night"),
+    (0.85, "golden", "The mother tree in golden bloom"),
+]
+
+
+def community():
+    """How far the farm has bloomed (0..1), from heroes, friends invited, connections and groups, and what that brings.
+
+    Every hero counts 1, every hero who came through a friend 1, every confirmed connection 1.5 and every group 2;
+    the level rises quickly at first and then more slowly (1 - e^(-score / 40)), so a family's farm already blooms
+    a little and a big community's farm is in full flower."""
+    c = counts()
+    conn = farm_db.get_conn()
+    try:
+        groups = conn.execute("SELECT COUNT(*) FROM groups").fetchone()[0]
+    except Exception:                                  # (very old databases)
+        groups = 0
+    conn.close()
+    score = c["heroes"] + c["invited"] + 1.5 * c["connections"] + 2 * groups
+    level = round(1 - math.exp(-score / 40.0), 3)
+    unlocked = [k for t, k, _ in BLOOM if level >= t]
+    nxt = next(({"at": t, "key": k, "name": name} for t, k, name in BLOOM if level < t), None)
+    return dict(c, groups=groups, score=round(score, 1), level=level, unlocked=unlocked, next=nxt,
+                gifts=[{"at": t, "key": k, "name": name, "on": level >= t} for t, k, name in BLOOM])
