@@ -230,6 +230,18 @@ A Flask app served by waitress on port 8000:
   `D.event` and the garden as a faded `D.background`, saving through
   `/api/events/<id>/map/*`. `today.py`, `timeline.py` and the farm page
   (`data.event`) read events too.
+- **Invites and the mother tree** — `invites.py`. Every player has an
+  `invite_code` (made when first needed, renewable). `/i/<code>` stores it
+  in the session and logs an `opened` row in `invite_events`. Sign-up
+  takes the farm's code or any player's code, records `growers.invited_by`
+  and `invited_via` (link, code, added, set) and logs it.
+  `set_inviter()` refuses loops (`descendants()`). `tree()` gives the nodes
+  (outfit colour, join day, inviter) and the accepted relationships with
+  both sides' words. `timeline.story()` adds `tree` and `counts` and tells
+  "invited by" in the day's lines. `static/js/time3d.js` draws the tree
+  (`treeG`: time runs up a twisted trunk, a radial layout by family size,
+  branches and ribbons grown with `setDrawRange`) and golden arcs over the
+  vine.
 - **Tags** — `tags.py` keeps `tags` (code, kind plant/action/event/hero,
   target, the reader's action, an optional chip UID) and `tag_scans` (every
   phone tap and reader scan). `/t/<code>` is what NFC stickers and QR labels

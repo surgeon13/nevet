@@ -25,6 +25,7 @@ import tags
 import netaccess
 import relations
 import heroes
+import invites
 import plants
 import timeline
 import today
@@ -58,7 +59,7 @@ av.register(app)
 traffic_counter = traffic.TrafficCounter(farm_db.get_conn).install(app)
 
 # Pages anyone can open without logging in. Everything else needs an account.
-PUBLIC_ENDPOINTS = {"login", "register", "join", "event_join", "healthz", "static", "api_add_stats", "api_map_geojson", "api_tag_scan"}
+PUBLIC_ENDPOINTS = {"login", "register", "join", "invite_link", "event_join", "healthz", "static", "api_add_stats", "api_map_geojson", "api_tag_scan"}
 CSRF_EXEMPT = {"api_add_stats", "api_tag_scan"}        # their own API key (or the Pi itself)
 
 LOG_FILES = {
@@ -244,7 +245,12 @@ def _events_for_dashboard(me):
 @app.route("/time")
 def time_page():
     """The farm's story as a vine through time (static/js/time3d.js)."""
-    return render_template("time.html", story=timeline.story())
+    view = "tree" if request.args.get("view") == "tree" else "vine"
+    try:
+        focus = int(request.args.get("hero") or 0) or None
+    except ValueError:
+        focus = None
+    return render_template("time.html", story=timeline.story(), view=view, focus=focus, me=g.user["id"])
 
 
 @app.route("/gallery")
@@ -523,7 +529,14 @@ def grower_page(grower_id):
         rel_candidates=[r for r in farm_db.list_growers() if r["id"] != grower_id],
         powers=pw, skills=games.SKILLS, game_stats=games.hero_stats(grower_id), glory=games.glory(games.hero_stats(grower_id)),
         matches=games.recent_matches(6, grower_id), styles=games.ARENA_STYLES,
+        invites=invites.summary(grower_id), mine=_my_invite(grower_id) if g.user["id"] == grower_id else None,
+        inviter_candidates=_inviter_candidates(grower_id),
     )
+
+
+def _inviter_candidates(grower_id):
+    below = invites.descendants(grower_id)             # (not someone they invited: the tree can't go round in a circle)
+    return [r for r in farm_db.list_growers() if r["id"] != grower_id and r["id"] not in below]
 
 
 # ---------------------------------------------------------------------
@@ -929,19 +942,25 @@ def register():
         return render_template("message.html", title="Sign-up is closed",
                                message="Ask a player who already has an account to add you."), 403
     error, name = None, (request.args.get("name") or "")[:20]
-    # visitors from the internet (not home WiFi or your Tailscale devices) need the invite code
+    # visitors from the internet (not home WiFi or your Tailscale devices) need an invite code: the farm's,
+    # or any player's own code (which also says who invited them)
     need_code = not g.user and not first_account and netaccess.from_internet(request.remote_addr) and not auth.public_signup()
+    link_code = session.get("invite_from") if not g.user else None          # came through someone's invite link (/i/<code>)
+    inviter = invites.find_code(request.form.get("invite") or request.args.get("invite") or link_code or "") if not g.user else None
     if request.method == "POST":
         name, error = heroes.validate_name(request.form.get("name"))
         password = request.form.get("password", "")
         if need_code and not error:
             code = (request.form.get("invite") or "").strip().upper().replace(" ", "")
             want = farm_db.get_setting("invite_code") or ""
-            if not want or not hmac.compare_digest(code, want):
+            personal = invites.find_code(code)
+            if not (want and hmac.compare_digest(code, want)) and not personal:
                 auth.limiter.fail(request.remote_addr or "?")
-                error = "That invite code isn't right. Ask a player for the code (an admin finds it on the Account page)."
+                error = "That invite code isn't right. Ask the player who invited you for their code or link."
             elif auth.limiter.blocked(request.remote_addr or "?"):
                 error = "Too many wrong tries. Wait a few minutes and try again."
+            else:
+                inviter = personal or inviter
         if not error:
             error = auth.validate_password(password, request.form.get("confirm", ""))
         if not error:
@@ -960,13 +979,24 @@ def register():
                 gid = farm_db.create_hero(name, hero_class, json.dumps(look),
                                           password_hash=auth.hash_password(password), is_admin=first_account)
                 claimed = False
-        if not error:
+        if not error:                                    # who invited them: the player adding them, an invite link or code, or "who invited you?"
+            if g.user:
+                inv_id, via = g.user["id"], "added"
+            elif inviter:
+                inv_id, via = inviter["id"], "link" if link_code and invites.clean_code(link_code) == inviter["invite_code"] else "code"
+            else:
+                pick = farm_db.find_grower_by_name((request.form.get("invited_by") or "").strip()) if request.form.get("invited_by") else None
+                inv_id, via = (pick["id"], "set") if pick else (None, None)
+            if inv_id and not (claimed and farm_db.get_grower(gid)["invited_by"]):
+                invites.set_inviter(gid, inv_id, via, by=g.user["id"] if g.user else gid, place=netaccess.where(request.remote_addr))
+            session.pop("invite_from", None)
             from_screen = bool(session.pop("from_screen", None)) and not g.user
             join_ev = session.pop("join_event", None) if not g.user else None
             if from_screen:
                 farm_db.set_setting("screen_joins", str(int(farm_db.get_setting("screen_joins") or 0) + 1))
-            logger.info("New account %s%s%s%s", name, " (claimed existing hero)" if claimed else "",
-                        " [admin]" if first_account else "", " (from the welcome screen's QR code)" if from_screen else "")
+            logger.info("New account %s%s%s%s%s", name, " (claimed existing hero)" if claimed else "",
+                        " [admin]" if first_account else "", " (from the welcome screen's QR code)" if from_screen else "",
+                        f" (invited by #{inv_id}, {invites.VIA.get(via, via)})" if inv_id else "")
             if g.user:          # a player adding someone else: stay logged in as yourself
                 return redirect(url_for("grower_page", grower_id=gid, created=1))
             log_in(farm_db.get_grower(gid))
@@ -975,7 +1005,26 @@ def register():
                 return redirect(url_for("event_page", event_id=join_ev, join=1, welcome=1) + "#rsvp")
             return redirect(url_for("grower_customize", grower_id=gid, welcome=1))
     join_ev = events.get(session["join_event"]) if session.get("join_event") and not g.user else None
-    return render_template("register.html", error=error, name=name, first_account=first_account, need_code=need_code, join_ev=join_ev)
+    pickable = [] if g.user or inviter or first_account else [r["name"] for r in farm_db.list_growers() if r["password_hash"]]
+    return render_template("register.html", error=error, name=name, first_account=first_account, need_code=need_code, join_ev=join_ev,
+                           inviter=inviter, inviter_code=inviter["invite_code"] if inviter else "", pickable=pickable)
+
+
+@app.route("/i/<code>")
+def invite_link(code):
+    """A player's own invite link: counts the visit (once per visitor), then sign-up with their code filled in.
+    Players who are already logged in see whose link it was."""
+    code = invites.clean_code(code)
+    who = invites.find_code(code)
+    if g.user:
+        return redirect(url_for("grower_page", grower_id=who["id"]) if who else url_for("hub"))
+    if not who:
+        return render_template("message.html", title="This invite link has expired",
+                               message="Ask the player who sent it for a fresh one (their Account page has it)."), 404
+    if session.get("invite_from") != code:
+        session["invite_from"] = code
+        invites.log("opened", inviter=who["id"], place=netaccess.where(request.remote_addr))
+    return redirect(url_for("register", invite=code))
 
 
 @app.route("/join")
@@ -1006,6 +1055,10 @@ def account():
         farm_db.set_setting("invite_code", netaccess.new_invite_code())
         logger.info("%s made a new invite code", g.user["name"])
         message = "New invite code made. The old one no longer works."
+    elif request.method == "POST" and request.form.get("action") == "new_my_code":
+        invites.code_for(g.user["id"], renew=True)
+        logger.info("%s made a new personal invite code", g.user["name"])
+        message = "Your new invite link is ready. The old link no longer works."
     elif request.method == "POST":
         row = farm_db.get_grower(g.user["id"])
         new = request.form.get("new_password", "")
@@ -1023,8 +1076,41 @@ def account():
         if not invite:
             invite = netaccess.new_invite_code()
             farm_db.set_setting("invite_code", invite)
-    return render_template("account.html", message=message, error=error, invite=invite,
+    return render_template("account.html", message=message, error=error, invite=invite, mine=_my_invite(g.user["id"]),
+                           invite_log=invites.recent(20) if g.user["is_admin"] else None,
                            here=netaccess.where(request.remote_addr), secure=request.is_secure)
+
+
+def _my_invite(grower_id):
+    """A hero's invite card: their link and code, its QR code, who invited them and whom they invited."""
+    info = invites.summary(grower_id, with_code=True)
+    info["link"] = _tag_base() + "i/" + info["code"]
+    info["shown"] = info["link"].split("://", 1)[-1]
+    info["qr"] = qr.svg(qr.encode(info["link"], ecl="M"), quiet=2, scale=5, title="QR code with your invite link")
+    return info
+
+
+@app.route("/growers/<int:grower_id>/inviter", methods=["POST"])
+def grower_inviter(grower_id):
+    """Who invited this hero: they can say so once themselves; an admin can set or clear it."""
+    row = farm_db.get_grower(grower_id)
+    if not row or row["deleted_at"]:
+        abort(404)
+    is_me = g.user["id"] == grower_id
+    if not (g.user["is_admin"] or (is_me and not row["invited_by"])):
+        abort(403)
+    if request.form.get("clear") and g.user["is_admin"]:
+        invites.clear_inviter(grower_id, by=g.user["id"])
+        logger.info("%s cleared who invited %s", g.user["name"], row["name"])
+        return redirect(url_for("grower_page", grower_id=grower_id) + "#connections")
+    try:
+        inviter_id = int(request.form.get("inviter") or 0)
+    except ValueError:
+        inviter_id = 0
+    if not invites.set_inviter(grower_id, inviter_id, "set", by=g.user["id"], place=netaccess.where(request.remote_addr)):
+        return redirect(url_for("grower_page", grower_id=grower_id, rel_error="That can't be the hero who invited them (it would go round in a circle).") + "#connections")
+    logger.info("%s set who invited %s", g.user["name"], row["name"])
+    return redirect(url_for("grower_page", grower_id=grower_id) + "#connections")
 
 
 @app.route("/stats")

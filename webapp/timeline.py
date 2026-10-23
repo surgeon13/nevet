@@ -4,7 +4,7 @@ Everything that happened on the farm, grouped by day, with the big moments
 picked out and told as a little story:
 
 * the very first day ("Once upon a time...")
-* a hero joining the farm
+* a hero joining the farm (and who invited them: the mother tree, see invites.py)
 * two heroes connecting (family, partners, friends: they both confirmed it)
 * a group being formed
 * a plant planted for the first time, the first harvest of a plant, a big harvest
@@ -85,10 +85,12 @@ def story(max_days=MAX_DAYS):
         if r["log_type"] == "delivery" and r["recipient"]:
             day["lines"].append(f"{r['who'] or 'Someone'} shared produce from the {base.lower() or 'garden'} with {r['recipient']}.")
 
-    for r in q("SELECT name, joined_at FROM growers WHERE deleted_at IS NULL ORDER BY joined_at"):
+    gcols = {c[1] for c in q("PRAGMA table_info(growers)")}
+    by_sql = ", i.name AS by_name FROM growers g LEFT JOIN growers i ON i.id = g.invited_by AND i.deleted_at IS NULL" if "invited_by" in gcols else ", NULL AS by_name FROM growers g"
+    for r in q(f"SELECT g.name, g.joined_at{by_sql} WHERE g.deleted_at IS NULL ORDER BY g.joined_at"):
         d = _day(r["joined_at"])
         if d:
-            days[d]["moments"].append({"kind": "hero", "text": f"{r['name']} joined the farm."})
+            days[d]["moments"].append({"kind": "hero", "text": f"{r['name']} joined the farm.", "name": r["name"], "by": r["by_name"]})
 
     if "relationships" in tables:
         cols = {c[1] for c in q("PRAGMA table_info(relationships)")}
@@ -135,7 +137,8 @@ def story(max_days=MAX_DAYS):
 
     ordered = sorted(d for d in days if d)
     if not ordered:
-        return {"days": [], "first": None, "today": date.today().isoformat()}
+        import invites
+        return {"days": [], "first": None, "today": date.today().isoformat(), "tree": invites.tree(), "counts": invites.counts()}
     very_first = ordered[0]
     ordered = ordered[-max_days:]
     out = []
@@ -144,9 +147,18 @@ def story(max_days=MAX_DAYS):
         day = days[d]
         n = sum(day["counts"].values())
         lines, moments = [], []
-        joined = [m["text"][:-len(" joined the farm.")] for m in day["moments"] if m["kind"] == "hero"]
-        if joined:                                       # many heroes on one day: one line
-            moments.append({"kind": "hero", "text": f"{_names(joined, 4)} joined the farm." if len(joined) > 1 else f"{joined[0]} joined the farm."})
+        joined = [m for m in day["moments"] if m["kind"] == "hero"]
+        if len(joined) == 1:                             # who invited them: the mother tree grows a branch
+            j = joined[0]
+            moments.append({"kind": "hero", "text": f"{j['name']} joined the farm" + (f", invited by {j['by']}." if j.get("by") else ".")})
+        elif joined:                                     # many heroes on one day: one line, then who invited whom
+            moments.append({"kind": "hero", "text": f"{_names([j['name'] for j in joined], 4)} joined the farm."})
+            inv = OrderedDict()
+            for j in joined:
+                if j.get("by"):
+                    inv.setdefault(j["by"], []).append(j["name"])
+            for by, names in list(inv.items())[:3]:
+                moments.append({"kind": "invite", "text": f"{by} invited {_names(names, 3)}."})
         moments += [m for m in day["moments"] if m["kind"] != "hero"]
         for who, plant, how in day.get("firsts", []):
             moments.append({"kind": "plant", "text": f"{who or 'Someone'} {'sowed' if how == 'seeding' else 'planted'} the farm's first {plant.lower()}."})
@@ -158,7 +170,7 @@ def story(max_days=MAX_DAYS):
         elif any(m["kind"] == "love" for m in moments):
             title = "A day of love"
         elif any(m["kind"] == "hero" for m in moments):
-            title = "A new hero"
+            title = "A new branch on the tree" if any(j.get("by") for j in joined) else "A new hero"
         elif any(m["kind"] == "harvest" for m in moments):
             title = "Harvest day"
         elif any(m["kind"] == "group" for m in moments):
@@ -187,5 +199,6 @@ def story(max_days=MAX_DAYS):
             "moments": [m["kind"] for m in moments], "heart": bool(moments) or d == very_first,
             "chapter": d == very_first,
         })
+    import invites                                   # the mother tree: who invited whom, and their connections
     return {"days": out, "first": very_first.isoformat(), "today": date.today().isoformat(),
-            "total_days": len(days), "shown": len(out)}
+            "total_days": len(days), "shown": len(out), "tree": invites.tree(), "counts": invites.counts()}

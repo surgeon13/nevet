@@ -996,6 +996,13 @@ def farm_extras():
         if "app_settings" in tables:
             r = con.execute("SELECT value FROM app_settings WHERE key = 'invite_code'").fetchone()
             out["invite"] = r[0] if r else None
+        if "invite_events" in tables:                  # the mother tree: heroes who came through a friend's invite
+            out["invited"] = one("SELECT COUNT(*) FROM growers WHERE deleted_at IS NULL AND invited_by IS NOT NULL")
+            out["opened_week"] = one("SELECT COUNT(*) FROM invite_events WHERE kind = 'opened' AND at >= ?", week)
+            out["joined_week"] = one("SELECT COUNT(*) FROM invite_events WHERE kind IN ('joined', 'added', 'set') AND at >= ?", week)
+            top = con.execute("""SELECT i.name, COUNT(*) AS n FROM growers g JOIN growers i ON i.id = g.invited_by
+                                 WHERE g.deleted_at IS NULL GROUP BY i.id ORDER BY n DESC, i.name LIMIT 1""").fetchone()
+            out["top_inviter"] = (top[0], top[1]) if top else None
         con.close()
     except sqlite3.Error as e:
         out.setdefault("error", str(e))
@@ -1282,7 +1289,13 @@ def render(n):
         if fx.get("mapped"):
             P(fit(f" {lbl('Map')} {C.wrap(str(fx['mapped']), 'bold')} items {SEP} {fx.get('areas', 0)} areas", W))
         if fx.get("invite"):
-            P(fit(f" {lbl('Invite')} {C.wrap(fx['invite'], 'bold')}" + C.wrap(f" {SEP} for sign-ups from the internet", "grey"), W))
+            P(fit(f" {lbl('Invite')} {C.wrap(fx['invite'], 'bold')}" + C.wrap(f" {SEP} farm code (players have own links)", "grey"), W))
+        if fx.get("invited") or fx.get("opened_week"):
+            tree = [f"{C.wrap(str(fx.get('invited', 0)), 'bold')} via a friend"]
+            if fx.get("top_inviter"):
+                tree.append(f"top {C.wrap(fx['top_inviter'][0], 'bold', 'cyan')} ({fx['top_inviter'][1]})")
+            tree.append(f"week: {fx.get('opened_week', 0)} opened, {fx.get('joined_week', 0)} joined")
+            P(fit(f" {lbl('Tree')} " + f" {SEP} ".join(tree), W))
         for name, info in sorted((fx.get("extras") or {}).items()):
             good = info.get("status") in ("up_to_date", "updated")
             P(fit(f" {C.wrap(DOT, *LEVEL_STYLE['ok' if good else 'warn'])} {name + ' (extra)':<10} {info.get('status', '?').replace('_', ' ')} {SEP} {info.get('version') or '-'}", W))

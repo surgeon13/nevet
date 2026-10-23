@@ -671,3 +671,37 @@ dialog.today-dialog { width: min(440px, calc(100vw - 32px)); }
 .bracket-group .through::before { content: "➜ "; }
 .bracket-group small { color: var(--text-dim); }
 .champions { font-size: 0.9rem; }
+
+/* ---- invites: a player's own link, the sign-up banner, the mother tree line on hero pages ---- */
+.invite-card { display: flex; gap: 16px; align-items: flex-start; padding: 14px; border-radius: 16px;
+  background: linear-gradient(135deg, #fff1f6, #eefaf1); border: 1px solid #f6c9db; }
+.invite-qr { flex: 0 0 auto; width: 132px; padding: 6px; border-radius: 12px; background: #fff; border: 1px solid #f3d3e0; }
+.invite-qr svg { display: block; width: 100%; height: auto; }
+.invite-body { flex: 1 1 auto; min-width: 0; }
+.invite-title { margin: 0 0 4px; font-size: 1.05rem; color: #c2185b; }
+.invite-sub { margin: 0 0 8px; color: var(--text-dim); font-size: 0.86rem; line-height: 1.4; }
+.invite-link-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.invite-link { flex: 1 1 180px; min-width: 0; padding: 7px 10px; border-radius: 10px; border: 1px solid #f3c6d8; background: #fff;
+  font: 600 0.82rem ui-monospace, SFMono-Regular, Menlo, monospace; color: #8e1450; }
+.invite-meta { margin: 8px 0 4px; font-size: 0.82rem; color: var(--text-dim); }
+.invite-code-small { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.12em; color: #2e7d4f; user-select: all; }
+.invite-kids { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.chip-pink { border-color: #f6c0d6; background: #fff4f8; color: #ad1457; }
+.invite-actions { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+.invite-banner { margin: 6px 0 12px; padding: 10px 12px; border-radius: 12px; background: linear-gradient(135deg, #ffe3ee, #e6f8ea);
+  border: 1px solid #f6c0d6; color: #6a1b3d; font-size: 0.92rem; }
+.tree-line { display: flex; gap: 10px; align-items: flex-start; margin: 4px 0 12px; padding: 10px 12px; border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255, 228, 238, 0.7), rgba(230, 248, 234, 0.7)); }
+.tree-line p { margin: 0 0 4px; }
+.tree-ico { font-size: 1.5rem; line-height: 1; }
+@media (max-width: 520px) { .invite-card { flex-direction: column; align-items: stretch; } .invite-qr { width: 150px; align-self: center; } }
+:root[data-theme="dark"] .invite-card { background: linear-gradient(135deg, #3a2030, #1f3326); border-color: #5a3346; }
+:root[data-theme="dark"] .invite-link { background: #1f1a1d; border-color: #5a3346; color: #ffb3d1; }
+:root[data-theme="dark"] .invite-title { color: #ff8fb8; }
+:root[data-theme="dark"] .invite-banner, :root[data-theme="dark"] .tree-line { background: linear-gradient(135deg, #3a2030, #1f3326); border-color: #5a3346; color: #ffd6e7; }
+:root[data-theme="dark"] .chip-pink { background: #3a2030; border-color: #5a3346; color: #ffb3d1; }
+.invite-log { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 0.86rem; }
+.invite-log li { padding: 5px 8px; border-radius: 8px; background: var(--bg); }
+.tree-line a { color: #ad1457; font-weight: 700; text-decoration: none; }
+.tree-line a:hover { text-decoration: underline; }
+:root[data-theme="dark"] .tree-line a { color: #ff8fb8; }

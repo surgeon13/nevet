@@ -1,0 +1,28 @@
+{# A player's own invite card (app._my_invite): their link, code and QR code, and who joined through it.
+   Used on the Account page and on your own hero page. Needs static/js/event-invite.js for Copy / Share. #}
+<div class="invite-card" id="invite">
+  <div class="invite-qr">{{ mine.qr | safe }}</div>
+  <div class="invite-body">
+    <h3 class="invite-title">🌱 Invite friends to the farm</h3>
+    <p class="invite-sub">Send your link, or let a friend scan the code. When they join, they grow on <b>your branch</b> of the mother tree. It works from anywhere, even outside the farm's WiFi.</p>
+    <div class="invite-link-row">
+      <input class="invite-link" type="text" readonly value="{{ mine.link }}" aria-label="Your invite link" onfocus="this.select()">
+      <button type="button" class="btn btn-primary btn-small" data-share="{{ mine.link }}" data-title="Come grow with me on Nevet 🌱" hidden>Share</button>
+      <button type="button" class="btn btn-ghost btn-small" data-copy="{{ mine.link }}">Copy</button>
+    </div>
+    <p class="invite-meta">Your code <b class="invite-code-small">{{ mine.code }}</b>
+      · link opened {{ mine.opened }} time{{ '' if mine.opened == 1 else 's' }}
+      · {{ mine.invited | length }} joined</p>
+    {% if mine.invited %}
+    <p class="invite-kids">{% for k in mine.invited %}<a class="chip chip-pink" href="{{ url_for('grower_page', grower_id=k.id) }}">🌸 {{ k.name }}</a>{% endfor %}</p>
+    {% if mine.family > mine.invited | length %}<p class="invite-sub">…and {{ mine.family - mine.invited | length }} more further along your branch.</p>{% endif %}
+    {% endif %}
+    <div class="invite-actions">
+      <a class="btn btn-ghost btn-small" href="{{ url_for('time_page', view='tree') }}">🌳 The mother tree</a>
+      <form method="post" action="{{ url_for('account') }}" onsubmit="return confirm('Make a new link? The old link and code stop working.');">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button type="submit" name="action" value="new_my_code" class="link-btn">New link</button>
+      </form>
+    </div>
+  </div>
+</div>

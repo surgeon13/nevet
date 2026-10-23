@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-10-23 (who invited whom: invite links and the mother tree)
+
+- **Your own invite link**: every player has a personal link, code and QR
+  code, on the Account page and on their own hero page, with Share and
+  Copy. Their code works wherever the farm's invite code does, so friends
+  can join from the internet. "New link" makes a fresh one, and the old
+  one stops working.
+- **Every new hero remembers who invited them**: through a link or a code,
+  or as "added by" when a player creates the account. At home, sign-up
+  asks (optionally) "Who invited you?". The sign-up page greets people
+  with "Avi invited you to the farm". Existing heroes can say who invited
+  them once on their hero page; admins can set or clear it. Loops are
+  refused.
+- **The mother tree** 🌳 on the farm story page (tree button, or
+  `/time?view=tree`). Time runs up a trunk made of the story's two vines.
+  Each hero is a blossom in their outfit colour on the inviter's branch,
+  at the height of their join day, with leaves and a name tag. Ribbons
+  show partners, family, friends and teammates. The tree grows as you
+  play the story, a golden seed travelling along each new branch. Tap a
+  hero for their card: who invited them, whom they invited, how many grew
+  from them, and their connections.
+- **Woven into the story**: golden arcs over the vine join each hero's day
+  to their inviter's. Day cards say "Dana joined the farm, invited by Avi"
+  (or "Avi invited Dana and Ben"), with a "🌳 a new branch" chip.
+- **Hero pages** show who invited the hero and whom they invited, with a
+  link to their branch on the tree.
+- **The invite log** (`invite_events`) keeps links opened, joins, players
+  added, inviters set later and renewed codes. Admins see it on the
+  Account page, `nevet` has a "Tree" line, and `webapp.log` notes who
+  invited each new account.
+
 ## 2026-10-23 (the terminal dashboard every X minutes)
 
 - `nevet -w` now shows the dashboard again every X minutes. X is the same

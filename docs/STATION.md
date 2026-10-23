@@ -279,10 +279,20 @@ What changes when Nevet is public:
 
 - Everyone needs to **log in**, as before; nothing is visible without an
   account.
-- People signing up **from the internet** need the **invite code**. An
-  admin finds it on the Account page and can make a new one at any time (the
-  old one stops working). At home and on your Tailscale devices no code is
-  needed. To let anyone join without a code, set `WEBAPP_PUBLIC_SIGNUP=true`.
+- People signing up **from the internet** need an **invite code**: the
+  farm's code, or any player's own code. An admin finds the farm's code on
+  the Account page and can make a new one at any time (the old one stops
+  working). Every player's personal invite link (`/i/<code>`) fills in
+  their code and records who invited the new hero. A player can make a new
+  link, and their old one stops working. At home and on your Tailscale
+  devices no code is needed, but sign-up still asks (optionally) who
+  invited you. To let anyone join without a code, set
+  `WEBAPP_PUBLIC_SIGNUP=true`.
+- **The invite log**: links opened, heroes who joined through someone,
+  players added by others and inviters set later are all kept. Admins see
+  the latest on the Account page, `nevet` shows a "Tree" line (how many
+  came through a friend, the top inviter, this week's opens and joins),
+  and `webapp.log` notes who invited each new account.
 - Wrong passwords are counted per visitor (their real address, not the
   tunnel's), so the lockout still works.
 - Over https the login cookie is marked secure; at home plain http keeps

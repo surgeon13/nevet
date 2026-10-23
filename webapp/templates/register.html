@@ -11,6 +11,10 @@
     {% if join_ev %}<p class="auth-sub">Pick a hero name and a password, and you'll go straight to <b>{{ join_ev.kind_info.emoji }} {{ join_ev.title }}</b> to say you're coming.</p>
     {% else %}<p class="auth-sub">Pick a hero name and a password. You'll choose your hero's look next.</p>{% endif %}
   {% endif %}
+  {% if inviter %}
+    <p class="invite-banner">🌱 <b>{{ inviter.name }}</b> invited you to the farm. You'll grow on their branch of our mother tree.</p>
+    {% if not need_code %}<input type="hidden" name="invite" value="{{ inviter_code }}">{% endif %}
+  {% endif %}
   {% if first_account %}
     <p class="auth-note">This is the first account, so it will be the <strong>admin</strong> (can help players who forget their password).</p>
   {% endif %}
@@ -32,8 +36,18 @@
   {% if need_code %}
   <label class="hero-field">
     <span class="hero-field-label">Invite code</span>
-    <input type="text" name="invite" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" required placeholder="e.g. K7M2QXPA" value="{{ (request.form.get('invite') or request.args.get('invite') or '')[:12] }}">
-    <span class="hero-field-hint">You're joining from outside the farm's network, so you need the code from a player (admins find it on their Account page).</span>
+    <input type="text" name="invite" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" required placeholder="e.g. K7M2QXPA" value="{{ (request.form.get('invite') or request.args.get('invite') or inviter_code or '')[:12] }}">
+    <span class="hero-field-hint">You're joining from outside the farm's network, so you need an invite code. The player who invited you has one (on their Account page).</span>
+  </label>
+  {% endif %}
+  {% if pickable %}
+  <label class="hero-field">
+    <span class="hero-field-label">Who invited you? <span class="muted">(optional)</span></span>
+    <select name="invited_by">
+      <option value="">I found Nevet myself</option>
+      {% for n in pickable %}<option value="{{ n }}"{% if request.form.get('invited_by') == n %} selected{% endif %}>{{ n }}</option>{% endfor %}
+    </select>
+    <span class="hero-field-hint">You'll grow on their branch of the farm's mother tree.</span>
   </label>
   {% endif %}
   <button type="submit" class="btn btn-primary auth-submit">{{ 'Create account' if current_user else ('Create account & join the event' if join_ev else 'Create account & choose look') }}</button>

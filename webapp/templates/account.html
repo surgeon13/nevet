@@ -25,14 +25,27 @@
     <button type="submit" class="btn btn-primary auth-submit">Change password</button>
   </form>
 
+  {% if mine %}
+  <div class="auth-section">{% include "_invite_card.html" %}</div>
+  {% endif %}
+
   {% if invite %}
   <form method="post" class="auth-section">
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-    <h3>Invite code</h3>
-    <p class="auth-sub">People who reach Nevet from the internet (not your home WiFi or your Tailscale devices) need this code to sign up. Share it with new players.</p>
+    <h3>The farm's invite code</h3>
+    <p class="auth-sub">People who reach Nevet from the internet (not your home WiFi or your Tailscale devices) need an invite code to sign up. This is the farm's own code, used by the welcome screen and posters. Every player also has a personal link above, which also shows who invited each new hero.</p>
     <p class="invite-code" aria-label="Invite code">{{ invite }}</p>
     <button type="submit" name="action" value="new_invite" class="btn btn-ghost" onclick="return confirm('Make a new code? The old one stops working.');">Make a new code</button>
   </form>
+  {% endif %}
+  {% if invite_log %}
+  <div class="auth-section">
+    <h3>Invite log</h3>
+    <p class="auth-sub">Who opened whose invite link, who joined through whom, and who was added. The whole tree is on the <a href="{{ url_for('time_page', view='tree') }}">mother tree</a>.</p>
+    <ul class="invite-log">
+      {% for e in invite_log %}<li><span class="muted">{{ e.at[5:16].replace('T', ' ') }}</span> {{ e.text }}{% if e.place %} <span class="muted">· {{ {'local': 'on the Pi', 'lan': 'home WiFi', 'tailscale': 'Tailscale', 'internet': 'internet'}.get(e.place, e.place) }}</span>{% endif %}</li>{% endfor %}
+    </ul>
+  </div>
   {% endif %}
   <p class="auth-note">You're connected {{ {'local': 'from the Pi itself', 'lan': 'over the home network', 'tailscale': 'through Tailscale (your own devices)', 'internet': 'from the internet'}[here] }}{% if secure %}, over a secure (https) connection{% endif %}.</p>
 
@@ -45,4 +58,5 @@
     </form>
   </div>
 </div>
+<script src="{{ url_for('static', filename='js/event-invite.js') }}"></script>
 {% endblock %}

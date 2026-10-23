@@ -147,9 +147,36 @@
   {% endif %}
 </section>
 
+{% if mine %}
+<section class="panel panel-wide">{% include "_invite_card.html" %}</section>
+{% endif %}
+
 <section class="panel panel-wide" id="connections">
   <h3 class="panel-title">Family &amp; connections</h3>
   {% if rel_error %}<p class="hero-error" role="alert">{{ rel_error }}</p>{% endif %}
+  <div class="tree-line">
+    <span class="tree-ico" aria-hidden="true">🌳</span>
+    <div>
+      {% if invites.by %}<p>{{ 'You were' if is_me else hero.name ~ ' was' }} invited by <a href="{{ url_for('grower_page', grower_id=invites.by.id) }}">{{ invites.by.name }}</a>{% if invites.by.via %} <span class="muted">({{ invites.by.via }})</span>{% endif %}.</p>
+      {% else %}<p class="muted">{{ 'You came' if is_me else hero.name ~ ' came' }} to the farm on {{ 'your' if is_me else 'their' }} own: a root of the mother tree.</p>{% endif %}
+      {% if invites.invited %}<p>{{ 'You invited' if is_me else 'Invited' }} {% for k in invites.invited %}<a href="{{ url_for('grower_page', grower_id=k.id) }}">{{ k.name }}</a>{{ ', ' if not loop.last and loop.revindex > 2 else (' and ' if not loop.last else '') }}{% endfor %}{% if invites.family > invites.invited | length %}, and {{ invites.family - invites.invited | length }} more grew from them{% endif %}.</p>{% endif %}
+      <a class="panel-link" href="{{ url_for('time_page', view='tree', hero=hero.id) }}">See {{ 'your' if is_me else hero.name ~ "'s" }} branch on the mother tree →</a>
+    </div>
+  </div>
+  {% if (is_me and not invites.by) or current_user.is_admin %}
+  <details class="admin-box">
+    <summary>{{ 'Who invited you?' if is_me and not invites.by else 'Who invited ' ~ hero.name ~ '?' }}</summary>
+    <form method="post" action="{{ url_for('grower_inviter', grower_id=hero.id) }}">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <select name="inviter" required aria-label="Who invited them">
+        <option value="">Pick a hero…</option>
+        {% for o in inviter_candidates %}<option value="{{ o.id }}"{% if invites.by and invites.by.id == o.id %} selected{% endif %}>{{ o.name }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="btn btn-ghost">Save</button>
+      {% if current_user.is_admin and invites.by %}<button type="submit" name="clear" value="1" class="link-btn" formnovalidate>clear</button>{% endif %}
+    </form>
+  </details>
+  {% endif %}
   {% if rel_sent %}<p class="hero-welcome" role="status">Sent to <strong>{{ rel_sent }}</strong>. It shows up for everyone once they confirm.</p>{% endif %}
   {% if connections %}
   <ul class="rel-list">
@@ -239,4 +266,5 @@
   NevetHero.viewer(document.getElementById('hero-canvas'), stage, {{ hero.appearance | tojson }}, {{ catalog | tojson }});
 })();
 </script>
+{% if mine %}<script src="{{ url_for('static', filename='js/event-invite.js') }}"></script>{% endif %}
 {% endblock %}

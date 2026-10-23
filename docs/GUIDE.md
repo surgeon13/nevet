@@ -35,8 +35,13 @@ page on a phone, you can play. Younger players: there's a
    and don't tell it to anyone.
 3. **That's it.** You stay logged in on that phone for 30 days.
 
-Sometimes you need an **invite code** to join (the person who runs the
-garden can give you one, and the QR code fills it in for you).
+Sometimes you need an **invite code** to join. The friend who invited you
+has one, and their invite link or QR code fills it in for you.
+
+**Invite your friends:** every player has their own invite link, code and
+QR code, on the **Account** page and on your own hero page. Share it, or
+let a friend scan it. When they join, they grow on **your branch** of the
+farm's mother tree, and your hero page shows who you invited.
 
 Played Nevet before under a name like `M`? Sign up with that same name and
 you get your old hero back, with all its plants and history.
@@ -390,6 +395,24 @@ until today.
   was picked, and the photos.
 - Drag, scroll or use the slider to travel; tap a blossom to jump to it;
   ▶ plays the whole story.
+- **Golden arcs** over the vine join each hero's day to the day of the
+  friend who invited them.
+
+**The mother tree** 🌳: the tree button turns the story into a tree of
+who invited whom. The trunk is the two vines twisted together, and time
+runs up it. Each hero is a blossom in their outfit colour, on the branch
+of the hero who invited them, as high as the day they joined. Heroes who
+came on their own grow straight from the trunk, with a little gold ring.
+Ribbons join heroes who are partners, family, friends or teammates. Play
+the story and the tree grows day by day, a golden seed travelling along
+each new branch. Drag to walk round the tree, and tap a hero to see who
+invited them, who they invited and who they're connected to. Your hero
+page has a link straight to your branch.
+
+**Not sure who invited someone?** A hero can say who invited them once,
+on their hero page ("Who invited you?"). An admin can set it or change it
+for anyone. The tree can't go round in a circle: nobody can be invited
+by someone they invited.
 
 ## XP and levels
 

@@ -53,3 +53,17 @@ html, body.time-body { height: 100%; margin: 0; overflow: hidden; background: li
 .time-empty { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); width: min(340px, calc(100% - 40px)); text-align: center;
   padding: 16px; border-radius: 18px; background: var(--t-glass); box-shadow: var(--t-shadow); color: var(--t-magenta); font: italic 16px/1.4 Georgia, serif; }
 @media (max-width: 520px) { .time-card { max-height: 36vh; padding: 10px 13px; } .time-card h2 { font-size: 18px; } }
+/* the mother tree view (who invited whom, grown through the same story) */
+.time-mode { font-size: 20px; }
+.time-mode .i-vine, .time-mode[aria-pressed="true"] .i-tree { display: none; }
+.time-mode[aria-pressed="true"] .i-vine { display: inline; }
+.time-mode[aria-pressed="true"] { background: var(--t-love); }
+.time-card .time-hero { display: flex; align-items: center; gap: 8px; }
+.time-card .time-dot { width: 14px; height: 14px; border-radius: 50%; flex: none; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 1px 4px rgba(0, 0, 0, 0.25); }
+.time-card li.tree::before { background: linear-gradient(135deg, #ffd36b, #e0a21b); border-radius: 50%; transform: none; }
+.time-legend { position: absolute; right: 12px; top: calc(64px + env(safe-area-inset-top)); display: grid; gap: 4px; padding: 8px 10px; border-radius: 14px;
+  background: var(--t-glass); box-shadow: var(--t-shadow); font-size: 11.5px; font-weight: 600; color: var(--t-ink); }
+.time-legend span { display: flex; align-items: center; gap: 6px; }
+.time-legend i { width: 18px; height: 4px; border-radius: 4px; display: inline-block; }
+.time-legend[hidden] { display: none; }
+@media (max-width: 520px) { .time-legend { display: none; } }

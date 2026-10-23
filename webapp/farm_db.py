@@ -370,6 +370,28 @@ def get_conn():
     for col in ("qr_scans", "qr_joins"):
         if col not in ev_cols:
             conn.execute(f"ALTER TABLE events ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0")
+    # Who invited whom (added later, see invites.py): each player's own invite code, the hero who
+    # invited them and how, and the invite log.
+    if "invited_by" not in cols:
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(growers)")}
+    for col, decl in (("invited_by", "INTEGER"), ("invited_via", "TEXT"), ("invite_code", "TEXT")):
+        if col not in cols:
+            conn.execute(f"ALTER TABLE growers ADD COLUMN {col} {decl}")
+    conn.executescript("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_growers_invite_code ON growers(invite_code);
+        CREATE INDEX IF NOT EXISTS idx_growers_invited_by ON growers(invited_by);
+        CREATE TABLE IF NOT EXISTS invite_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            at TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            inviter_id INTEGER,
+            invitee_id INTEGER,
+            via TEXT,
+            place TEXT,
+            note TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_invite_events_inviter ON invite_events(inviter_id, kind);
+    """)
     return conn
 
 
