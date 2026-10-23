@@ -3005,9 +3005,12 @@
   // Everyone who isn't wrestling dances in a ring round the arena's wall (leaving the two gates clear), doing the
   // party's dances: one at a time for everyone, a new one every 16 beats. In the ring dances the whole ring moves:
   // the Hora steps round, the Conga marches round, in Mayim Mayim everyone steps in towards the fire and out.
-  function campJoin(h) {
+  function campJoin(h) {                               // walk to the nearest place on the ring, then dance round it to your own place
     h.camp = true; h.campAt = null;
-    goTo(h, campSlot(h), function () { if (h.camp) { face(h, FIRE); doAct(h, 'campdance', 9999, null, clockNow()); } });
+    var p = h.root.position, a = Math.atan2(p.z - FIRE.z, p.x - FIRE.x) + ((h.i % 9) - 4) * 0.11, half = Math.asin(Math.min(0.9, 1.9 / CAMP.r));   // (spread out: not all to one spot)
+    ARENA_GATES.forEach(function (gA) { var d = ((a - gA + PI * 3) % TAU) - PI; if (Math.abs(d) < half) a = gA + (d < 0 ? -half : half) * 1.05; });   // not in a gate
+    var at = V(FIRE.x + Math.cos(a) * CAMP.r, 0, FIRE.z + Math.sin(a) * CAMP.r);
+    goTo(h, at, function () { if (h.camp) { face(h, FIRE); doAct(h, 'campdance', 9999, null, clockNow()); } });
   }
   function campSlot(h) {
     var list = heroes.filter(function (o) { return o.camp; }).sort(function (a, b) { return a.i - b.i; });
@@ -3036,7 +3039,9 @@
     heroes.forEach(function (h) {                      // dancers move round the ring (never across the arena) to their places
       if (!h.camp || h.act !== 'campdance') return;
       var tgt = campSlot(h), p = h.root.position, ox = p.x - FIRE.x, oz = p.z - FIRE.z, r0 = Math.hypot(ox, oz) || 1;
-      var a0 = Math.atan2(oz, ox), da = ((tgt.a - a0 + PI * 3) % TAU) - PI, tr = Math.hypot(tgt.x - FIRE.x, tgt.z - FIRE.z), dr = tr - r0;
+      var a0 = Math.atan2(oz, ox), da = ((tgt.a - a0 + PI * 3) % TAU) - PI, tr = Math.hypot(tgt.x - FIRE.x, tgt.z - FIRE.z);
+      if (Math.abs(da) * r0 > 1.5) tr = ARENA_W + 0.95;   // a long way to your place: along the inside lane, past the dancers
+      var dr = tr - r0;
       var lin = (id === 'conga' ? 3.2 : 2.6) * dt * (Math.abs(da) * r0 > 6 ? 1.8 : 1);     // a long way round: hurry
       var stA = Math.max(-lin / r0, Math.min(lin / r0, da)), stR = Math.max(-lin, Math.min(lin, dr));
       var a1 = a0 + stA, r1 = Math.max(ARENA_W + 0.95, r0 + stR);
@@ -4837,6 +4842,8 @@
       }
       if (what === 'cannons' || !what) FX.cannons.forEach(function (c) { fireCannon(c, now); });
     },
+    camp: function () { return heroes.filter(function (h) { return h.camp || h.act === 'campdance'; }).map(function (h) { var t = campSlot(h), p = h.root.position;
+      return [h.name, h.camp, h.act, +Math.atan2(p.z - FIRE.z, p.x - FIRE.x).toFixed(2), +Math.hypot(p.x - FIRE.x, p.z - FIRE.z).toFixed(2), +t.a.toFixed(2), h.path.length]; }); },
     setDark: function (on) { FARM_DARK = !!on; nightTarget = lightTarget(current); night = nightTarget; showLight(); }
   };
 })();

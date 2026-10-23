@@ -13,6 +13,9 @@
   in blossom with petals on the wind, flocks of birds, shooting stars at
   night, hot-air balloons, the northern lights, and at last the mother
   tree in golden bloom.
+- Fix: at the campfire, heroes walk to the nearest free spot on the dance
+  ring, then dance round an inside lane to their own place. They no longer
+  queue at one gate or bunch up on top of each other.
 
 ## 2026-10-23 (who invited whom: invite links and the mother tree)
 
