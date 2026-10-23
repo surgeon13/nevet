@@ -190,6 +190,13 @@ through the gate (up to 16, the most active first) and they do things
 together. **Nothing on the farm changes the garden's real records**: it's
 just for fun.
 
+**The farm's layout:** the farmyard is in the middle (beds, barn, pond,
+windmill, and a signpost in the yard). The **campfire field** is to the east
+with the mud arena, and the **party field** is to the west with the big stage
+and a big wheel. The **play park** is beyond the yard's gate. Each big
+activity has a field of its own, so everyone has room and you can see them
+all. Heroes jog when they have a long way to go.
+
 **How to look around:** drag to turn, pinch to zoom, tap a hero to follow
 them (they wave at you, and you see their powers), tap the ground to let
 go. The camera button saves a picture. On a keyboard: keys 1-7 pick an
@@ -207,8 +214,10 @@ dusk by itself, so the fire can glow.
   and heroes go to them first.
 - **Planting day**: sowing the new field and watching it sprout.
 - **Campfire dance** 🔥: dusk falls and the fire roars up in the middle of
-  **the mud arena**: a gladiators' ring round the fire pit, as big as the
-  crowd, with a sandstone wall, columns with torches and two gates.
+  **the mud arena** in the campfire field: a gladiators' ring round a big
+  fire pit, sized for the crowd (up to about 20 m across). It has a
+  sandstone wall, marble columns with torches, four gates, gladiators'
+  tents, and eight braziers that shoot flames into the sky.
   Everyone dances round it, the same dances as the party (Disco, Pogo,
   the Robot, the Chicken dance, and ring dances: the Hora steps round,
   Mayim Mayim steps in to the fire and out, the Conga marches round).
@@ -221,6 +230,10 @@ dusk by itself, so the fire can glow.
   grand victory, and the champion gets a ceremony by the fire while
   everyone dances with their hands up. Then a new tournament begins. The
   board over the north gate shows the bout and the points.
+  **The show:** the braziers fire all the way round at the bell, the
+  nearest ones flare up at every throw, and fireworks go up in the
+  winner's colour. For the champion, the braziers fire on every beat, the
+  sky fills with fireworks and the fire burns in rainbow colours.
 - **Animal care**: feeding the worms, the chickens (they come running) and
   the ducks, and checking the beehives.
 - **Play park** ⚽: football in two teams (the Tomatoes and the
@@ -231,10 +244,19 @@ dusk by itself, so the fire can glow.
   bout and football match, so everyone watching sees the same thing, and
   every grab, throw, goal and win is kept. See [Powers and game
   stats](#powers-and-game-stats).
-- **Party!**: a stage with a DJ (whoever opened the farm), a light-up
-  dance floor, lasers, a disco ball and confetti. Everyone does the same
-  dance, from Disco and the Robot to the Chicken dance, the Hora, Debka
-  and the Conga line, and a spotlight picks someone for a solo.
+- **Party!**: the party field's big stage. The DJ (whoever opened the
+  farm) stands in front of an LED video wall that changes picture every
+  16 beats, between speaker stacks, under a truss with moving lights and a
+  neon NEVET sign. There's a 17 x 15 m light-up dance floor with room for
+  everyone, two neon arches, laser fans, a disco ball, fog and balloons,
+  and searchlights sweeping the sky. A big wheel turns behind the stage.
+  On every drop, flame jets fire along the stage. Every second drop, the
+  confetti cannons go off and fireworks burst over the floor. Everyone
+  does the same dance, from Disco and the Robot to the Chicken dance, the
+  Hora, Debka and the Conga line, and a spotlight picks someone for a
+  solo.
+- **Calm devices:** if your phone or computer is set to reduce motion,
+  the flame jets, fireworks and confetti cannons stay off.
 
 **The party synth:** the synth button opens a little music machine, and
 the party dances to it. **303** is the bass: tap a step to turn it on (tap

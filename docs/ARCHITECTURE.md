@@ -172,8 +172,17 @@ A Flask app served by waitress on port 8000:
   `POST /farm/world` and passed as `data.world` (`?world=` previews one);
   it picks the ground, sky, fog, ground cover and the scenery builder, and
   little moving things register a step function in `WORLD_ANIM`. The
-  navigation grid covers the farm and the play park beyond the gate
-  (`PLAY`); the Play activity hands out stations (`PST`: the ring, football,
+  layout lives at the top of farm3d.js: `LAND` is the outer fence, about
+  4.2 times the old farm's ground. Inside it are the farmyard (`FARM`, its
+  fence along the play park with the gate), the campfire field to the east
+  (`FIRE`, `ARENA_W`, `CAMP_R`), the party field to the west (`PARTY_C`,
+  `STAGE_HX`/`STAGE_HZ`, `STAGE`, the big wheel `WHEEL`) and the play park
+  (`PLAY`, `HEDGE_X`). `BOX`, 1 m beyond the fence, is what the scenery
+  goes round: farm-worlds.js gets it and places its trees, animals and
+  props outside it. The navigation grid covers the whole farm. Each
+  obstacle has a bounding box, and `buildNav()` marks only the cells it
+  covers. A hero pushed off its route re-plans, and long walks turn into
+  a jog. The Play activity hands out stations (`PST`: the ring, football,
   swings, slide, seesaw, trampoline, sandbox, watching the ring, touchline)
   and `stepFootball()` runs the ball and both teams outside the path
   planner. The mud arena is built around the campfire, its size from the
@@ -185,7 +194,15 @@ A Flask app served by waitress on port 8000:
   `stepMatch()` plays the station's football match. The fire is drawn
   with a noise shader on camera-facing planes (`FLAME_FS`, `flameBoard()`,
   also the torches) with a glow, ground light, embers, smoke and a
-  flickering light (`FIREFX`); `FARM_DARK` / `lightTarget()` keep the farm
+  flickering light (`FIREFX`). For the champion, its `uRainbow` uniform
+  turns the flames rainbow. Show effects (`FX`): `makeJet()` /
+  `fireJet()` are flame jets, used for the arena's braziers and the
+  stage's pyro; `launchWork()` fires a firework, a pool of `Points`
+  bursts; `makeCannon()` / `fireCannon()` are confetti cannons. All three
+  are skipped when the device asks for reduced motion. The party stage
+  (floor, booth, truss, LED wall with the `LED_FS` shader, speakers) stays
+  up all the time and rests between parties (`stepStage()`); `PARTY.group`
+  holds what only shows at a party. `FARM_DARK` / `lightTarget()` keep the farm
   in daylight unless the sun / moon button says night, and the campfire
   dims to dusk. `addGear()` puts the style's props on a hero's
   arms, head and body and `removeGear()` takes them off.

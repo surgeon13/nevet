@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-10-23 (a farm 4.2 times bigger: fields for the campfire and the party)
+
+- **The farm is 4.2 times bigger** (in ground, so about twice as wide each
+  way). One outer fence goes round the farmyard, the play park and two new
+  fields. The scenery of all nine lands moved out round it.
+- **The campfire field** (east) has the mud arena at about twice the
+  size, up to about 20 m across. It has a bigger fire pit, four gates,
+  more columns and torches, gladiators' tents, and eight braziers round
+  the outside. Dancers keep every gate clear and move round the ring,
+  never across the arena.
+- **The party field** (west) has a 17 x 15 m dance floor with room round
+  every dancer, and a permanent stage: a DJ booth in front of an LED video
+  wall (four moving pictures that pulse with the kick), speaker stacks and
+  line arrays, a truss with six moving lights and the neon NEVET sign,
+  four searchlights, and a big wheel turning behind it.
+- **Vivid effects**: flame jets (the arena's braziers on the bell, throws
+  and winners, the stage's pyro on the drops), fireworks (in the winner's
+  colour, a sky full for the champion, every second drop at the party),
+  confetti cannons, neon arches, laser fans from the booth and the truss,
+  and rainbow flames for the grand champion. If the device asks for
+  reduced motion, the jets, fireworks and cannons stay off.
+- **Walking**: heroes jog on long walks between the fields. A hero pushed
+  off its route plans a new way instead of walking through things. The
+  navigation grid now builds much faster.
+- **The camera** stands further back for the campfire, the party and the
+  play park, so you can see everyone.
+- The yard has a signpost in a ring of flowers where the fire used to be.
+  The cart and the chalkboard are back in their old places, and paths
+  lead out to both fields.
+
 ## 2026-10-22 (the campfire's mud tournament, daylight, a fire in full glory)
 
 - **No fighting in the play park**: it's football, swings, slide, seesaw,

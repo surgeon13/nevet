@@ -42,11 +42,13 @@ in one go.
   (thirsty plants, hungry worms, ripe fruit).
 - 🗺️ **A garden map** on real streets or satellite photos, where you draw
   beds, paths, taps and trees.
-- 🚜 **A 3D farm** where all the heroes harvest, water, play football,
-  dance round the campfire while a mud-wrestling tournament crowns a
-  champion,
-  feed the animals and party, in nine different lands (desert, seaside,
-  snowy mountains, jungle, a city...). It can run as a live channel on a TV.
+- 🚜 **A 3D farm** where all the heroes harvest, water, feed the animals
+  and play football. In a field of its own they dance round the campfire
+  while a mud-wrestling tournament crowns a champion, with flame jets and
+  fireworks. In another they party on a big stage with an LED wall,
+  lasers and a big wheel. There are nine different lands (desert, seaside,
+  snowy mountains, jungle, a city...), and it can run as a live channel
+  on a TV.
 - 🎈 **Events** for parties, festivals and work days: the next ones on the
   dashboard with one-tap "Going", a QR code and printable poster to invite
   people, volunteer jobs, a map of the site, check-ins and photos.

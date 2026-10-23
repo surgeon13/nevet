@@ -37,7 +37,7 @@
 
   var THREE, PI = Math.PI, TAU = Math.PI * 2;
   var group, cyl, box, sphere, cone, mesh, mat, rot, outline, blobShadow, statics, scene, movers, hillH, rng, R, rr, V,
-      SEA_Y, PLAY, WORLD, WORLD_ANIM, EXTRA_OBST, INNER_TREES, textCanvas, merge;
+      SEA_Y, PLAY, BOX, WORLD, WORLD_ANIM, EXTRA_OBST, INNER_TREES, textCanvas, merge;
 
   function build(K) {
     THREE = window.THREE;
@@ -45,6 +45,10 @@
     outline = K.outline; blobShadow = K.blobShadow; statics = K.statics; scene = K.scene; movers = K.movers; hillH = K.hillH;
     rng = K.rng; R = K.R; rr = K.rr; V = K.V; SEA_Y = K.SEA_Y; PLAY = K.PLAY; WORLD = K.world; WORLD_ANIM = K.WORLD_ANIM;
     EXTRA_OBST = K.EXTRA_OBST; INNER_TREES = K.INNER_TREES; textCanvas = K.textCanvas; merge = K.merge;
+    // the box the scenery goes round: 1 m beyond the farm's outer fence (it grew: the campfire and party fields)
+    BOX = K.BOX || { x0: -21, x1: 21, z0: -21, z1: PLAY.maxZ + 1.2 };
+    var EAST = BOX.x1 - 21, WEST = BOX.x0 + 21;         // how far the east and west edges moved out (hand-placed scenery moves with them)
+    var SPREAD = ((BOX.x1 - BOX.x0) + (BOX.z1 - BOX.z0)) / 98.6;     // more round a bigger farm, as thick as before
   function roundTree(x, z, apple, k) {
     var t = group([x, hillH(x, z), z]);
     var hgt = rr(1.6, 2.4);
@@ -110,12 +114,13 @@
     statics.add(r);
     if (moss) statics.add(sphere(k * 0.75, moss === true ? '#5f9a43' : moss, [x, hillH(x, z) + k * 0.55, z], [1.1, 0.35, 1], 8));
   }
-  // spots outside the farm and the play park, at least `gap` apart: `from`..`to` metres beyond them
+  // spots outside the farm, at least `gap` apart: `from`..`to` metres beyond it
   function outsideSpots(n, from, to, gap, seed, ok) {
     var out = [], r2 = rng(seed);
+    n = Math.round(n * SPREAD);
     for (var t = 0; t < n * 30 && out.length < n; t++) {
-      var x = (r2() * 2 - 1) * (to + 22), z = (r2() * 2 - 1) * (to + 22) + 6;
-      var beyond = Math.max(Math.abs(x) - 21, -z - 21, z - PLAY.maxZ - 1.2);
+      var x = BOX.x0 - to + r2() * (BOX.x1 - BOX.x0 + 2 * to), z = BOX.z0 - to + r2() * (BOX.z1 - BOX.z0 + 2 * to);
+      var beyond = Math.max(BOX.x0 - x, x - BOX.x1, BOX.z0 - z, z - BOX.z1);
       if (beyond < from || beyond > to || (ok && !ok(x, z))) continue;
       if (out.some(function (p) { return (p[0] - x) * (p[0] - x) + (p[1] - z) * (p[1] - z) < gap * gap; })) continue;
       out.push([x, z, beyond]);
@@ -235,8 +240,8 @@
     return local(g, 1.4, H + 2.4, -0.6);
   }
   function snowfall() {
-    var N = 1500, geo = new THREE.BufferGeometry(), P = new Float32Array(N * 3), seeds = [];
-    for (var i = 0; i < N; i++) seeds.push([rr(-60, 60), rr(0, 32), rr(-50, 62), rr(0.7, 1.5), rr(0, TAU)]);
+    var N = Math.round(1500 * SPREAD), geo = new THREE.BufferGeometry(), P = new Float32Array(N * 3), seeds = [];
+    for (var i = 0; i < N; i++) seeds.push([rr(BOX.x0 - 8, BOX.x1 + 8), rr(0, 32), rr(BOX.z0 - 30, BOX.z1 + 26), rr(0.7, 1.5), rr(0, TAU)]);
     geo.setAttribute('position', new THREE.BufferAttribute(P, 3));
     var pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.17, transparent: true, opacity: 0.9, depthWrite: false }));
     pts.frustumCulled = false; scene.add(pts);
@@ -252,8 +257,8 @@
     INNER_TREES.forEach(function (t) { snowPine(t[0], t[1], 1.1, true); });
     outsideSpots(130, 1.5, 46, 3, 61).forEach(function (s) { snowPine(s[0], s[1], rr(0.9, 1.6), s[2] < 10); });
     outsideSpots(10, 2, 30, 5, 62).forEach(function (s) { rock(s[0], s[1], rr(0.6, 1.3), '#8f96a0', '#f6f9fc'); });
-    [[24.5, 21, -0.8], [-24, 28, 0.9], [25.5, 31.5, -1.2]].forEach(function (s) { snowman(s[0], s[1], s[2]); });
-    smoke(cabin(-30, 8, PI / 2), 7, 1.4, 6, '#e8e8e8');
+    [[24.5 + EAST, 21, -0.8], [-24 + WEST, 28, 0.9], [25.5 + EAST, 31.5, -1.2]].forEach(function (s) { snowman(s[0], s[1], s[2]); });
+    smoke(cabin(-30 + WEST, 8, PI / 2), 7, 1.4, 6, '#e8e8e8');
     peaks(12, '#8d97a3', '#f6f9fc', 63);
     snowfall();
   }
@@ -394,9 +399,9 @@
     outsideSpots(4, 6, 40, 14, 82).forEach(function (s) { baobab(s[0], s[1]); });
     outsideSpots(10, 1, 32, 5, 83).forEach(function (s) { termiteMound(s[0], s[1]); });
     outsideSpots(4, 6, 36, 12, 84).forEach(function (s) { for (var i = 0; i < 4; i++) rock(s[0] + rr(-2.5, 2.5), s[1] + rr(-2.5, 2.5), rr(0.8, 1.8), '#b08a62'); });
-    var necks = [giraffe(27, -8, -1.9), giraffe(29.5, -3.5, -2.4), giraffe(-27.5, -15, 1.2)];
-    var ears = elephant(-31, 4, 1.3).concat(elephant(-34.5, 9.5, 0.9));
-    var grazers = [zebra(28, 22, -1.2), zebra(30, 24.5, -1.6), zebra(29, 27, -0.9), zebra(31.5, 21, -2.0), zebra(32, 26, -1.4)];
+    var necks = [giraffe(27 + EAST, -8, -1.9), giraffe(29.5 + EAST, -3.5, -2.4), giraffe(-27.5 + WEST, -15, 1.2)];
+    var ears = elephant(-31 + WEST, 4, 1.3).concat(elephant(-34.5 + WEST, 9.5, 0.9));
+    var grazers = [zebra(28 + EAST, 22, -1.2), zebra(30 + EAST, 24.5, -1.6), zebra(29 + EAST, 27, -0.9), zebra(31.5 + EAST, 21, -2.0), zebra(32 + EAST, 26, -1.4)];
     WORLD_ANIM.push(function (now) {
       necks.forEach(function (n, i) { n.rotation.x = 0.3 + Math.sin(now * 0.4 + i * 2) * 0.22; });
       ears.forEach(function (e, i) { e.rotation.y = (i % 2 ? 1 : -1) * (0.5 + Math.sin(now * 2.2 + i) * 0.35); });
@@ -411,7 +416,7 @@
 
   // ---------------- Pacific island lagoon: a turquoise lagoon, the reef, palms, overwater huts, a canoe, a volcano, dolphins
   function aroundBox(off, t) {                         // a point on the rounded outline `off` metres beyond the farm, t in 0..1
-    var x0 = -21, x1 = 21, z0 = -21, z1 = PLAY.maxZ + 1.2, w = x1 - x0, h = z1 - z0, arc = PI / 2 * off, L = 2 * (w + h) + 4 * arc, s = (t % 1 + 1) % 1 * L;
+    var x0 = BOX.x0, x1 = BOX.x1, z0 = BOX.z0, z1 = BOX.z1, w = x1 - x0, h = z1 - z0, arc = PI / 2 * off, L = 2 * (w + h) + 4 * arc, s = (t % 1 + 1) % 1 * L;
     var segs = [[w, function (u) { return [x0 + u, z0 - off, 0]; }], [arc, function (u) { var a = -PI / 2 + u / off; return [x1 + Math.cos(a) * off, z0 + Math.sin(a) * off, a + PI / 2]; }],
                 [h, function (u) { return [x1 + off, z0 + u, PI / 2]; }], [arc, function (u) { var a = u / off; return [x1 + Math.cos(a) * off, z1 + Math.sin(a) * off, a + PI / 2]; }],
                 [w, function (u) { return [x1 - u, z1 + off, PI]; }], [arc, function (u) { var a = PI / 2 + u / off; return [x0 + Math.cos(a) * off, z1 + Math.sin(a) * off, a + PI / 2]; }],
@@ -442,10 +447,10 @@
     WORLD_ANIM.push(function (now) { foam.material.opacity = 0.45 + Math.sin(now * 1.3) * 0.25; });
     // overwater huts on the east side with a boardwalk from the beach
     var bw = group([0, 0, 0]);
-    for (var x = 22.5; x < 36; x += 1.6) { bw.add(box(1.5, 0.12, 1.4, x % 3.2 < 1.6 ? '#b98b5a' : '#a57849', [x, 0.5, 4])); bw.add(cyl(0.08, 0.08, 2.6, '#7a5233', [x, -0.8, 4.6], 5)); }
-    for (var zb = -4; zb <= 12; zb += 1.6) if (Math.abs(zb - 4) > 0.8) bw.add(box(1.4, 0.12, 1.5, '#b98b5a', [36, 0.5, zb]));
+    for (var x = 22.5; x < 36; x += 1.6) { bw.add(box(1.5, 0.12, 1.4, x % 3.2 < 1.6 ? '#b98b5a' : '#a57849', [x + EAST, 0.5, 4])); bw.add(cyl(0.08, 0.08, 2.6, '#7a5233', [x + EAST, -0.8, 4.6], 5)); }
+    for (var zb = -4; zb <= 12; zb += 1.6) if (Math.abs(zb - 4) > 0.8) bw.add(box(1.4, 0.12, 1.5, '#b98b5a', [36 + EAST, 0.5, zb]));
     statics.add(bw);
-    [[39.5, -4, -PI / 2], [39.5, 4, -PI / 2], [39.5, 12, -PI / 2]].forEach(function (h) { hut(h[0], h[1], h[2]); });
+    [[39.5, -4, -PI / 2], [39.5, 4, -PI / 2], [39.5, 12, -PI / 2]].forEach(function (h) { hut(h[0] + EAST, h[1], h[2]); });
     // an outrigger canoe going round the lagoon
     var canoe = group();
     var hull = box(0.7, 0.35, 4.2, '#8a5f3a', [0, 0.1, 0]); canoe.add(hull);
@@ -474,9 +479,9 @@
         d.rotation.set(-Math.cos(j * PI) * 0.9, Math.atan2(q2[0] - p[0], q2[1] - p[1]), 0, 'YXZ');
       });
     });
-    // tiki torches by the play park, lit at night
+    // tiki torches along the farm's east and west fences, lit at night
     var flames = [];
-    [[-21.6, 19], [-21.6, 27], [-21.6, 34.5], [21.6, 19], [21.6, 27], [21.6, 34.5]].forEach(function (t) {
+    [[BOX.x0 - 0.6, 19], [BOX.x0 - 0.6, 27], [BOX.x0 - 0.6, 34.5], [BOX.x1 + 0.6, 19], [BOX.x1 + 0.6, 27], [BOX.x1 + 0.6, 34.5]].forEach(function (t) {
       statics.add(cyl(0.07, 0.09, 2.2, '#6b4a2b', [t[0], 1.1, t[1]], 6)); statics.add(cyl(0.16, 0.12, 0.3, '#3a2a1a', [t[0], 2.3, t[1]], 8));
       var f = mesh(new THREE.ConeGeometry(0.16, 0.5, 8), new THREE.MeshBasicMaterial({ color: 0xffa23d, transparent: true, opacity: 0.9 }), [t[0], 2.7, t[1]]);
       scene.add(f); flames.push(f);
@@ -489,7 +494,7 @@
   // rooftop gardens, water towers, street lights and a billboard
   function city() {
     INNER_TREES.forEach(function (t) { roundTree(t[0], t[1], false, 0.85); });
-    var I = { x0: -21.6, x1: 21.6, z0: -21.6, z1: PLAY.maxZ + 1.8 };
+    var I = { x0: BOX.x0 - 0.6, x1: BOX.x1 + 0.6, z0: BOX.z0 - 0.6, z1: BOX.z1 + 0.6 };
     function grow(r, d) { return { x0: r.x0 - d, x1: r.x1 + d, z0: r.z0 - d, z1: r.z1 + d }; }
     function plane(x0, x1, z0, z1, color, y) { var p = mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), color); p.rotation.x = -PI / 2; p.position.set((x0 + x1) / 2, y, (z0 + z1) / 2); statics.add(p); }
     function ring(a, b, color, y) { plane(b.x0, b.x1, b.z0, a.z0, color, y); plane(b.x0, b.x1, a.z1, b.z1, color, y); plane(b.x0, a.x0, a.z0, a.z1, color, y); plane(a.x1, b.x1, a.z0, a.z1, color, y); }
@@ -592,7 +597,7 @@
       INNER_TREES.forEach(function (t, i) { roundTree(t[0], t[1], i === 0); });
       outsideSpots(32, 3.5, 30, 5, 21).forEach(function (s2, i) { roundTree(s2[0], s2[1], i % 4 === 0); });
     } else if (WORLD === 'desert') {
-      palmTree(17, -2, 1, 0.7); cactus(-18, -16, 1.1);
+      INNER_TREES.forEach(function (t, i) { if (i === 1) cactus(t[0], t[1], 1.1); else palmTree(t[0], t[1], 1, 0.7); });
       [[19.1, 7.0], [19.2, 14.1]].forEach(function (p) { palmTree(p[0], p[1], 1.05); EXTRA_OBST.push(p); });   // the oasis
       outsideSpots(14, 1.5, 12, 3.5, 31).forEach(function (s2) { palmTree(s2[0], s2[1]); });
       outsideSpots(26, 2, 40, 4, 32).forEach(function (s2) { cactus(s2[0], s2[1]); });
@@ -607,7 +612,7 @@
         mg.scale.set(1, 1, rr(0.6, 1.4)); mg.rotation.y = R() * TAU;
         statics.add(mg);
       }
-      animal('camel', 26.5, 7.5, -2.2); animal('camel', 28.4, 11.2, -1.4);
+      animal('camel', 26.5 + EAST, 7.5, -2.2); animal('camel', 28.4 + EAST, 11.2, -1.4);
       // tumbleweeds rolling by
       for (var tw = 0; tw < 3; tw++) {
         var weed = mesh(new THREE.IcosahedronGeometry(0.45, 1), mat('#a8834f', { wireframe: true }));
@@ -616,7 +621,7 @@
         WORLD_ANIM.push(function (now) { var u = weed.userData, x = ((now * u.sp + u.ph) % 120) - 60; weed.position.set(x, hillH(x, u.z) + 0.45 + Math.abs(Math.sin(now * 3 + u.ph)) * 0.3, u.z); weed.rotation.z = -now * u.sp / 0.45; });
       }
     } else if (WORLD === 'seaside') {
-      palmTree(17, -2, 1, 0.8); palmTree(-18, -16, 1, 0.5);
+      INNER_TREES.forEach(function (t, i) { palmTree(t[0], t[1], 1, [0.8, 0.5][i % 2]); });
       var dry = function (x, z) { return z > -22; };
       outsideSpots(14, 1.5, 14, 3.5, 41, dry).forEach(function (s2) { palmTree(s2[0], s2[1]); });
       outsideSpots(22, 4, 38, 4.5, 42, dry).forEach(function (s2) { pine(s2[0], s2[1], rr(0.9, 1.3), s2[2] < 14); });
@@ -692,7 +697,7 @@
         lg.rotation.set(0, R() * TAU, PI / 2); lg.rotation.order = 'YZX';
         statics.add(outline(lg, 1.03));
       });
-      var deer = [animal('deer', 25.0, -5.5, -1.9), animal('deer', 26.6, -2.6, -2.5)];
+      var deer = [animal('deer', 25.0 + EAST, -5.5, -1.9), animal('deer', 26.6 + EAST, -2.6, -2.5)];
       WORLD_ANIM.push(function (now) { deer.forEach(function (hd, i) { hd.rotation.x = 0.2 + Math.max(0, Math.sin(now * 0.5 + i * 2)) * 0.7; }); });   // grazing
       movers.add(deer[0]); movers.add(deer[1]);
     } else if (SCENERY[WORLD]) SCENERY[WORLD]();

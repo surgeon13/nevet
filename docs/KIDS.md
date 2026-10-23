@@ -53,7 +53,10 @@ all the heroes play together! They can:
 - dance at a party with lights and music 🪩
 - dance around the campfire 🔥, while three at a time have a silly muddy
   splash match in the mud ring round the fire. The winners go on, and at
-  the end there's a champion! 🏆
+  the end there's a champion! 🏆 Then there are fireworks, and the fire
+  turns rainbow colours 🌈
+- party on the big stage with a giant video screen, lasers, flame jets and
+  confetti cannons, next to a big wheel 🎡
 
 The farm is sunny. Tap the 🌙 button to make it night, and ☀️ to make it
 day again.
