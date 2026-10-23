@@ -176,12 +176,21 @@ coloured one-screen summary:
 ```bash
 nevet            # summary
 nevet -n 10      # latest 10 instead of 5
-nevet -w         # live view, refreshes every 5 s (Ctrl+C to stop)
+nevet -w         # live view: shows it again every X minutes (Ctrl+C to stop)
+nevet -w 10m     # live view every 10 minutes (or -w 30s for every 30 seconds)
 nevet net        # network test: every WiFi adapter, ping + 5 MB download (~30 s)
 nevet net --quick   # same without the download
 nevet ts         # can Nevet be opened from outside? (Tailscale check)
 nevet public on  # open Nevet to everyone (Tailscale Funnel); off / status
 ```
+
+**The live view's X minutes** come from the same setting as the photos.
+`sudo ./install.sh 5 15` shows the dashboard every 5 minutes. When photos
+are off, it uses the update check's interval instead. Each refresh comes
+about 20 seconds after the photo or the update check, so the newest
+results are already on screen. To pick your own interval, set
+`NEVET_REFRESH_MIN=10`. Leave `nevet -w` running in an SSH window, or on
+a screen next to the Pi.
 
 **Web app traffic.** The web app counts every request and the bytes it sent and received,
 per day, by type (photos & videos, static files such as the 3D libraries,

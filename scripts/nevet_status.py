@@ -3,8 +3,10 @@
 
   nevet            system status, last 24 h, garden summary, latest logs
   nevet -n 10      show the latest 10 garden actions / system events
-  nevet -w         live view, refreshes every 5 s (Ctrl+C to stop)
-  nevet -w 2       live view, refreshes every 2 s
+  nevet -w         live view: shows the dashboard again every X minutes, X being the
+                   photo interval (or the update check's, when photos are off), just
+                   after each new photo or update (Ctrl+C to stop)
+  nevet -w 10m     live view every 10 minutes; nevet -w 30s (or -w 30) every 30 seconds
   nevet --no-color plain text (colours are also off when piped)
   nevet --color | less -R   keep colours when paging
   nevet net        network test: each WiFi adapter's signal, speed and
@@ -170,6 +172,72 @@ def unit_info(unit):
     nxt = info.get("NextElapseUSecRealtime", "")
     info["next"] = datetime.fromtimestamp(float(nxt[1:])) if nxt.startswith("@") and nxt[1:].replace(".", "").isdigit() else None
     return info
+
+
+# ---------------------------------------------------------------- the live view's interval
+SYSTEMD_DIR = Path(os.environ.get("NEVET_SYSTEMD_DIR", "/etc/systemd/system"))
+INTERVAL_TIMERS = (("nevet-timelapse", "the photos"), ("nevet-update", "the update check"))
+
+
+def timer_minutes(name):
+    """An installed Nevet timer's interval in minutes, as install.sh set it; None when it isn't installed or is off."""
+    try:
+        text = (SYSTEMD_DIR / f"{name}.timer").read_text()
+    except OSError:
+        return None
+    m = re.search(r"^\s*OnUnitActiveSec\s*=\s*(\d+)\s*min", text, re.M)
+    if not m:
+        return None
+    state = run(["systemctl", "is-enabled", f"{name}.timer"], any_rc=True)
+    if state and state.split()[0] in ("disabled", "masked"):    # switched off (install.sh ... off)
+        return None
+    return int(m.group(1))
+
+
+def refresh_interval():
+    """-> (minutes, what it follows, timer unit or None): how often `nevet -w` shows the dashboard again.
+
+    The same X minutes as the photos (sudo ./install.sh X ...), or the update check's when photos are off, so the
+    view changes when there is something new to see. NEVET_REFRESH_MIN overrides it."""
+    env = os.environ.get("NEVET_REFRESH_MIN", "").strip()
+    try:
+        if env and float(env) > 0:
+            return float(env), "NEVET_REFRESH_MIN", None
+    except ValueError:
+        pass
+    for name, label in INTERVAL_TIMERS:
+        mins = timer_minutes(name)
+        if mins:
+            return mins, label, name + ".timer"
+    return 5, "the default", None
+
+
+def parse_every(text):
+    """'10m' -> 600, '30s' / '30' -> 30 (seconds, like before), 'auto' -> None (follow the photos)."""
+    t = str(text).strip().lower()
+    if t in ("", "auto"):
+        return None
+    m = re.fullmatch(r"(\d+(?:\.\d+)?)\s*(s|sec|m|min|h)?", t)
+    if not m:
+        raise argparse.ArgumentTypeError(f"use minutes like 10m, or seconds like 30s (got {text!r})")
+    n, unit = float(m.group(1)), m.group(2) or "s"
+    return n * (3600 if unit == "h" else 60 if unit in ("m", "min") else 1)
+
+
+def next_refresh(every, now=None):
+    """-> (seconds to wait, why) for the live view. With no fixed `every`: X minutes, but just after the next photo or
+    update when its timer says when that is (20 s later, so it's in the logs)."""
+    now = now or datetime.now()
+    if every:
+        return max(1.0, every), f"every {every:g}s" if every < 120 else f"every {every / 60:g} min"
+    mins, label, unit = refresh_interval()
+    wait = mins * 60
+    info = unit_info(unit) if unit else None
+    if info and info.get("next"):
+        due = (info["next"] - now).total_seconds() + 20
+        if 5 < due <= wait + 60:
+            wait = due
+    return max(5.0, wait), f"every {mins:g} min, like {label}"
 
 
 # ---------------------------------------------------------------- data
@@ -1649,7 +1717,8 @@ def main():
     ap.add_argument("--kiosk", action="store_true", help="screen: no key hints and no quitting (for the Pi's display)")
     ap.add_argument("--quick", action="store_true", help="net: skip the 5 MB download test")
     ap.add_argument("-n", type=int, default=5, metavar="N", help="how many latest actions/events (default 5)")
-    ap.add_argument("-w", "--watch", nargs="?", const=5, type=float, metavar="SEC", help="refresh every SEC seconds")
+    ap.add_argument("-w", "--watch", nargs="?", const="auto", type=str, metavar="EVERY",
+                    help="live view: show it again every X minutes (the photo interval), or every EVERY (10m, 30s)")
     ap.add_argument("--no-color", action="store_true", help="plain text")
     ap.add_argument("--color", action="store_true", help="colours even when piped (e.g. into less -R)")
     a = ap.parse_args()
@@ -1684,13 +1753,21 @@ def main():
         return
     if not a.watch:
         print(render(n))
+        mins, label, _ = refresh_interval()
+        print(C.wrap(f" nevet -w shows this again every {mins:g} min, like {label}", "grey"))
         return
+    try:
+        every = parse_every(a.watch)
+    except argparse.ArgumentTypeError as e:
+        ap.error(str(e))
     try:
         while True:
             screen = render(n)
-            sys.stdout.write("\033[H\033[2J" + screen + C.wrap(f"\n refreshing every {a.watch:g}s {SEP} Ctrl+C to stop", "grey"))
+            wait, why = next_refresh(every)
+            nxt = (datetime.now() + timedelta(seconds=wait)).strftime("%H:%M" if wait >= 60 else "%H:%M:%S")
+            sys.stdout.write("\033[H\033[2J" + screen + C.wrap(f"\n shown at {datetime.now():%H:%M} {SEP} next at {nxt} ({why}) {SEP} Ctrl+C to stop", "grey"))
             sys.stdout.flush()
-            time.sleep(max(1, a.watch))
+            time.sleep(wait)
     except KeyboardInterrupt:
         print()
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-23 (the terminal dashboard every X minutes)
+
+- `nevet -w` now shows the dashboard again every X minutes. X is the same
+  interval as the photos (`sudo ./install.sh X ...`), or the update check's
+  when photos are off. Each refresh comes just after a new photo or
+  update. `nevet -w 10m` and `nevet -w 30s` pick another interval, and
+  `NEVET_REFRESH_MIN` sets the default. Plain `nevet` says how often the
+  live view refreshes.
+
 ## 2026-10-23 (a farm 4.2 times bigger: fields for the campfire and the party)
 
 - **The farm is 4.2 times bigger** (in ground, so about twice as wide each
