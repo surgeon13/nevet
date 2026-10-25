@@ -6,7 +6,10 @@
   nevet -w         live view: shows the dashboard again every X minutes, X being the
                    photo interval (or the update check's, when photos are off), just
                    after each new photo or update (Ctrl+C to stop)
-  nevet -w 10m     live view every 10 minutes; nevet -w 30s (or -w 30) every 30 seconds
+  nevet -w 10      live view every 10 minutes; nevet -w 30s every 30 seconds
+  nevet show       the shop window: a colourful, curious look at the farm for people walking past, with a QR
+                   code to join; nevet show -w prints it again every X minutes; nevet show on | off | status
+                   puts it on the Pi's own display at every boot
   nevet --no-color plain text (colours are also off when piped)
   nevet --color | less -R   keep colours when paging
   nevet net        network test: each WiFi adapter's signal, speed and
@@ -213,14 +216,14 @@ def refresh_interval():
 
 
 def parse_every(text):
-    """'10m' -> 600, '30s' / '30' -> 30 (seconds, like before), 'auto' -> None (follow the photos)."""
+    """'10' / '10m' -> 600, '30s' -> 30, 'auto' -> None (follow the photos)."""
     t = str(text).strip().lower()
     if t in ("", "auto"):
         return None
     m = re.fullmatch(r"(\d+(?:\.\d+)?)\s*(s|sec|m|min|h)?", t)
     if not m:
-        raise argparse.ArgumentTypeError(f"use minutes like 10m, or seconds like 30s (got {text!r})")
-    n, unit = float(m.group(1)), m.group(2) or "s"
+        raise argparse.ArgumentTypeError(f"use minutes like 10 (or 10m), or seconds like 30s (got {text!r})")
+    n, unit = float(m.group(1)), m.group(2) or "m"          # a plain number is minutes, like the installer's X
     return n * (3600 if unit == "h" else 60 if unit in ("m", "min") else 1)
 
 
@@ -1714,13 +1717,14 @@ def ts_check():
 
 def main():
     ap = argparse.ArgumentParser(prog="nevet", description="Nevet status for the terminal.")
-    ap.add_argument("command", nargs="?", default="status", choices=["status", "net", "ts", "tailscale", "public", "screen", "tags"],
+    ap.add_argument("command", nargs="?", default="status", choices=["status", "net", "ts", "tailscale", "public", "screen", "show", "tags"],
                     help="status (default), net (network test), ts (Tailscale / remote access check) "
                          "public (open Nevet to everyone with Tailscale Funnel: public on | off | status) "
-                         "screen (welcome dashboard with a join QR code: screen [on | off | status]) "
+                         "screen (welcome dashboard with a join QR code: screen [on | off | status]), "
+                         "show (the shop window for passers-by: show [-w] [on | off | status]) "
                          "or tags (NFC / RFID tags: tags [list | reader | check | export])")
     ap.add_argument("action", nargs="?", default=None,
-                    help="public / screen: on, off or status; tags: list, reader, check or export")
+                    help="public / screen / show: on, off or status; tags: list, reader, check or export")
     ap.add_argument("dir", nargs="?", default=None, help="tags export: the folder to write the Flipper files to")
     ap.add_argument("--port", help="tags: the Flipper's serial port (default: found by itself)")
     ap.add_argument("--stdin", action="store_true", help="tags reader/check: UIDs from a USB card reader that types them")
@@ -1745,7 +1749,7 @@ def main():
     if a.command in ("ts", "tailscale"):
         ts_check()
         return
-    if a.command in ("public", "screen") and a.action not in (None, "on", "off", "status"):
+    if a.command in ("public", "screen", "show") and a.action not in (None, "on", "off", "status"):
         ap.error(f"{a.command}: use on, off or status")
     if a.command == "tags":
         if a.action not in (None, "list", "reader", "check", "export"):
@@ -1757,6 +1761,17 @@ def main():
         sys.exit(nevet_tags.main(a))
     if a.command == "public":
         sys.exit(public_access(a.action or "status"))
+    if a.command == "show":                            # the shop window for people walking past (scripts/nevet_show.py)
+        sys.path.insert(0, str(REPO / "scripts"))
+        import nevet_show
+        nevet_show.ns.C.on = C.on
+        if a.action:
+            sys.exit(nevet_show.autostart(a.action))
+        try:
+            every = parse_every(a.watch) if a.watch else False
+        except argparse.ArgumentTypeError as e:
+            ap.error(str(e))
+        sys.exit(nevet_show.run(every, kiosk=a.kiosk))
     if a.command == "screen":
         sys.path.insert(0, str(REPO / "scripts"))
         import nevet_screen

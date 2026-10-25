@@ -95,6 +95,7 @@ render_unit() {
 
 render_unit "$REPO_DIR/systemd/nevet-webapp.service"    /etc/systemd/system/nevet-webapp.service
 render_unit "$REPO_DIR/systemd/nevet-screen.service"    /etc/systemd/system/nevet-screen.service   # off until `nevet screen on`
+render_unit "$REPO_DIR/systemd/nevet-show.service"      /etc/systemd/system/nevet-show.service     # off until `nevet show on`
 render_unit "$REPO_DIR/systemd/nevet-timelapse.service" /etc/systemd/system/nevet-timelapse.service
 render_unit "$REPO_DIR/systemd/nevet-timelapse.timer"   /etc/systemd/system/nevet-timelapse.timer
 render_unit "$REPO_DIR/systemd/nevet-watchdog.service"  /etc/systemd/system/nevet-watchdog.service
@@ -191,7 +192,8 @@ echo "   nevet-update.timer      -> check GitHub for updates every ${UPDATE_MIN}
 fi
 echo "   Tailscale               -> ${TS_LINE}"
 echo ""
-echo " Status in the terminal:  nevet     (live view: nevet -w)"
+echo " Status in the terminal:  nevet     (live view: nevet -w, every ${INTERVAL_MIN/off/$UPDATE_MIN} min)"
+echo " For people walking past: nevet show  (on the Pi's display at every boot: nevet show on)"
 echo " Remote access check:     nevet ts    Network test: nevet net"
 echo "=============================================="
 echo ""

@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-10-25 (the shop window: a print for people walking past)
+
+- **`nevet show`** prints a colourful, curious look at the farm for people
+  who don't play yet. It has a big NEVET, a whisper and a headline that
+  change every time (the champion, ripe plants, the bloom, the mother
+  tree, the next event), what's happening right now, "Did you know?"
+  teasers about what's inside, and a QR code to join. It shows only hero
+  names, what they did and numbers: no addresses beyond the join link, no
+  codes in text, no notes, family links or station details.
+- **Every X minutes**: `nevet show -w` prints it again on the installer's
+  interval (the photos', or the update check's when photos are off), just
+  after each new photo or update. `nevet show on` puts it on the Pi's
+  own display at every boot, and installs its service by itself when it
+  can.
+- `nevet -w 10` now means every 10 minutes (seconds need an `s`:
+  `-w 30s`), the same unit as the installer's X.
+- The QR code's rows stay lined up even next to emoji, and the Pi's
+  console gets plain marks instead of emoji it can't draw.
+
 ## 2026-10-25 (fight kit at the campfire)
 
 - **Wrestlers fight in an MMA-style kit**: when they walk into the mud

@@ -30,7 +30,7 @@ Players don't need any of this: they only need the [player guide](GUIDE.md).
 5. [Accounts and passwords](#accounts-and-passwords)
 6. [Open Nevet from outside the garden](#open-nevet-from-outside-the-garden-tailscale)
 7. [Open Nevet to everyone](#open-nevet-to-everyone-tailscale-funnel)
-8. [The welcome screen with the join QR code](#the-welcome-screen-with-the-join-qr-code)
+8. [The welcome screen with the join QR code](#the-welcome-screen-with-the-join-qr-code) and [the shop window](#the-shop-window-a-print-for-people-walking-past)
 9. [Tags and the Flipper Zero](#tags-and-the-flipper-zero)
 10. [WiFi and the USB antenna](#wifi-and-the-usb-antenna)
 11. [The camera, photos and logs](#the-camera-photos-and-logs)
@@ -177,7 +177,8 @@ coloured one-screen summary:
 nevet            # summary
 nevet -n 10      # latest 10 instead of 5
 nevet -w         # live view: shows it again every X minutes (Ctrl+C to stop)
-nevet -w 10m     # live view every 10 minutes (or -w 30s for every 30 seconds)
+nevet -w 10      # live view every 10 minutes (or -w 30s for every 30 seconds)
+nevet show       # the shop window for people walking past (see below)
 nevet net        # network test: every WiFi adapter, ping + 5 MB download (~30 s)
 nevet net --quick   # same without the download
 nevet ts         # can Nevet be opened from outside? (Tailscale check)
@@ -344,6 +345,47 @@ the printable posters) start with the address set on the Tags page, or
 `NEVET_JOIN_URL`. Printed posters only carry the invite code when an admin
 picks **Poster for new people**.
 
+## The shop window: a print for people walking past
+
+`nevet show` prints a colourful look at the farm, made to make people who
+don't play yet curious enough to scan the code and join. It has:
+
+- NEVET in big letters and a whisper that changes every time ("Psst... the
+  heroes of this garden have a secret 3D farm.");
+- a headline picked from what's really happening: the campfire's grand
+  champion, how many plants are ripe, how far the farm has bloomed, the
+  mother tree, the next event;
+- **Right now on the farm**: heroes and plants, this week's actions and
+  harvest, the latest things done (by hero name), the campfire champion,
+  the bloom, and the events coming up;
+- **Did you know?**: three things waiting inside, different each time
+  (the 3D farm, powers you can't buy, the mother tree, the party...);
+- a QR code to join, beside the text on a wide screen and below it on a
+  narrow one, on the same address as the welcome screen.
+
+It only shows what the welcome screen shows: hero names, what they did and
+the farm's numbers. It never shows addresses (apart from the join link),
+invite codes in text, notes, family links or anything about the station.
+On the Pi's own display, which has no emoji font, it uses plain marks
+instead of emoji.
+
+```
+nevet show              print it once
+nevet show -w           print it again every X minutes (Ctrl+C to stop)
+nevet show -w 10        every 10 minutes instead
+nevet show on           print it on the Pi's display (tty1) at every boot, every X minutes
+nevet show off          give the display back to the login prompt
+nevet show status       is it on, and how often does it change?
+```
+
+**X** is the photo interval you gave the installer (`sudo ./install.sh 5
+15`: every 5 minutes), or the update check's when photos are off, and each
+print comes just after the photo or the update, so it's fresh. Set
+`NEVET_REFRESH_MIN` for your own interval. `nevet show on` installs its
+service by itself when it can (or run `sudo ./install.sh` once). The shop
+window and the welcome screen take turns for the Pi's display: turning one
+on turns the other off.
+
 ## Tags and the Flipper Zero
 
 How tags work for players is in the [player guide](GUIDE.md#tags-tap-a-sticker-to-log). This part is about
@@ -489,6 +531,7 @@ scripts/                    capture_photo.sh, capture_video.sh, test_camera_scri
                             wifi_antenna.sh, nevet_status.py (the `nevet` command)
   scripts/nevet_tags.py       `nevet tags`: tag list, the gate reader (Flipper Zero or USB reader), Flipper export
   scripts/nevet_screen.py     `nevet screen`: the welcome dashboard with the join QR code
+  scripts/nevet_show.py       `nevet show`: the shop window printed every X minutes for passers-by
   scripts/lib/log.sh          shared timestamped logging helper
   scripts/lib/camera.sh       "is a camera plugged in?" check shared by the capture scripts
 webapp/                      Flask app: dashboard, heroes, garden map, gallery, logs, game stats

@@ -2,7 +2,7 @@
 Description=Nevet welcome screen with a join QR code on the Pi's own display (tty1)
 # Not started by default: `nevet screen on` (or sudo systemctl enable --now nevet-screen) turns it on.
 After=nevet-webapp.service systemd-user-sessions.service
-Conflicts=getty@tty1.service
+Conflicts=getty@tty1.service nevet-show.service
 StartLimitIntervalSec=0
 
 [Service]

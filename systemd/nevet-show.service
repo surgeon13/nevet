@@ -1,0 +1,28 @@
+[Unit]
+Description=Nevet shop window on the Pi's own display (tty1): what's happening on the farm and a QR code to join, new every X minutes
+# Not started by default: `nevet show on` (or sudo systemctl enable --now nevet-show) turns it on.
+# X is the photo interval the installer set (or the update check's), read from the timers.
+After=nevet-webapp.service systemd-user-sessions.service
+Conflicts=getty@tty1.service nevet-screen.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__REPO_DIR__
+EnvironmentFile=-__REPO_DIR__/.env
+Environment=CAMERA_BASE_DIR=__HOME__/camera_captures
+Environment=TERM=linux
+Environment=LANG=C.UTF-8
+ExecStart=/usr/bin/python3 __REPO_DIR__/scripts/nevet_status.py show -w --kiosk
+StandardInput=tty
+StandardOutput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

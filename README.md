@@ -77,7 +77,9 @@ sudo ./install.sh
 
 Then open the web address the installer prints and sign up: the first
 account becomes the admin. After that, Nevet updates itself. Type `nevet`
-in the terminal any time to see how it's doing. The
+in the terminal any time to see how it's doing, and `nevet show on` to
+put a curious, ever-changing look at the farm (with a QR code to join) on
+a screen people walk past. The
 [station guide](docs/STATION.md) walks through every step, including the
 camera, opening Nevet from outside the garden and the welcome screen.
 

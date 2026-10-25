@@ -250,9 +250,14 @@ def community():
     except Exception:                                  # (very old databases)
         groups = 0
     conn.close()
-    score = c["heroes"] + c["invited"] + 1.5 * c["connections"] + 2 * groups
+    return dict(c, **bloom(c["heroes"], c["invited"], c["connections"], groups))
+
+
+def bloom(heroes, invited, connections, groups):
+    """The bloom from the counts (also used by `nevet show`, which reads the database without the web app)."""
+    score = heroes + invited + 1.5 * connections + 2 * groups
     level = round(1 - math.exp(-score / 40.0), 3)
     unlocked = [k for t, k, _ in BLOOM if level >= t]
     nxt = next(({"at": t, "key": k, "name": name} for t, k, name in BLOOM if level < t), None)
-    return dict(c, groups=groups, score=round(score, 1), level=level, unlocked=unlocked, next=nxt,
-                gifts=[{"at": t, "key": k, "name": name, "on": level >= t} for t, k, name in BLOOM])
+    return {"groups": groups, "score": round(score, 1), "level": level, "unlocked": unlocked, "next": nxt,
+            "gifts": [{"at": t, "key": k, "name": name, "on": level >= t} for t, k, name in BLOOM]}
