@@ -54,9 +54,14 @@ in one go.
   people, volunteer jobs, a map of the site, check-ins and photos.
 - 🏷️ **Tags**: stickers and QR labels on plants. Tap one with a phone and
   the job is logged.
+- 🏆 **Leaderboards**: heroes ranked by XP from real garden work (this
+  week, 30 days, all time), a podium, rank titles from 🌱 Seedling to
+  👑 Legend of Nevet, and top fives for the most active, the steadiest,
+  harvest, fighters, glory, goals and inviters.
 - 💪 **Powers and game stats**: every hero's powers grow from real garden
-  work (never bought), matches are kept fair, and every goal, punch, throw
-  and win is recorded.
+  work (never bought), exponentially with every level, multiplied by a
+  fractal rhythm (how steadily you show up) that also sets your fighting
+  style on the Mandelbrot set. Every goal, throw and win is recorded.
 - 💚 **Family and groups**, connected only when both people say yes.
 - 🌳 **Invite friends** with your own link or QR code. A mother tree shows
   who invited whom, and the 3D farm **blooms** as the community grows:

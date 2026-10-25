@@ -225,6 +225,7 @@ main { padding: 20px; max-width: 1000px; margin: 0 auto; }
 .hero-field input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .hero-field-label { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); }
 .hero-field-hint { font-size: 12px; color: var(--text-dim); font-weight: 400; text-transform: none; letter-spacing: 0; }
+.kit-intro { display: block; margin: 4px 0 12px; font-size: 13px; line-height: 1.45; }
 
 .hero-classes, .hero-cat { border: 0; padding: 0; margin: 0 0 16px; min-width: 0; }
 .hero-classes legend, .hero-cat legend { padding: 0; margin-bottom: 8px; }
@@ -656,6 +657,11 @@ dialog.today-dialog { width: min(440px, calc(100vw - 32px)); }
 .seg-links a { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); text-decoration: none; color: var(--text); font-size: 0.85rem; }
 .seg-links a.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .formula { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; font-size: 0.88rem; overflow-x: auto; }
+/* fighting styles (games.STYLES: where the fractal rhythm puts a hero on the Mandelbrot set) */
+.style-chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; white-space: nowrap; color: #1d2a1f; }
+.style-steady { background: #bdf0c3; } .style-two-beat { background: #ffe7a3; } .style-many-beat { background: #ffd0ad; } .style-wild { background: #ffc2cf; }
+canvas.mandel { display: block; width: 100%; border-radius: 14px; background: #0e2218; margin: 6px 0 8px; }
+.style-key { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 0.86rem; }
 .records { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin: 8px 0 12px; }
 .record { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 8px 10px; display: flex; flex-direction: column; gap: 1px; }
 .record span { font-size: 0.78rem; color: var(--text-dim); }
@@ -705,3 +711,73 @@ dialog.today-dialog { width: min(440px, calc(100vw - 32px)); }
 .tree-line a { color: #ad1457; font-weight: 700; text-decoration: none; }
 .tree-line a:hover { text-decoration: underline; }
 :root[data-theme="dark"] .tree-line a { color: #ff8fb8; }
+
+/* ---------- leaderboards (stats.html) and the dashboard's leaderboard card ---------- */
+.lb-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 6px 16px; }
+.lb-head h2 { margin: 0 0 4px; }
+.lb-head p { margin: 0 0 10px; max-width: 46em; }
+.lb-me { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 4px 0 14px; padding: 10px 14px; border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent) 10%, var(--bg-card)); }
+.lb-me-place { font-size: 1.5rem; font-weight: 900; color: var(--accent); min-width: 2.2em; text-align: center; }
+.lb-me-text { flex: 1 1 18em; font-size: 0.92rem; }
+.lb-empty { padding: 18px; text-align: center; border: 1px dashed var(--border); border-radius: 14px; }
+.podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 8px; max-width: 560px; margin: 6px auto 16px; }
+.podium-spot { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: var(--text); min-width: 0; }
+.podium-spot.place-1 { order: 2; } .podium-spot.place-2 { order: 1; } .podium-spot.place-3 { order: 3; }
+.podium-avatar { width: 100%; max-width: 132px; aspect-ratio: 220 / 260; display: flex; align-items: flex-end; justify-content: center; }
+.podium-avatar img { width: 100%; height: auto; display: block; }
+.podium-avatar .hero-initial { --c: var(--accent); margin-bottom: 10px; }
+.podium-name { font-weight: 800; font-size: 0.95rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.podium-rank { font-size: 0.74rem; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.podium-block { width: 100%; margin-top: 6px; border-radius: 12px 12px 4px 4px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  padding-top: 8px; color: #2b2410; font-size: 0.82rem; font-weight: 800; box-shadow: inset 0 -6px 0 rgba(0,0,0,0.08); }
+.podium-block b { font-size: 1.6rem; line-height: 1.1; }
+.place-1 .podium-block { height: 96px; background: linear-gradient(#ffe27a, #f2c230); }
+.place-2 .podium-block { height: 72px; background: linear-gradient(#eef1f4, #c3cad1); }
+.place-3 .podium-block { height: 56px; background: linear-gradient(#f5c79c, #d99560); }
+.podium-spot.is-me .podium-name::after { content: " (you)"; color: var(--accent); }
+.lb-main { margin: 0 0 14px; }
+.lb-table td { vertical-align: middle; }
+.lb-table tr.is-me td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.lb-place { font-weight: 800; text-align: center; width: 2.4em; }
+.lb-table .lv { margin-right: 6px; }
+.lb-table .xpbar { display: inline-block; width: 64px; vertical-align: middle; }
+.lb-hero { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); min-width: 0; }
+.lb-hero > span:last-child { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; min-width: 0; }
+.lb-hero small { color: var(--text-dim); font-size: 0.75rem; white-space: nowrap; }
+.lb-face { flex: none; width: 34px; height: 34px; border-radius: 50%; overflow: hidden; display: inline-flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--accent) 22%, var(--bg-card)); color: var(--accent); font-weight: 800; font-size: 0.9rem; }
+.lb-face img { width: 100%; height: 100%; display: block; }
+.lb-boards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin: 0 0 18px; }
+.lb-board { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; min-width: 0; }
+.lb-board h3 { margin: 0 0 8px; font-size: 0.95rem; }
+.lb-board ol { margin: 0; padding-left: 1.4em; display: grid; gap: 5px; }
+.lb-board li { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; font-size: 0.9rem; }
+.lb-board li a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); text-decoration: none; font-weight: 600; }
+.lb-board li b { font-variant-numeric: tabular-nums; }
+.lb-board li small { grid-column: 1 / -1; color: var(--text-dim); font-size: 0.74rem; }
+.lb-board li.is-me a { color: var(--accent); }
+.lb-board li::marker { color: var(--text-dim); font-weight: 700; }
+.lb-more { margin: 6px 0 0; font-size: 0.8rem; }
+.lb-section { margin: 22px 0 8px; }
+.lb-details { margin: 8px 0 4px; }
+.lb-details summary { cursor: pointer; font-weight: 700; margin-bottom: 8px; }
+.lb-card { margin: 14px 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 16px;
+  background: linear-gradient(135deg, color-mix(in srgb, #f2c230 12%, var(--bg-card)), var(--bg-card) 60%); }
+.lb-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.lb-card-head h2 { margin: 0 0 8px; font-size: 1.05rem; }
+.lb-card-head .panel-link { margin-top: 0; }
+.lb-card-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.lb-card-list li { display: grid; grid-template-columns: 2em minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 10px; }
+.lb-card-list li.is-me { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.lb-card-place { text-align: center; font-weight: 800; font-size: 1.05rem; }
+.lb-card-xp { font-size: 0.85rem; color: var(--text-dim); white-space: nowrap; }
+.lb-card-xp b { color: var(--text); font-size: 1rem; }
+.lb-card-foot { margin: 8px 0 0; font-size: 0.86rem; color: var(--text-dim); }
+.lb-card-foot b { color: var(--text); }
+.lb-table .lb-hero-col { text-align: left; }
+@media (max-width: 560px) {
+  .lb-table .lb-wide { display: none; }
+  .lb-table th, .lb-table td { padding: 7px 6px; }
+  .podium-block b { font-size: 1.3rem; }
+}

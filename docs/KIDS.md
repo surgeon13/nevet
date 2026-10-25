@@ -41,6 +41,11 @@ They grow when you really help in the garden: picking and planting make
 your hero stronger, watering gives stamina, feeding the worms grows a big
 heart 💚. You can't buy powers. You grow them!
 
+Every time your hero goes up a level, their powers get **much** bigger.
+And helping a little bit every week is the best of all: it gives your
+hero a steady fighting style. Open **🏆 Leaderboards** to see who's on
+top this week, and your own place! 🥇
+
 ## Visit the farm 🚜
 
 Tap the big brain picture on the first page. You'll see a 3D farm where
@@ -52,7 +57,8 @@ all the heroes play together! They can:
 - play football and go on the swings and the slide ⚽
 - dance at a party with lights and music 🪩
 - dance around the campfire 🔥, while three at a time put on their
-  fighting clothes (shorts, a top and big gloves) and have a silly muddy
+  fighting clothes (boxer shorts, big gloves and their own sports top if
+  they want one: pick it on your hero's Arena kit tab) and have a silly muddy
   splash match in the mud ring round the fire. The winners go on, and at
   the end there's a champion! 🏆 Then there are fireworks, and the fire
   turns rainbow colours 🌈

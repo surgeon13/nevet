@@ -36,10 +36,10 @@ Every page needs a logged-in player except `/login`, `/register`,
 | POST | `/assets/<id>/species` | Pick which plant model it's drawn with: `species` = a catalog id, or `auto` (from the name) |
 | GET | `/gallery` | Photos/videos grouped by date |
 | GET | `/media/<path>` | One media file (guarded to stay inside `CAMERA_BASE_DIR`) |
-| GET | `/stats` | The XP tab: the mud arena (glory, records, the tournament's bracket, the hall of champions) and football leaderboards (`?period=7`, `30` or `all`), the latest matches, and the stats other programs send |
+| GET | `/leaderboards` | The Leaderboards tab (`/stats` still works): the hero ranking by XP with a podium (`?period=7`, `30` or `all`: XP earned in that time), top fives (most active, steadiest rhythm, harvest, strongest fighters, glory, goals, inviters), the mud arena (glory, records, the tournament's bracket, the hall of champions), football, the latest matches, and the stats other programs send |
 | GET | `/logs` | System logs (watchdog, capture, web app, updates), refreshes every 5s |
 | GET | `/healthz` | `ok` when the app and database respond (used by the watchdog and updater) |
-| GET | `/powers` | How powers work: where each power comes from, the fairness rules and everyone's powers |
+| GET | `/powers` | How fighting powers work: the formula, exponential levels, the fractal rhythm, the Mandelbrot set with every hero on it, the bout rules and everyone's powers |
 | GET | `/api/games/now` | `?mode=campfire`: the current and next slot of the mud tournament (a bout or the champion's `ceremony`); `?mode=play`: the current and next football match. Made on first ask (JSON: `now`, `mode`, `arena`, `football`, `timing`, `tournament`). Each bout has its `round`, `bout` of `bouts`, `stage` (group / semi / final), `advance` (who goes through), `style`, `fighters` (id, name, corner, level, effective power, spirit) and `events` (`t` seconds from the bell, `a` attacker, `d` defender, `m` move, `r` hit / ko / dodge / slip, `p` points); each match its `teams` (the keeper last), `keepers`, `events` (`t` from kick-off, `type` goal / save / miss, `team`, `by`, `assist`, `keeper`) and `score` |
 | GET | `/join` | Short link in the welcome screen's QR code: counts the scan, then sign-up (`?i=` invite code). Public |
 | GET | `/i/<code>` | A player's own invite link: logs the visit (once per visitor) in the invite log, then sign-up with their code filled in and "<name> invited you". A logged-in player goes to that hero's page. An old or unknown code shows "This invite link has expired". Public |

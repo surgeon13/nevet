@@ -45,9 +45,10 @@
       <button type="button" role="tab" class="hero-tab active" data-tab="looks" aria-selected="true">Looks</button>
       <button type="button" role="tab" class="hero-tab" data-tab="gear" aria-selected="false">Gear</button>
       <button type="button" role="tab" class="hero-tab" data-tab="companion" aria-selected="false">Companion</button>
+      <button type="button" role="tab" class="hero-tab" data-tab="fight" aria-selected="false">Arena kit</button>
     </div>
 
-    {% for group in ['looks', 'gear', 'companion'] %}
+    {% for group in ['looks', 'gear', 'companion', 'fight'] %}
     <div class="hero-panel" data-panel="{{ group }}" role="tabpanel" {% if group != 'looks' %}hidden{% endif %}>
       {% if group == 'companion' %}
       <label class="hero-field">
@@ -56,6 +57,10 @@
                placeholder="e.g. Wiggles">
         <span class="hero-field-hint">Leave empty to use the species name</span>
       </label>
+      {% endif %}
+      {% if group == 'fight' %}
+      <p class="hero-field-hint kit-intro">🥊 In the campfire ring everyone wrestles <b>no-gi</b>: boxer shorts, open-finger MMA gloves and bare feet,
+        with a sports bra or no top. The gloves take your corner's colour in each bout (gold for the champion).</p>
       {% endif %}
       {% for cat in catalog[group] %}
       <fieldset class="hero-cat">
@@ -102,7 +107,9 @@
 (function () {
   var CATALOG = {{ catalog | tojson }};
   var form = document.getElementById('hero-form');
-  var CATS = CATALOG.looks.concat(CATALOG.gear, CATALOG.companion || []);
+  var CATS = CATALOG.looks.concat(CATALOG.gear, CATALOG.companion || [], CATALOG.fight || []);
+  var kitView = false;                 // on the Arena kit tab the preview shows the hero dressed for a bout
+  function shown(a) { return kitView && NevetHero.fightLook ? NevetHero.fightLook(a) : a; }
   var has3D = window.NevetHero && NevetHero.supported();
 
   function readAppearance() {
@@ -121,7 +128,7 @@
   var viewer = null;
   if (has3D) {
     try {
-      viewer = NevetHero.viewer(document.getElementById('hero-canvas'), document.getElementById('hero-stage'), appearance, CATALOG);
+      viewer = NevetHero.viewer(document.getElementById('hero-canvas'), document.getElementById('hero-stage'), shown(appearance), CATALOG);
     } catch (e) { has3D = false; }
   }
   if (!has3D) document.getElementById('hero-stage').classList.add('no-3d');
@@ -176,7 +183,7 @@
   function refresh(changedCats) {
     appearance = readAppearance();
     syncLabels();
-    if (viewer) viewer.set(appearance);
+    if (viewer) viewer.set(shown(appearance));
     var redraw = [];
     (changedCats || []).forEach(function (c) { redraw = redraw.concat(ICON_DEPENDS[c] || []); });
     if (redraw.length) drawIcons(redraw);
@@ -210,7 +217,7 @@
                'Thyme', 'Hazel', 'Reed', 'Aspen', 'Poppy', 'Bramble', 'Sorrel', 'Tansy', 'Yarrow', 'Wren'];
   function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
   document.getElementById('hero-random').addEventListener('click', function () {
-    CATS.forEach(function (c) { if (c.id !== 'gender') setChoice(c.id, pick(c.options).id); });   // gender is the player's call
+    CATS.forEach(function (c) { if (c.id !== 'gender' && c.id !== 'fightTop') setChoice(c.id, pick(c.options).id); });   // gender and the arena top are the player's call
     var nameEl = document.getElementById('hero-name');
     if (!nameEl.value.trim()) {
       var n = pick(NAMES) + ' ' + pick(['the Brave', 'Greenhand', 'Seedkeeper', 'Rootwise', 'Sunpicker', 'Mudboots']);
@@ -228,6 +235,8 @@
         t.setAttribute('aria-selected', on ? 'true' : 'false');
       });
       form.querySelectorAll('.hero-panel').forEach(function (p) { p.hidden = p.dataset.panel !== tab.dataset.tab; });
+      var kit = tab.dataset.tab === 'fight';
+      if (kit !== kitView) { kitView = kit; if (viewer) viewer.set(shown(appearance)); }
     });
   });
 

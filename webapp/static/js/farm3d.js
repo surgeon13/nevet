@@ -2550,10 +2550,7 @@
     var a = {};
     for (var k in h.appearance) a[k] = h.appearance[k];
     if (tool !== undefined && tool !== null) a.hand = tool;
-    if (h.dress) {                                     // a bout at the campfire: the fight kit in the corner's colour, no hat, nothing on the back
-      a.body = 'fight'; a.fightColor = h.dress.color; a.fightTrim = h.dress.trim;
-      a.hand = 'none'; a.head = 'none'; a.back = 'none'; a.earrings = 'none';
-    }
+    if (h.dress) a = NevetHero.fightLook(a, { gloves: h.dress.gloves });   // a bout at the campfire: their no-gi kit, gloves in the corner's colour
     a.pet = 'none';                                    // only the heroes come to the farm; companions stay home
     a.petAccessory = 'none';
     var root = NevetHero.build(a, D.catalog, { outlines: outlines, merge: true });
@@ -2561,7 +2558,7 @@
     return root;
   }
   function setTool(h, tool) {
-    var want = tool === null || tool === undefined ? h.appearance.hand : tool, key = want + (h.dress ? '|fight:' + h.dress.color : '');
+    var want = tool === null || tool === undefined ? h.appearance.hand : tool, key = want + (h.dress ? '|fight:' + h.dress.gloves : '');
     if (h.toolKey === key && h.root) return;
     var old = h.root;
     h.root = buildHeroRoot(h, want);
@@ -3078,14 +3075,15 @@
   // the fire pit: they circle and close in, and every grab and throw happens when the station says, landing, dodged
   // or throwing someone flat (with stars). The most points goes through; they bow and go back to dancing. After the
   // final, the champion has a ceremony by the fire while everyone dances with their hands up.
-  function dressForFight(h, corner, champion) {        // into the fight kit (the champion's is gold, with the belt)
-    h.dress = champion ? { color: '#e8b73a', trim: '#ffffff' } : { color: RING.colors[corner] || RING.colors[0], trim: '#ffffff' };
+  function dressForFight(h, corner, champion) {        // into their no-gi kit, gloves in the corner's colour (the champion's gold, with the belt)
+    h.dress = { gloves: champion ? '#e8b73a' : RING.colors[corner] || RING.colors[0] };
     setTool(h, 'none');
     if (champion) {
       var u = h.root.userData, gold = new THREE.MeshToonMaterial({ color: 0xf2c94c, emissive: new THREE.Color(0x5a3c00), emissiveIntensity: 0.35 });
-      u.hero.add(mesh(new THREE.CylinderGeometry(0.405, 0.405, 0.15, 28), gold, [0, 0.6, 0]));
-      u.hero.add(mesh(new THREE.BoxGeometry(0.3, 0.22, 0.05), gold, [0, 0.6, 0.39]));
-      u.hero.add(mesh(new THREE.SphereGeometry(0.05, 10, 8), mat('#d81b60'), [0, 0.6, 0.42]));
+      var body = u.hero.children[0] || u.hero;          // (on the body, so it fits broader and narrower heroes alike)
+      body.add(mesh(new THREE.CylinderGeometry(0.414, 0.414, 0.15, 28), gold, [0, 0.6, 0]));
+      body.add(mesh(new THREE.BoxGeometry(0.3, 0.22, 0.05), gold, [0, 0.6, 0.405]));
+      body.add(mesh(new THREE.SphereGeometry(0.05, 10, 8), mat('#d81b60'), [0, 0.6, 0.435]));
     }
   }
   function undress(h) {                                 // back into their own clothes
@@ -4839,7 +4837,7 @@
     party: function () { return { dance: dance.cur.id, name: dance.cur.name, form: form.on ? form.kind : null, moving: form.moving }; },
     ring: function () {
       return { phase: RING.phase, bout: RING.bout && RING.bout.id, style: ringStyle().id, winner: RING.winner && RING.winner.name, points: RING.points,
-               fighters: RING.fighters.map(function (h) { return { id: h.id, name: h.name, act: h.act, gear: !!h.gear, x: +h.root.position.x.toFixed(2), z: +h.root.position.z.toFixed(2), down: h.sp.down > clockNow() }; }),
+               fighters: RING.fighters.map(function (h) { return { id: h.id, name: h.name, act: h.act, gear: !!h.gear, kit: h.dress ? h.dress.gloves : null, x: +h.root.position.x.toFixed(2), z: +h.root.position.z.toFixed(2), down: h.sp.down > clockNow() }; }),
                dancing: heroes.filter(function (h) { return h.camp; }).length, dance: dance.cur.id, ceremony: RING.ceremony,
                football: FB.match && { id: FB.match.id, score: FB.score.slice(), players: PST.football.users.map(function (h) { return h.name + ':' + h.fbTeam + ':' + h.act; }) },
                wall: wallNow() };

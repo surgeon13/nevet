@@ -291,5 +291,43 @@
       {"id": "top_hat", "name": "Tiny Top Hat", "rarity": "uncommon"},
       {"id": "crown", "name": "Tiny Crown", "rarity": "rare"}
     ]}
+  ],
+  "fight": [
+    { "id": "fightTop", "label": "Top", "type": "choice", "default": "auto", "options": [
+      {"id": "auto", "name": "Auto (sports bra, none for male heroes)"},
+      {"id": "sports_bra", "name": "Sports bra"},
+      {"id": "none", "name": "No top"}
+    ]},
+    { "id": "fightShorts", "label": "Boxer shorts", "type": "color", "default": "outfit", "options": [
+      {"id": "outfit", "name": "My outfit colour", "color": "conic-gradient(#4c9a5b, #3d7fe0, #e8b73a, #c0504d, #4c9a5b)"},
+      {"id": "black", "name": "Black", "color": "#25282d"},
+      {"id": "white", "name": "White", "color": "#f2f0ea"},
+      {"id": "red", "name": "Red", "color": "#d23b36"},
+      {"id": "blue", "name": "Blue", "color": "#2d6bd3"},
+      {"id": "gold", "name": "Gold", "color": "#e3ad2f"},
+      {"id": "green", "name": "Green", "color": "#2e9a57"},
+      {"id": "purple", "name": "Purple", "color": "#7a4cc0"},
+      {"id": "pink", "name": "Pink", "color": "#e8679a"},
+      {"id": "orange", "name": "Orange", "color": "#ee7a28"},
+      {"id": "teal", "name": "Teal", "color": "#1d9a93"},
+      {"id": "grey", "name": "Grey", "color": "#868e96"}
+    ]},
+    { "id": "fightStyle", "label": "Shorts design", "type": "choice", "default": "stripes", "options": [
+      {"id": "plain", "name": "Plain"},
+      {"id": "stripes", "name": "Side stripes"},
+      {"id": "flames", "name": "Flames"},
+      {"id": "leaves", "name": "Leaves"},
+      {"id": "stars", "name": "Stars"},
+      {"id": "checks", "name": "Checks"}
+    ]},
+    { "id": "fightTrim", "label": "Waistband and trim", "type": "color", "default": "white", "options": [
+      {"id": "white", "name": "White", "color": "#f7f5ef"},
+      {"id": "black", "name": "Black", "color": "#25282d"},
+      {"id": "gold", "name": "Gold", "color": "#f0c13a"},
+      {"id": "red", "name": "Red", "color": "#d23b36"},
+      {"id": "blue", "name": "Blue", "color": "#2d6bd3"},
+      {"id": "green", "name": "Green", "color": "#2e9a57"},
+      {"id": "pink", "name": "Pink", "color": "#f08bb4"}
+    ]}
   ]
 }

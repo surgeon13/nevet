@@ -14,7 +14,7 @@ CATALOG_PATH = Path(__file__).resolve().parent / "static" / "assets" / "heroes" 
 NAME_MIN, NAME_MAX = 1, 20
 NAME_EXTRA_CHARS = set(" _-'.")
 PET_NAME_MAX = 16
-GROUPS = ("looks", "gear", "companion")
+GROUPS = ("looks", "gear", "companion", "fight")   # fight: the no-gi kit heroes wear in the campfire ring
 
 _cache = {"mtime": None, "data": None}
 
@@ -160,3 +160,26 @@ def progress(asset_count=0, log_count=0, harvest_count=0):
         "next_xp": nxt,
         "pct": int(round(100 * (xp - start) / (nxt - start))),
     }
+
+
+# Rank titles by level (the leaderboards, hero pages): a hero keeps the highest title whose level they've reached.
+RANKS = [
+    (1, "🌱", "Seedling"),
+    (3, "🌿", "Sprout"),
+    (5, "🪴", "Sapling"),
+    (8, "🌻", "Grower"),
+    (11, "🌾", "Gardener"),
+    (15, "🌳", "Master gardener"),
+    (20, "👑", "Legend of Nevet"),
+]
+
+
+def rank(level):
+    """{"emoji", "title", "next": (level, title) or None} for a level."""
+    cur, nxt = RANKS[0], None
+    for r in RANKS:
+        if (level or 1) >= r[0]:
+            cur = r
+        elif nxt is None:
+            nxt = r
+    return {"emoji": cur[1], "title": cur[2], "next": {"level": nxt[0], "title": nxt[2]} if nxt else None}

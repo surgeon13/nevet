@@ -102,7 +102,7 @@ reboot, SSH disconnects, and crashes (`Restart=always` / timers):
 
 | Service | What it does |
 |---|---|
-| `nevet-webapp.service` | Flask app on port 8000 — gallery at `/`, stats at `/stats`, live logs at `/logs` |
+| `nevet-webapp.service` | Flask app on port 8000 — gallery at `/`, leaderboards at `/leaderboards`, live logs at `/logs` |
 | `nevet-timelapse.timer` | Runs `scripts/capture_photo.sh` every N minutes |
 | `nevet-watchdog.timer` | Every 2 min: checks WiFi and the web app, reconnects / restarts them if needed (never reboots) |
 | `nevet-update.timer` | Every N min: checks GitHub for a new version, pulls it, restarts the web app, rolls back if it breaks |
@@ -563,10 +563,13 @@ install.sh                    one-shot installer
 CHANGELOG.md                  project history
 ```
 
-### The game stats API (the XP tab)
+### The game stats API (the Leaderboards tab)
 
-The game stats page (`/stats`) is the dashboard's **XP** tab (next to
-Dashboard and Time); Events has its own node.
+The leaderboards page (`/leaderboards`; the old `/stats` still works) is
+the dashboard's **🏆 Leaderboards** tab (next to Dashboard and Time);
+Events has its own node. It's worked out from the database every time
+(`webapp/leaderboards.py`), so nothing is stored and nothing can be faked.
+Stats other programs send show at the bottom of it.
 
 `webapp/game_stats.py` is a small helper for logging XP / time played /
 compost / credits / plant growth to the same SQLite DB the web app reads:
@@ -610,9 +613,15 @@ Full request/response shapes and the DB schema are in [`docs/API.md`](API.md).
 
 Everything about the campfire tournament, football and powers is in `webapp/games.py`, at
 the top, in plain numbers: how much each kind of work counts (`SKILL_WORK`),
-the base power (`BASE`), growth (`GROWTH`), the level bonus, the class
-bonus, the fairness rules (`LUCK`, `SPREAD`, `ROOKIE_*`, `COMEBACK_*`) and
-the match timing (`ARENA`, `CEREMONY`, `FOOTBALL`) and glory (`GLORY`).
+the base power (`BASE`), growth (`GROWTH`), the exponential level
+multiplier (`LEVEL_POWER`, 1.15 a level), the class bonus, the fractal
+rhythm (`RHYTHM_DAYS`, `RHYTHM_LOW` / `RHYTHM_HIGH`), where it puts a hero
+on the Mandelbrot set (`MANDEL_STEADY` / `MANDEL_WILD`, `FORM_SWING`,
+`STYLES`), the luck and fairness rules (`LUCK_FLOOR`, `ROOKIE_*`,
+`COMEBACK_*`) and the match timing (`ARENA`, `CEREMONY`, `FOOTBALL`) and
+glory (`GLORY`). Turn `LEVEL_POWER` down (say 1.08) if veterans win too
+easily, or `LUCK_FLOOR` up for more upsets.
+The rank titles by level are `RANKS` in `webapp/heroes.py`.
 Matches are only made while someone watches the Campfire dance (the
 tournament) or the Play park (football), so a quiet station doesn't fill
 up with games nobody saw. They're kept in `game_tournaments`,

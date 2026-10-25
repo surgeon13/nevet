@@ -204,15 +204,24 @@ A Flask app served by waitress on port 8000:
   up all the time and rests between parties (`stepStage()`); `PARTY.group`
   holds what only shows at a party. `FARM_DARK` / `lightTarget()` keep the farm
   in daylight unless the sun / moon button says night, and the campfire
-  dims to dusk. `dressForFight()` rebuilds a wrestler with hero3d's `fight` body
-  (`a.fightColor`, the corner's colour; gold plus a belt for the champion)
+  dims to dusk. `dressForFight()` rebuilds a wrestler with
+  `NevetHero.fightLook()`: hero3d's `fight` body in the hero's own arena
+  kit (the catalog's `fight` group: `fightTop`, `fightShorts`,
+  `fightStyle`, `fightTrim`; `kitOf()` resolves "auto"), gloves in the
+  corner's colour (`a.fightGloves`; gold plus a belt for the champion),
   and `undress()` changes them back. `addGear()` puts the style's props on a hero's
   arms, head and body and `removeGear()` takes them off.
 - **Games** — `games.py` decides the matches the farm shows, so everyone
   watching sees the same one and the results can be kept. Powers come from
   the logs (`SKILL_WORK`, plus days active, event check-ins and volunteer
-  jobs), the level and the class; `effective()` compresses them and
-  `contest()` turns two of them into the chance a move lands. `now_playing()`
+  jobs), the class, the level (exponential: `level_mult()`) and the fractal
+  rhythm (`_rhythms()` / `fractal_dimension()`: the box-counting dimension
+  of each hero's work days). `mandel_c()` puts the rhythm on the Mandelbrot
+  set's real axis and `form_orbit()` iterates z → z² + c for a wrestler's
+  form move by move; `contest()` turns two powers into the chance a move
+  lands (the attacker's share, 10% to 90%); football compresses powers
+  with `effective()`. `leaderboards.py` works out the rankings and boards
+  from the same tables. `now_playing()`
   makes the current and next campfire slot (32 s: the tournament's next
   bout, or the champion's ceremony, or a new tournament; `game_tournaments`
   keeps the field, the rounds and the champion) and football match

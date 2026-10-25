@@ -13,20 +13,35 @@ divide); the winner of each group goes through. When three are left, the top
 two go through; the last two wrestle for the grand victory. Then there's a
 ceremony for the champion, and a new tournament begins.
 
-Powers come from real garden work (a doocracy: those who do, grow):
+Powers come from real garden work (a doocracy: those who do, grow). What
+you do in the real garden matters far more than anything on the 3D farm:
 
 - every hero starts with the same basic powers (BASE),
 - each power grows with the kind of work that builds it (SKILL_WORK),
   with diminishing returns, so steady work counts more than grinding,
-- every level adds a little to every power (LEVEL_BONUS),
+- levels are exponential: every level multiplies every power by
+  LEVEL_POWER (level 10 is 3.5 times level 1, level 20 fourteen times),
+- the fractal rhythm: the box-counting (fractal) dimension of the days you
+  did real garden work, Mandelbrot's measure of how a pattern fills its
+  space at every scale. Every day -> 1, every week -> about 0.6, one busy
+  weekend and nothing since -> near 0. It multiplies every power
+  (RHYTHM_LOW .. RHYTHM_HIGH), so showing up steadily, week after week,
+  beats one big burst,
+- the rhythm also puts the hero on the real axis of the Mandelbrot set
+  (mandel_c()): steady gardeners sit in the calm main cardioid and fight
+  with steady form; irregular ones drift out through the period-doubling
+  bulbs into the chaotic tail, so their form swings from move to move
+  (form_orbit(): z -> z*z + c),
 - the hero's class adds a small flavour bonus to one power (CLASS_BONUS).
 
 Nothing can be bought: there are no paid items, clothes and gear are only
-looks, and nobody (not even an admin) can set powers by hand. Matches are
-kept fair by normalizing strength: powers are compressed (effective()),
-newcomers and heroes on a losing streak get a small spirit boost, football
-teams are balanced, and luck always plays a part (contest()). Every number
-here is on purpose easy to read and change.
+looks, and nobody (not even an admin) can set powers by hand. In a bout a
+move lands with the attacker's share of the two powers (contest()), so a
+hero twice as strong lands two moves in three; luck keeps every move
+between LUCK_FLOOR and 1 - LUCK_FLOOR. Newcomers and heroes on a losing
+streak get a small spirit boost. Football compresses powers (effective())
+and balances the teams, so it stays a game for everyone. Every number here
+is on purpose easy to read and change.
 """
 import json
 import math
@@ -57,20 +72,33 @@ DAY_WORK = 1.5            # stamina: each different day you logged something
 EVENT_WORK = 2.0          # heart: each event you checked in to, and each volunteer job you signed up for
 BASE = 10                 # every hero starts here in every power
 GROWTH = 4.0              # + GROWTH * log2(1 + work): 1 action ~ +4, 15 ~ +16, 100 ~ +27
-LEVEL_BONUS = 1.0         # + this much per level above 1, on every power
+LEVEL_POWER = 1.15        # exponential levels: every level multiplies every power by this (L5 x1.7, L10 x3.5, L15 x7.1, L20 x14)
 CLASS_BONUS = 2           # the class's own power
 CLASS_POWER = {"gardener": "stamina", "worm_tamer": "heart", "forager": "strength", "beekeeper": "wisdom", "druid": "agility"}
-POWER_MAX = 99
 
-# fairness ("normalizing strength")
+# the fractal rhythm (box-counting dimension of the days with real garden work)
+RHYTHM_DAYS = 128         # looks at the last 128 days (a power of two, so the boxes halve neatly: 128, 64, ... 1 day)...
+RHYTHM_MIN_DAYS = 16      # ...or since the hero's first action, at least 16 days
+RHYTHM_LOW = 0.6          # powers x0.6 at dimension 0 (one burst)...
+RHYTHM_HIGH = 1.4         # ...up to x1.4 at dimension 1 (every single day)
+MANDEL_STEADY = 0.24      # mandel_c(): rhythm 1 -> c = 0.24 (inside the main cardioid, by its cusp)...
+MANDEL_WILD = -1.95       # ...rhythm 0 -> c = -1.95 (the chaotic tail, just inside the set's tip at -2)
+FORM_SWING = 0.25         # how far form swings from move to move out in the chaos (steady heroes: not at all)
+STYLES = [                # where on the real axis (c above this) -> the fighting style it gives
+    (-0.75, "steady", "Steady", "sits in the main cardioid: the same strong form every move"),
+    (-1.25, "two-beat", "Two-beat", "in the period-2 bulb: a strong move, then a weaker one"),
+    (-1.4012, "many-beat", "Many-beat", "in the period-doubling cascade: form in 4-, 8-, 16-move rhythms"),
+    (-2.0, "wild", "Wild", "in the chaotic tail: form jumps around unpredictably, brilliant or awful"),
+]
+
+# fairness
 ROOKIE_MATCHES = 5        # a hero's first matches of a game get...
-ROOKIE_BOOST = 6          # ...this much extra spirit
+ROOKIE_BOOST = 6          # ...this much extra spirit in football (added to compressed powers)...
+ROOKIE_K = 1.3            # ...and this much stronger in the arena
 COMEBACK_LOSSES = 3       # after this many losses in a row...
-COMEBACK_BOOST = 4        # ...this much extra spirit
-LUCK = 0.18               # contest(): even the strongest lands at most 50% + LUCK of their moves...
-SPREAD = 45               # ...and a power gap this big counts as about three quarters of that
-# With these, a level-5 veteran wins about half of their three-way bouts against two brand-new heroes, and each
-# newcomer still wins about one in five (equals: one in three each).
+COMEBACK_BOOST = 4        # ...this much extra spirit in football...
+COMEBACK_K = 1.15         # ...and this much stronger in the arena
+LUCK_FLOOR = 0.1          # contest(): every move lands between 10% and 90% of the time, whoever is stronger
 
 
 def _work(conn):
@@ -94,14 +122,109 @@ def _work(conn):
     return out
 
 
-def powers_from(work, level, hero_class):
-    """The five powers for some amount of work, a level and a class (all whole numbers)."""
+def fractal_dimension(offsets, window):
+    """Box-counting dimension of a set of days (offsets 0 .. window-1, window a power of two): cover the window with
+    boxes of 1, 2, 4 ... window days, count the boxes N(s) with at least one day in them, and fit the slope of
+    log N(s) against log(window / s). A line filled every day -> 1, one single day -> 0, every 7th day -> ~0.6."""
+    pts = {o for o in offsets if 0 <= o < window}
+    if not pts:
+        return 0.0
+    xs, ys, s = [], [], 1
+    while s <= window:
+        xs.append(math.log2(window / s))
+        ys.append(math.log2(len({o // s for o in pts})))
+        s *= 2
+    mx, my = sum(xs) / len(xs), sum(ys) / len(ys)
+    slope = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / sum((x - mx) ** 2 for x in xs)
+    return max(0.0, min(1.0, slope))
+
+
+def rhythm_window(days_since_first):
+    """The fractal window: the days since the hero's first action, rounded up to a power of two, 16 .. 128."""
+    w = RHYTHM_MIN_DAYS
+    while w < min(RHYTHM_DAYS, days_since_first + 1):
+        w *= 2
+    return w
+
+
+def rhythm_mult(rhythm):
+    return RHYTHM_LOW + (RHYTHM_HIGH - RHYTHM_LOW) * max(0.0, min(1.0, rhythm or 0))
+
+
+def level_mult(level):
+    return LEVEL_POWER ** (max(1, level) - 1)
+
+
+def mandel_c(rhythm):
+    """Where a rhythm puts a hero on the real axis of the Mandelbrot set (all of it inside the set: the orbit stays bounded)."""
+    r = max(0.0, min(1.0, rhythm or 0))
+    return round(MANDEL_WILD + (MANDEL_STEADY - MANDEL_WILD) * r, 4)
+
+
+def style_of(c):
+    for edge, sid, name, blurb in STYLES:
+        if c > edge:
+            return {"id": sid, "name": name, "blurb": blurb}
+    return {"id": STYLES[-1][1], "name": STYLES[-1][2], "blurb": STYLES[-1][3]}
+
+
+def form_orbit(c, n, rnd):
+    """A bout's worth of form (n moves) from the orbit of z -> z*z + c: it settles first, then every move takes the next
+    point. Steady heroes' orbits sit still on a fixed point (form 1 every move); further out the orbit alternates,
+    cascades and finally goes chaotic. Centred on the orbit's average, so the swing never adds strength on average."""
+    beta = (1 + math.sqrt(max(0.0, 1 - 4 * c))) / 2          # the orbit stays inside [-beta, beta]
+    z = rnd.uniform(-0.05, 0.05)
+    for _ in range(48):
+        z = z * z + c
+    pts = []
+    for _ in range(n):
+        z = z * z + c
+        if abs(z) > 2:                                         # (can't happen inside the set; just in case of rounding)
+            z = rnd.uniform(-beta, beta)
+        pts.append(z)
+    mean = sum(pts) / len(pts)
+    return [round(1 + FORM_SWING * (x - mean) / beta, 3) for x in pts]
+
+
+def powers_from(work, level, hero_class, rhythm=0.0):
+    """The five powers for some amount of work, a level, a class and a fractal rhythm (all whole numbers).
+    (base work power) x LEVEL_POWER^(level - 1) x rhythm multiplier."""
+    k = level_mult(level) * rhythm_mult(rhythm)
     out = {}
     for s in SKILL_IDS:
-        v = BASE + GROWTH * math.log2(1 + (work or {}).get(s, 0)) + LEVEL_BONUS * (max(1, level) - 1)
+        v = BASE + GROWTH * math.log2(1 + (work or {}).get(s, 0))
         if CLASS_POWER.get(hero_class) == s:
             v += CLASS_BONUS
-        out[s] = int(min(POWER_MAX, round(v)))
+        out[s] = int(round(v * k))
+    return out
+
+
+def _rhythms(conn):
+    """{grower_id: (rhythm, window)}: the fractal dimension of the days each hero did real garden work (logged
+    something, or checked in to an event) in their window."""
+    today = datetime.now().date()
+    since = (today - timedelta(days=RHYTHM_DAYS)).isoformat()
+    days, first = {}, {}
+    for gid, d in conn.execute("SELECT grower_id, substr(MIN(timestamp), 1, 10) FROM logs WHERE grower_id IS NOT NULL GROUP BY grower_id"):
+        first[gid] = d
+    for gid, d in conn.execute("""SELECT DISTINCT grower_id, substr(timestamp, 1, 10) FROM logs
+                                  WHERE grower_id IS NOT NULL AND timestamp >= ?""", (since,)):
+        days.setdefault(gid, set()).add(d)
+    tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    if "event_checkins" in tables:
+        for gid, d in conn.execute("SELECT DISTINCT grower_id, substr(at, 1, 10) FROM event_checkins WHERE at >= ?", (since,)):
+            days.setdefault(gid, set()).add(d)
+            if not first.get(gid) or d < first[gid]:
+                first[gid] = d
+    out = {}
+    for gid, ds in days.items():
+        try:
+            offs = [(today - datetime.strptime(d, "%Y-%m-%d").date()).days for d in ds]
+            start = datetime.strptime(first.get(gid) or min(ds), "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            continue
+        w = rhythm_window((today - start).days)
+        out[gid] = (round(fractal_dimension(offs, w), 3), w)
     return out
 
 
@@ -110,6 +233,7 @@ def all_powers(conn=None):
     own = conn is None
     conn = conn or farm_db.get_conn()
     work = _work(conn)
+    rhythm = _rhythms(conn)
     out = {}
     for r in conn.execute("""SELECT g.id, g.hero_class,
                                     (SELECT COUNT(*) FROM assets a WHERE a.grower_id = g.id) AS asset_count,
@@ -118,7 +242,13 @@ def all_powers(conn=None):
                              FROM growers g WHERE g.deleted_at IS NULL"""):
         level = heroes.progress(r["asset_count"], r["log_count"], r["harvest_count"])["level"]
         w = work.get(r["id"], {s: 0.0 for s in SKILL_IDS})
-        out[r["id"]] = {"powers": powers_from(w, level, r["hero_class"]), "level": level, "work": {k: round(v, 1) for k, v in w.items()}}
+        rh, win = rhythm.get(r["id"], (0.0, RHYTHM_MIN_DAYS))
+        c = mandel_c(rh)
+        pw = powers_from(w, level, r["hero_class"], rh)
+        out[r["id"]] = {"powers": pw, "level": level, "work": {k: round(v, 1) for k, v in w.items()},
+                        "rhythm": rh, "window": win, "c": c, "style": style_of(c),
+                        "level_k": round(level_mult(level), 2), "rhythm_k": round(rhythm_mult(rh), 2),
+                        "total": sum(pw.values())}
     if own:
         conn.close()
     return out
@@ -129,13 +259,15 @@ def powers(grower_id):
 
 
 def effective(power):
-    """Diminishing returns: 10 -> 30, 20 -> 48, 40 -> 70, 70 -> 90. A veteran is stronger than a newcomer, not unbeatable."""
+    """Football's compression: 10 -> 30, 20 -> 48, 40 -> 70, 70 -> 90, 300 -> 149 (it stays a game for everyone)."""
     return 30 * math.log2(1 + max(0, power) / 10)
 
 
 def contest(attack, defence):
-    """The chance that a move lands: 50% for equals, never below 50% - LUCK or above 50% + LUCK."""
-    return 0.5 + LUCK * math.tanh((attack - defence) / SPREAD)
+    """The chance that a move lands: the attacker's share of the two powers (equals 50%, twice as strong 67%, ten
+    times 91%), always between LUCK_FLOOR and 1 - LUCK_FLOOR."""
+    p = attack / (attack + defence) if attack + defence > 0 else 0.5
+    return min(1 - LUCK_FLOOR, max(LUCK_FLOOR, p))
 
 
 def _mix(p, weights):
@@ -247,8 +379,8 @@ def _store(conn, game, slot, slot_start, slot_end, start, end, style, data, winn
 
 
 def arena_bout(fighters, style, rnd):
-    """Decide a bout. fighters: [{"id", "eff", "agility"}]. Returns (events, stats per id, points per id).
-    Times are seconds from the start of the bout (the intro starts at 0, the fight at ARENA["intro"])."""
+    """Decide a bout. fighters: [{"id", "eff", "agility", "c"}] (c: the hero's point on the Mandelbrot set's real axis).
+    Returns (events, stats per id). Times are seconds from the start of the bout (the intro at 0, the fight at ARENA["intro"])."""
     st = ARENA_STYLES[style]
     t0, t1 = ARENA["intro"], ARENA["intro"] + ARENA["fight"]
     move = st["move"]
@@ -257,6 +389,10 @@ def arena_bout(fighters, style, rnd):
     nxt = {f["id"]: t0 + rnd.uniform(0.3, 1.2) for f in fighters}
     down = {f["id"]: 0.0 for f in fighters}
     by = {f["id"]: f for f in fighters}
+    form = {f["id"]: form_orbit(f.get("c", MANDEL_STEADY), 40, rnd) for f in fighters}   # each move takes the orbit's next point
+    step = {f["id"]: 0 for f in fighters}
+    def now_form(g):
+        return form[g][min(step[g], len(form[g]) - 1)]
     events = []
     while True:
         ready = [g for g in nxt if nxt[g] < t1 - 0.6]
@@ -279,7 +415,8 @@ def arena_bout(fighters, style, rnd):
             continue
         d = rnd.choice(targets)
         S[a][many] += 1
-        ea, ed = by[a]["eff"], by[d]["eff"]
+        ea, ed = by[a]["eff"] * now_form(a), by[d]["eff"] * now_form(d)
+        step[a] += 1
         if rnd.random() < contest(ea, ed):
             big = rnd.random() < st["big"] * (0.75 + 0.5 * ea / (ea + ed))
             pts = 3 if big else 1
@@ -296,7 +433,7 @@ def arena_bout(fighters, style, rnd):
         else:
             S[d]["dodges"] += 1
             events.append({"t": round(t, 2), "a": a, "d": d, "m": move, "r": "dodge", "p": 0})
-        quick = 1.15 - 0.3 * min(1, by[a]["agility"] / 60)
+        quick = 1.15 - 0.3 * min(1, by[a]["agility"] / 120)
         nxt[a] = t + rnd.uniform(*st["cd"]) * quick
     return events, S
 
@@ -398,11 +535,13 @@ def _bout(conn, slot, slot_start, slot_end, t, rnd_no, k, group, field_size, rnd
     names = _names(conn, group)
     fighters = []
     for c, gid in enumerate(group):
-        pw = P.get(gid, {"powers": powers_from({}, 1, None), "level": 1})
+        pw = P.get(gid) or {"powers": powers_from({}, 1, None), "level": 1, "rhythm": 0.0, "c": mandel_c(0)}
         boost, why = _spirit(conn, "arena", gid)
+        spirit_k = (ROOKIE_K if "rookie" in why else 1) * (COMEBACK_K if "comeback" in why else 1)
         fighters.append({"id": gid, "name": names.get(gid, "?"), "corner": c, "level": pw["level"],
-                         "eff": round(effective(_mix(pw["powers"], st["uses"])) + boost, 1),
-                         "spirit": why, "agility": pw["powers"]["agility"]})
+                         "eff": round(_mix(pw["powers"], st["uses"]) * spirit_k, 1), "spirit": why,
+                         "agility": pw["powers"]["agility"], "rhythm": pw.get("rhythm", 0.0), "c": pw.get("c", mandel_c(0)),
+                         "style": style_of(pw.get("c", mandel_c(0)))["id"]})
     events, S = arena_bout(fighters, style, rnd)
     order = _rank(S, rnd)
     stage = "final" if field_size == 2 else "semi" if field_size == 3 else "group"
@@ -420,7 +559,7 @@ def _bout(conn, slot, slot_start, slot_end, t, rnd_no, k, group, field_size, rnd
     state = json.loads(t["state"])
     data = {"style": style, "name": st["name"], "tournament": t["id"], "round": rnd_no, "bout": k + 1,
             "bouts": len(state["rounds"][rnd_no - 1]["groups"]), "field": field_size, "stage": stage,
-            "start": start, "end": end, "fighters": [{k2: f[k2] for k2 in ("id", "name", "corner", "level", "eff", "spirit")} for f in fighters],
+            "start": start, "end": end, "fighters": [{k2: f[k2] for k2 in ("id", "name", "corner", "level", "eff", "spirit", "rhythm", "style")} for f in fighters],
             "events": events, "points": {str(g): s_["points"] for g, s_ in S.items()}, "winner": str(order[0]), "advance": advance}
     players = [{"id": f["id"], "side": f["corner"], "power": f["eff"], "result": result[f["id"]]} for f in fighters]
     return _store(conn, "arena", slot, slot_start, slot_end, start, end, style, data, str(order[0]), players, S, t["id"], rnd_no)

@@ -1,5 +1,42 @@
 # Changelog
 
+## 2026-10-25 (no-gi arena kits, leaderboards, fractal powers)
+
+- **No-gi arena kits**: in the campfire ring everyone wrestles in boxer
+  shorts, open-finger MMA gloves and bare feet, with a sports bra or no
+  top. Each hero picks their kit on a new **Arena kit** tab in the hero
+  editor: shorts in 12 colours (or their outfit's colour), 6 designs
+  (plain, side stripes, flames, leaves, stars, checks) and a trim colour.
+  **Auto** gives a sports bra, or no top for male heroes. The preview
+  shows the hero dressed for a bout while that tab is open. In a bout
+  the gloves take the corner's colour (gold for the champion, with the
+  belt, which now fits every body shape).
+- **🏆 Leaderboards** replace the XP tab (`/leaderboards`; `/stats` still
+  works): every hero ranked by XP from real garden work, this week, the
+  last 30 days or all time, with a podium of the top three in 3D, your
+  own place, rank titles by level (🌱 Seedling to 👑 Legend of Nevet),
+  and top fives for the most active, the steadiest rhythm, top
+  harvesters, strongest fighters, arena glory, top scorers and top
+  inviters. The arena and football stats are underneath. The dashboard
+  gets a little board with this week's top five and the arena's champion.
+- **Fighting powers built on real participation**:
+  - **Exponential levels**: every level multiplies every power by 1.15
+    (level 10 ×3.5, level 20 ×14) instead of adding 1.
+  - **The fractal rhythm**: the box-counting (fractal) dimension of the
+    days each hero did real garden work in the last 128 days, from 0 (one
+    burst) to 1 (every day), multiplies powers ×0.6 to ×1.4.
+  - **The Mandelbrot set**: the rhythm puts each hero on the set's real
+    axis, and a wrestler's form for each move is the next point of the
+    orbit z → z² + c: steady in the main cardioid, two-beat, many-beat, or
+    wild in the chaotic tail.
+  - A move lands with the attacker's share of the two powers (10% to
+    90%), so real work in the garden counts for far more than before. A
+    weekly gardener at level 5 wins about four bouts in five against a
+    newcomer and a casual player. Football still compresses powers and
+    balances the teams.
+- **How fighting powers work** explains it all, with a picture of the
+  Mandelbrot set with every hero on it. Power bars use a log scale.
+
 ## 2026-10-25 (the shop window: a print for people walking past)
 
 - **`nevet show`** prints a colourful, curious look at the farm for people

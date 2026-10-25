@@ -1,25 +1,95 @@
 {% extends "base.html" %}
-{% block title %}Nevet — XP{% endblock %}
+{% block title %}Nevet — Leaderboards{% endblock %}
 {% block content %}
 <div class="hub-tabs" style="margin-bottom: 14px;">
   <a class="hub-tab" href="{{ url_for('hub') }}">Dashboard</a>
   <a class="hub-tab" href="{{ url_for('time_page') }}">Time</a>
-  <a class="hub-tab active" href="{{ url_for('stats') }}" aria-current="page">XP</a>
+  <a class="hub-tab active" href="{{ url_for('stats') }}" aria-current="page">🏆 Leaderboards</a>
 </div>
-<h2>XP &amp; games</h2>
-<p class="muted" style="margin-top: -6px;">The mud arena at the campfire and football in the play park, decided on the station and the same for
-  everyone watching. Powers come from real garden work, never from buying anything. <a href="{{ url_for('powers_page') }}">How powers work</a></p>
+<div class="lb-head">
+  <div>
+    <h2>🏆 Leaderboards</h2>
+    <p class="muted">XP only comes from <b>real garden work</b> you log: every action, every harvest, every plant you look after.
+      Powers in the arena grow from the same work, exponentially with every level. <a href="{{ url_for('powers_page') }}">How powers work</a></p>
+  </div>
+  <div class="seg-links" role="group" aria-label="Period">
+    {% for k, lbl in [('7', 'This week'), ('30', '30 days'), ('all', 'All time')] %}<a href="{{ url_for('stats', period=k) }}" class="{{ 'on' if period == k }}">{{ lbl }}</a>{% endfor %}
+  </div>
+</div>
 
+{% set main = lb.main %}
+{% if lb.me %}{% set m = lb.me %}
+<div class="lb-me">
+  <span class="lb-me-place">#{{ m.place }}</span>
+  <span class="lb-me-text"><b>You're #{{ m.place }} of {{ lb.count }}</b> {{ lb.when }}
+    · {{ m.rank.emoji }} {{ m.rank.title }} · level {{ m.level }}
+    · {{ m.next_xp - m.xp }} XP to level {{ m.level + 1 }}{% if m.rank.next %} ({{ m.rank.next.title }} at level {{ m.rank.next.level }}){% endif %}</span>
+  <a class="btn btn-primary btn-small" href="{{ url_for('log_action') }}">Log an action</a>
+</div>
+{% endif %}
+
+{% set scored = main | selectattr('xp_period' if lb.days else 'xp') | list %}
+{% if scored %}
+<div class="podium" aria-label="Top three">
+  {% for p in scored[:3] %}
+  <a class="podium-spot place-{{ loop.index }}{% if p.me %} is-me{% endif %}" href="{{ url_for('grower_page', grower_id=p.id) }}" data-appearance='{{ p.appearance | tojson }}'>
+    <span class="podium-avatar"><span class="hero-initial">{{ p.name[:1] | upper }}</span></span>
+    <span class="podium-name">{{ p.name }}</span>
+    <span class="podium-rank">{{ p.rank.emoji }} {{ p.rank.title }} · Lv {{ p.level }}</span>
+    <span class="podium-block"><b>{{ ['🥇', '🥈', '🥉'][loop.index0] }}</b><span>{{ p.xp_period if lb.days else p.xp }} XP</span></span>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="lb-empty">Nobody has logged any garden work {{ lb.when }} yet. <a href="{{ url_for('log_action') }}">Log an action</a> and you're on top.</p>
+{% endif %}
+
+<section class="panel lb-main">
+  <h3 class="panel-title">Hero ranking <span class="muted">· {{ 'XP earned ' ~ lb.when if lb.days else 'total XP' }}</span></h3>
+  <div class="board-wrap"><table class="history-table board-table lb-table">
+    <tr><th>#</th><th class="lb-hero-col">Hero</th><th>Level</th>{% if lb.days %}<th>XP {{ lb.when }}</th>{% endif %}<th class="{{ 'lb-wide' if lb.days }}">XP</th><th class="lb-wide" title="Fractal rhythm: how steadily they show up">🌀 Rhythm</th><th class="lb-wide" title="Fighting power (the five powers added up)">👊 Power</th><th class="lb-wide">🏆 Glory</th></tr>
+    {% for p in main %}
+    <tr class="{{ 'is-me' if p.me }}">
+      <td class="lb-place">{{ ['🥇', '🥈', '🥉'][p.place - 1] if p.place <= 3 and (p.xp_period if lb.days else p.xp) else p.place }}</td>
+      <td class="lb-hero-col"><a class="lb-hero" href="{{ url_for('grower_page', grower_id=p.id) }}"><span class="lb-face" data-face='{{ p.appearance | tojson }}'>{{ p.name[:1] | upper }}</span>
+        <span><b>{{ p.name }}</b><small>{{ p.rank.emoji }} {{ p.rank.title }}</small></span></a></td>
+      <td><span class="lv">Lv {{ p.level }}</span><span class="xpbar lb-wide" title="{{ p.xp }} / {{ p.next_xp }} XP"><span style="width: {{ p.pct }}%"></span></span></td>
+      {% if lb.days %}<td><b>{{ p.xp_period }}</b></td>{% endif %}
+      <td class="{{ 'lb-wide' if lb.days }}">{% if lb.days %}{{ p.xp }}{% else %}<b>{{ p.xp }}</b>{% endif %}</td>
+      <td class="lb-wide">{{ '%.2f' | format(p.rhythm) }} <span class="style-chip style-{{ p.style.id }}">{{ p.style.name }}</span></td>
+      <td class="lb-wide">{{ p.power }}</td>
+      <td class="lb-wide">{{ p.glory or '—' }}</td>
+    </tr>
+    {% endfor %}
+  </table></div>
+</section>
+
+{% if lb.boards %}
+<div class="lb-boards">
+  {% for b in lb.boards %}
+  <section class="lb-board">
+    <h3>{{ b.emoji }} {{ b.title }}</h3>
+    <ol>
+      {% for r in b.rows %}
+      <li class="{{ 'is-me' if r.me }}"><a href="{{ url_for('grower_page', grower_id=r.id) }}">{{ r.name }}</a>
+        <b>{{ r.value }}</b>{% if r.sub %}<small>{{ r.sub }}</small>{% endif %}</li>
+      {% endfor %}
+    </ol>
+    {% if b.more %}<p class="muted lb-more">+ {{ b.more }} more</p>{% endif %}
+  </section>
+  {% endfor %}
+</div>
+{% endif %}
+
+<h3 class="lb-section">🔥 The mud arena</h3>
 <section class="summary-bar">
   <div class="stat-card"><span class="num">{{ totals.arena }}</span><span class="label">Mud bouts</span></div>
   <div class="stat-card"><span class="num">{{ champions | length }}</span><span class="label">Champions crowned</span></div>
   <div class="stat-card"><span class="num">{{ totals.football }}</span><span class="label">Football matches</span></div>
   <div class="stat-card"><span class="num">{{ totals.goals }}</span><span class="label">Goals</span></div>
 </section>
-
-<h3>🔥 The mud arena</h3>
-<p class="muted" style="margin-top: -6px;">At the campfire dance: everyone enters, wrestling in groups of three round the fire pit; group winners go
-  through, the last two wrestle for the grand victory. Glory = points + {{ 5 }} for each round won + 10 for a final + 25 for a grand victory.</p>
+<p class="muted" style="margin-top: 0;">At the campfire dance everyone enters, wrestling no-gi in groups of three round the fire pit; group winners
+  go through, the last two wrestle for the grand victory. Glory = points + 5 for each round won + 10 for a final + 25 for a grand victory.</p>
 {% if records %}
 <div class="records">
   {% for r in records %}<div class="record"><span>{{ r.title }}</span><a href="{{ url_for('grower_page', grower_id=r.id) }}">{{ r.name }}</a><b>{{ r.value }}</b></div>{% endfor %}
@@ -51,26 +121,26 @@
 <p class="champions"><b>Hall of champions:</b>
   {% for c in champions %}🏆 {{ c.champion }} <small class="muted">({{ c.entered }} heroes, {{ c.ended_at[5:10] }})</small>{{ ' · ' if not loop.last }}{% endfor %}</p>
 {% endif %}
-<div class="seg-links">
-  {% for k, lbl in [('7', '7 days'), ('30', '30 days'), ('all', 'All time')] %}<a href="{{ url_for('stats', period=k) }}" class="{{ 'on' if period == k }}">{{ lbl }}</a>{% endfor %}
-</div>
 {% if fighters %}
-<div class="board-wrap"><table class="history-table board-table">
-  <tr><th>Hero</th><th>Glory</th><th>🏆</th><th>Finals</th><th>Rounds won</th><th>Bouts</th><th>Wins</th><th>Points</th><th>Grabs</th><th>Throws</th><th>Dodges</th><th>Slips</th><th>Thrown</th>
-    {% for k in moves %}<th>{{ {'punches': 'Punches', 'pushes': 'Pushes', 'strikes': 'Strikes'}[k] }}</th>{% endfor %}</tr>
-  {% for r in fighters %}
-  <tr>
-    <td><a href="{{ url_for('grower_page', grower_id=r.id) }}">{{ r.name }}</a></td>
-    <td><b>{{ r.glory or 0 }}</b></td><td>{{ r.championships or 0 }}</td><td>{{ r.finals or 0 }}</td><td>{{ r.advanced or 0 }}</td>
-    <td>{{ r.bouts or 0 }}</td><td>{{ r.wins or 0 }}</td><td>{{ r.points or 0 }}</td>
-    <td>{{ r.grabs_landed or 0 }}/{{ r.grabs or 0 }}</td><td>{{ r.throws or 0 }}</td><td>{{ r.dodges or 0 }}</td><td>{{ r.slips or 0 }}</td><td>{{ r.knocked_down or 0 }}</td>
-    {% for k in moves %}<td>{{ r[k ~ '_landed'] or 0 }}/{{ r[k] or 0 }}</td>{% endfor %}
-  </tr>
-  {% endfor %}
-</table></div>
-{% else %}<p class="muted">No bouts yet in this period. Open the farm's Campfire dance: the heroes wrestle in the mud round the fire pit.</p>{% endif %}
+<details class="lb-details">
+  <summary>Every wrestler's numbers ({{ lb.when }})</summary>
+  <div class="board-wrap"><table class="history-table board-table">
+    <tr><th>Hero</th><th>Glory</th><th>🏆</th><th>Finals</th><th>Rounds won</th><th>Bouts</th><th>Wins</th><th>Points</th><th>Grabs</th><th>Throws</th><th>Dodges</th><th>Slips</th><th>Thrown</th>
+      {% for k in moves %}<th>{{ {'punches': 'Punches', 'pushes': 'Pushes', 'strikes': 'Strikes'}[k] }}</th>{% endfor %}</tr>
+    {% for r in fighters %}
+    <tr>
+      <td><a href="{{ url_for('grower_page', grower_id=r.id) }}">{{ r.name }}</a></td>
+      <td><b>{{ r.glory or 0 }}</b></td><td>{{ r.championships or 0 }}</td><td>{{ r.finals or 0 }}</td><td>{{ r.advanced or 0 }}</td>
+      <td>{{ r.bouts or 0 }}</td><td>{{ r.wins or 0 }}</td><td>{{ r.points or 0 }}</td>
+      <td>{{ r.grabs_landed or 0 }}/{{ r.grabs or 0 }}</td><td>{{ r.throws or 0 }}</td><td>{{ r.dodges or 0 }}</td><td>{{ r.slips or 0 }}</td><td>{{ r.knocked_down or 0 }}</td>
+      {% for k in moves %}<td>{{ r[k ~ '_landed'] or 0 }}/{{ r[k] or 0 }}</td>{% endfor %}
+    </tr>
+    {% endfor %}
+  </table></div>
+</details>
+{% else %}<p class="muted">No bouts {{ lb.when }}. Open the farm's Campfire dance: the heroes wrestle in the mud round the fire pit.</p>{% endif %}
 
-<h3>⚽ Football</h3>
+<h3 class="lb-section">⚽ Football</h3>
 {% if players %}
 <div class="board-wrap"><table class="history-table board-table">
   <tr><th>Hero</th><th>Matches</th><th>Won</th><th>Drawn</th><th>Goals</th><th>Assists</th><th>Shots</th><th>On target</th><th>Saves</th><th>Let in</th></tr>
@@ -82,10 +152,10 @@
   </tr>
   {% endfor %}
 </table></div>
-{% else %}<p class="muted">No matches yet in this period.</p>{% endif %}
+{% else %}<p class="muted">No matches {{ lb.when }}.</p>{% endif %}
 
 {% if recent %}
-<h3>Latest</h3>
+<h3 class="lb-section">Latest</h3>
 <ul class="game-recent">
   {% for m in recent %}
   <li>{% if m.game == 'arena' and m.style == 'ceremony' %}🏆 <b>{{ m.champion_name }}</b> won the tournament{% if m.runner_up_name %} (runner-up {{ m.runner_up_name }}){% endif %}
@@ -117,4 +187,32 @@
   </table>
   {% else %}<p class="muted">Nothing sent through <code>/api/stats</code> yet.</p>{% endif %}
 </details>
+
+<script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/nevet3d.js') }}"></script>
+<script src="{{ url_for('static', filename='js/hero3d.js') }}"></script>
+<script>
+(function () {
+  if (!window.NevetHero) return;                     // letter badges stay as the fallback
+  var CATALOG = {{ catalog | tojson }};
+  document.querySelectorAll('.lb-face[data-face]').forEach(function (el) {     // little faces (2D, cheap)
+    try {
+      var img = new Image(); img.alt = ''; img.src = NevetHero.faceIcon(JSON.parse(el.dataset.face), CATALOG, 40);
+      el.textContent = ''; el.appendChild(img);
+    } catch (e) { /* keep the letter */ }
+  });
+  if (!NevetHero.supported()) return;
+  var spots = Array.prototype.slice.call(document.querySelectorAll('.podium-spot[data-appearance]')), i = 0;
+  (function next() {                                  // the top three, in 3D
+    if (i >= spots.length) return;
+    var spot = spots[i++];
+    try {
+      var img = new Image(); img.alt = '';
+      img.src = NevetHero.snapshot(JSON.parse(spot.dataset.appearance), CATALOG, 220, 260);
+      var av = spot.querySelector('.podium-avatar'); av.innerHTML = ''; av.appendChild(img);
+    } catch (e) { /* keep the letter */ }
+    requestAnimationFrame(next);
+  })();
+})();
+</script>
 {% endblock %}

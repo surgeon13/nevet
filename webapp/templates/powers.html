@@ -1,57 +1,87 @@
 {% extends "base.html" %}
-{% block title %}Nevet — How powers work{% endblock %}
+{% block title %}Nevet — How fighting powers work{% endblock %}
 {% block content %}
-<p style="margin: 0 0 10px;"><a href="{{ url_for('stats') }}" class="muted" style="text-decoration:none;">← XP &amp; games</a></p>
-<h2>How powers work</h2>
-<p>Every hero has five powers. They grow from <b>real work in the garden</b>, the work you log on Nevet. Those who do, grow:
-  nothing can be bought, gear and clothes are only for looks, and nobody (not even an admin) can set powers by hand.
-  It's all in the open, in <code>webapp/games.py</code>, so anyone can read it and suggest changes.</p>
+<p style="margin: 0 0 10px;"><a href="{{ url_for('stats') }}" class="muted" style="text-decoration:none;">← Leaderboards</a></p>
+<h2>How fighting powers work</h2>
+<p>Every hero has five powers, and they grow from one thing only: <b>real work in the garden</b> that you log on Nevet.
+  What you do in the real garden matters far more than anything on the 3D farm. Nothing can be bought, the arena kit and
+  gear are only for looks, and nobody (not even an admin) can set powers by hand. It's all in the open in
+  <code>webapp/games.py</code>, so anyone can read it and suggest changes.</p>
 
 <section class="panel" style="margin: 14px 0;">
-  <h3 class="panel-title">The five powers</h3>
+  <h3 class="panel-title">The formula</h3>
+  <p class="formula">power = (10 + 4 × log₂(1 + work) <small>+ {{ g_.CLASS_BONUS }} for your class's power</small>)
+    × {{ g_.LEVEL_POWER }}<sup>level − 1</sup> × ({{ g_.RHYTHM_LOW }} + {{ (g_.RHYTHM_HIGH - g_.RHYTHM_LOW) | round(1) }} × rhythm)</p>
   <div class="board-wrap"><table class="history-table">
     <tr><th>Power</th><th>Grows with</th></tr>
     {% for sid, sname, emoji, from in g_.SKILLS %}<tr><td>{{ emoji }} <b>{{ sname }}</b></td><td>{{ from }}</td></tr>{% endfor %}
   </table></div>
   <ul style="margin: 10px 0 0; padding-left: 20px;">
-    <li>Every hero starts at <b>{{ g_.BASE }}</b> in every power.</li>
-    <li>Work adds <b>{{ g_.GROWTH | int }} × log₂(1 + work)</b>: your first actions count the most, so steady work beats grinding
-      (1 action ≈ +4, 15 ≈ +16, 100 ≈ +27).</li>
-    <li>Every <b>level</b> adds +{{ g_.LEVEL_BONUS | int }} to every power. Level up by logging what you do.</li>
-    <li>Your hero's <b>class</b> adds +{{ g_.CLASS_BONUS }} to one power:
-      {% for cid, sid in g_.CLASS_POWER.items() %}{{ classes[cid].name if cid in classes else cid }} → {{ sid }}{{ ', ' if not loop.last }}{% endfor %}.</li>
-    <li>Stamina also grows with every different day you log something ({{ g_.DAY_WORK }} each); Heart with every event check-in
-      and volunteer job ({{ g_.EVENT_WORK | int }} each).</li>
+    <li><b>Work</b>: each kind of work builds its own power. Your first actions count the most (1 action ≈ +4, 15 ≈ +16, 100 ≈ +27),
+      so steady work beats grinding. Stamina also grows with every different day you log something; Heart with every event
+      check-in and volunteer job.</li>
+    <li><b>Exponential levels</b>: every level <b>multiplies</b> every power by {{ g_.LEVEL_POWER }}. Level up by logging what you do:
+      {% for lv, k in levels %}level {{ lv }} <b>×{{ k }}</b>{{ ', ' if not loop.last }}{% endfor %}.</li>
+    <li><b>Fractal rhythm</b>: how steadily you show up (below). Every single day ×{{ g_.RHYTHM_HIGH }}, one burst and nothing since ×{{ g_.RHYTHM_LOW }}.</li>
   </ul>
 </section>
 
 <section class="panel" style="margin: 14px 0;">
-  <h3 class="panel-title">Keeping matches fair</h3>
+  <h3 class="panel-title">🌀 The fractal rhythm</h3>
+  <p style="margin-top: 0;">A coastline looks just as wiggly from a plane as from a beach: Benoit Mandelbrot measured patterns like that with a
+    <b>fractal dimension</b>, how much of its space a pattern fills at every scale. Nevet does the same with the days you did real
+    garden work (logged something or checked in to an event) over the last {{ g_.RHYTHM_DAYS }} days (or since you started, at least
+    {{ g_.RHYTHM_MIN_DAYS }}): it covers them with boxes of 1, 2, 4 … {{ g_.RHYTHM_DAYS }} days, counts the boxes with a work day in
+    them, and the slope of the counts on a log-log scale is your rhythm, from 0 to 1. Steady participation fills every scale,
+    so it beats one big burst.</p>
+  <div class="board-wrap"><table class="history-table">
+    <tr><th>Gardening…</th><th>Rhythm</th><th>Powers</th><th>Fighting style</th></tr>
+    {% for label, d, c, st in examples %}
+    <tr><td>{{ label }}</td><td><b>{{ '%.2f' | format(d) }}</b></td><td>×{{ '%.2f' | format(g_.rhythm_mult(d)) }}</td>
+      <td><span class="style-chip style-{{ st.id }}">{{ st.name }}</span></td></tr>
+    {% endfor %}
+  </table></div>
+</section>
+
+<section class="panel" style="margin: 14px 0;">
+  <h3 class="panel-title">The Mandelbrot set and your fighting style</h3>
+  <p style="margin-top: 0;">Your rhythm also puts your hero on the real axis of the <b>Mandelbrot set</b>, at
+    c = {{ g_.MANDEL_WILD }} + {{ (g_.MANDEL_STEADY - g_.MANDEL_WILD) | round(2) }} × rhythm. In a bout, your form for each move is the
+    next point of the orbit z → z² + c. Steady gardeners sit in the calm main cardioid, where the orbit stands still: the same
+    strong form every move. Further left the orbit alternates (a strong move, then a weaker one), then splits into 4-, 8- and
+    16-move rhythms, and finally turns chaotic: brilliant one moment, awful the next. The swing never adds strength on average:
+    it only makes you steady or wild.</p>
+  <canvas class="mandel" data-heroes='{{ dots | tojson }}' aria-label="The Mandelbrot set with every hero on its real axis"></canvas>
+  <ul class="style-key">
+    {% for edge, sid, name, blurb in g_.STYLES %}<li><span class="style-chip style-{{ sid }}">{{ name }}</span> {{ blurb }}</li>{% endfor %}
+  </ul>
+</section>
+
+<section class="panel" style="margin: 14px 0;">
+  <h3 class="panel-title">In a bout</h3>
   <ul style="margin: 0; padding-left: 20px;">
-    <li><b>Strength is normalized</b>: powers are compressed before a match (power 10 → 30, 20 → 48, 40 → 70, 70 → 90), so a veteran is
-      stronger than a newcomer, not unbeatable.</li>
-    <li><b>Luck always plays a part</b>: equals land half their moves; even the strongest hero never lands more than
-      {{ (50 + g_.LUCK * 100) | int }}% against the weakest.</li>
-    <li><b>Spirit</b>: a hero's first {{ g_.ROOKIE_MATCHES }} matches of a game get +{{ g_.ROOKIE_BOOST }}, and after {{ g_.COMEBACK_LOSSES }}
-      losses in a row they get +{{ g_.COMEBACK_BOOST }}.</li>
-    <li><b>Everyone enters</b> the campfire tournament, and football picks whoever played least in the last week first.</li>
-    <li><b>Balanced teams</b>: football teams are picked in turns (A B B A …) from the strongest down, and the best keeper goes in goal.</li>
-    <li>Mud wrestling uses every power a little: {% for k, w in g_.ARENA_STYLES.mud.uses.items() %}{{ k }} {{ (w * 100) | int }}%{{ ', ' if not loop.last }}{% endfor %}.
-      Football uses Strength and Wisdom to shoot, Wisdom and Agility to keep goal.</li>
+    <li>A move lands with the attacker's <b>share of the two powers</b> (each times their form that move): equals land half,
+      twice as strong lands two in three, ten times as strong nine in ten.</li>
+    <li><b>Luck always plays a part</b>: every move lands between {{ (g_.LUCK_FLOOR * 100) | int }}% and {{ ((1 - g_.LUCK_FLOOR) * 100) | int }}% of the time.</li>
+    <li><b>Spirit</b>: a hero's first {{ g_.ROOKIE_MATCHES }} bouts count ×{{ g_.ROOKIE_K }}, and after {{ g_.COMEBACK_LOSSES }}
+      losses in a row ×{{ g_.COMEBACK_K }}.</li>
+    <li>Mud wrestling uses every power a little: {% for k, w in g_.ARENA_STYLES.mud.uses.items() %}{{ k }} {{ (w * 100) | int }}%{{ ', ' if not loop.last }}{% endfor %}.</li>
+    <li><b>Everyone enters</b> the campfire tournament. Football compresses powers and balances the teams, so it stays a game for everyone.</li>
     <li><b>Glory</b> (the arena's ranking) is just for fun: it never adds XP or powers. Only real garden work does.</li>
   </ul>
-  <p class="formula">chance a move lands = 50% + {{ (g_.LUCK * 100) | int }}% × tanh((attacker − defender) ÷ {{ g_.SPREAD }})</p>
-  <p class="muted" style="margin: 6px 0 0;">So a level-5 veteran wins about half of their bouts against two brand-new heroes, and each newcomer
-    still wins about one in five.</p>
+  <p class="formula">chance a move lands = attacker ÷ (attacker + defender), kept between {{ (g_.LUCK_FLOOR * 100) | int }}% and {{ ((1 - g_.LUCK_FLOOR) * 100) | int }}%</p>
+  <p class="muted" style="margin: 6px 0 0;">So a hero who gardens every week and has reached level 5 wins about four bouts in five against a
+    newcomer and a casual player. A newcomer who logs a few real actions in their first days already wins about one in six.</p>
 </section>
 
 {% if mine %}
 <section class="panel" style="margin: 14px 0;">
-  <h3 class="panel-title">Yours</h3>
+  <h3 class="panel-title">Yours <span class="muted">· level {{ mine.level }} ×{{ mine.level_k }} · rhythm {{ '%.2f' | format(mine.rhythm) }} ×{{ mine.rhythm_k }}
+    · <span class="style-chip style-{{ mine.style.id }}">{{ mine.style.name }}</span></span></h3>
   <div class="power-grid">
     {% for sid, sname, emoji, from in g_.SKILLS %}
     <div class="power"><span class="power-name">{{ emoji }} {{ sname }}</span>
-      <span class="power-bar"><span style="width: {{ [mine.powers[sid], 99] | min }}%"></span></span><b class="power-val">{{ mine.powers[sid] }}</b></div>
+      <span class="power-bar"><span style="width: {{ mine.powers[sid] | powerbar }}%"></span></span><b class="power-val">{{ mine.powers[sid] }}</b></div>
     {% endfor %}
   </div>
 </section>
@@ -60,9 +90,11 @@
 <section class="panel" style="margin: 14px 0;">
   <h3 class="panel-title">Everyone</h3>
   <div class="board-wrap"><table class="history-table board-table">
-    <tr><th>Hero</th><th>Level</th>{% for sid, sname, emoji, from in g_.SKILLS %}<th title="{{ sname }}">{{ emoji }}</th>{% endfor %}</tr>
-    {% for r in rows %}<tr><td><a href="{{ url_for('grower_page', grower_id=r.id) }}">{{ r.name }}</a></td><td>{{ r.level }}</td>
-      {% for sid, sname, emoji, from in g_.SKILLS %}<td>{{ r.powers[sid] }}</td>{% endfor %}</tr>{% endfor %}
+    <tr><th>Hero</th><th>Level</th><th>Rhythm</th><th>Style</th>{% for sid, sname, emoji, from in g_.SKILLS %}<th title="{{ sname }}">{{ emoji }}</th>{% endfor %}<th>Total</th></tr>
+    {% for r in rows %}<tr><td><a href="{{ url_for('grower_page', grower_id=r.id) }}">{{ r.name }}</a></td><td>{{ r.level }} <small class="muted">×{{ r.level_k }}</small></td>
+      <td>{{ '%.2f' | format(r.rhythm) }}</td><td><span class="style-chip style-{{ r.style.id }}">{{ r.style.name }}</span></td>
+      {% for sid, sname, emoji, from in g_.SKILLS %}<td>{{ r.powers[sid] }}</td>{% endfor %}<td><b>{{ r.total }}</b></td></tr>{% endfor %}
   </table></div>
 </section>
+<script src="{{ url_for('static', filename='js/mandel.js') }}"></script>
 {% endblock %}

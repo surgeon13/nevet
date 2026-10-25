@@ -32,7 +32,7 @@
 
   // ---------- catalog lookups ----------
   function findOpt(catalog, catId, optId) {
-    var cats = catalog.looks.concat(catalog.gear, catalog.companion || []);
+    var cats = catalog.looks.concat(catalog.gear, catalog.companion || [], catalog.fight || []);
     for (var i = 0; i < cats.length; i++) {
       if (cats[i].id !== catId) continue;
       var opts = cats[i].options;
@@ -52,8 +52,26 @@
       hairColor: colorOf(catalog, 'hairColor', a.hairColor, '#6b4226'),
       eyeColor: colorOf(catalog, 'eyeColor', a.eyeColor, '#6b4226'),
       outfit: colorOf(catalog, 'outfitColor', a.outfitColor, '#4c9a5b'),
-      petColor: a.petColor && a.petColor !== 'natural' ? colorOf(catalog, 'petColor', a.petColor, null) : null
+      petColor: a.petColor && a.petColor !== 'natural' ? colorOf(catalog, 'petColor', a.petColor, null) : null,
+      kit: kitOf(a, catalog)
     };
+  }
+  // the hero's no-gi kit for the campfire ring (catalog "fight"): boxer shorts, a sports bra or no top, MMA gloves.
+  // "auto" top = a sports bra, except for male heroes; the gloves take the corner's colour in a bout (a.fightGloves).
+  function kitOf(a, catalog) {
+    var outfit = colorOf(catalog, 'outfitColor', a.outfitColor, '#4c9a5b');
+    var top = a.fightTop === 'none' || a.fightTop === 'sports_bra' ? a.fightTop : (a.gender === 'male' ? 'none' : 'sports_bra');
+    var shorts = !a.fightShorts || a.fightShorts === 'outfit' ? outfit : colorOf(catalog, 'fightShorts', a.fightShorts, outfit);
+    return { top: top, shorts: shorts, style: a.fightStyle || 'stripes', trim: colorOf(catalog, 'fightTrim', a.fightTrim, '#f7f5ef'),
+             gloves: a.fightGloves || '#d23b36' };
+  }
+  // an appearance dressed for a bout: the kit on, hat, hand tool, back item and earrings off
+  function fightLook(a, opts) {
+    var b = {};
+    for (var k in a) b[k] = a[k];
+    b.body = 'fight'; b.hand = 'none'; b.head = 'none'; b.back = 'none'; b.earrings = 'none';
+    if (opts && opts.gloves) b.fightGloves = opts.gloves;
+    return b;
   }
 
   // ---------- materials & shape helpers ----------
@@ -1163,6 +1181,44 @@
     t.repeat.set(repeatX, repeatY);
     return mat('#ffffff', { map: t });
   }
+  // the boxer shorts' cloth: plain, or flames licking up from the hem, little leaves, stars or racing checks
+  function shortsMat(k, leg) {
+    if (k.style === 'plain' || k.style === 'stripes' || !k.style) return mat(k.shorts);
+    var hi = k.trim;
+    return patternMat(k.shorts, leg ? 3 : 6, 1, function (g) {
+      if (k.style === 'flames') {
+        var cols = [hi, '#ffb347', '#ffe066'];
+        cols.forEach(function (col, i) {
+          g.fillStyle = col; g.beginPath(); g.moveTo(0, 64);
+          for (var x = 0; x <= 64; x += 8) {
+            var top = 64 - (i === 0 ? 46 : i === 1 ? 32 : 18) * (x % 16 === 0 ? 1 : 0.55);
+            g.quadraticCurveTo(x - 4, 60 - i * 4, x, top);
+          }
+          g.lineTo(64, 64); g.closePath(); g.fill();
+        });
+      } else if (k.style === 'leaves') {
+        g.fillStyle = hi;
+        [[16, 18, 0.6], [46, 40, -0.7], [20, 50, 2.2], [50, 12, 1.4]].forEach(function (l) {
+          g.save(); g.translate(l[0], l[1]); g.rotate(l[2]);
+          g.beginPath(); g.ellipse(0, 0, 9, 4.5, 0, 0, Math.PI * 2); g.fill();
+          g.restore();
+        });
+      } else if (k.style === 'stars') {
+        g.fillStyle = hi;
+        [[16, 18, 8], [46, 44, 7], [48, 14, 4.5], [14, 48, 4.5]].forEach(function (st) {
+          g.beginPath();
+          for (var i = 0; i < 10; i++) {
+            var r = i % 2 ? st[2] * 0.42 : st[2], a = -Math.PI / 2 + i * Math.PI / 5;
+            g.lineTo(st[0] + r * Math.cos(a), st[1] + r * Math.sin(a));
+          }
+          g.closePath(); g.fill();
+        });
+      } else if (k.style === 'checks') {
+        g.fillStyle = hi;
+        for (var y = 0; y < 4; y++) for (var x = 0; x < 4; x++) if ((x + y) % 2) g.fillRect(x * 16, y * 16, 16, 16);
+      }
+    });
+  }
   function frontButtons(g, ys, color, r) {
     ys.forEach(function (y) { g.add(sphere(r || 0.028, color, [0, y, torsoR(y) + 0.008])); });
   }
@@ -1433,22 +1489,32 @@
       g.add(mesh(new THREE.OctahedronGeometry(0.05), '#d83a4a', [0, 0.82, torsoR(0.82) + 0.03]));
       return g;
     },
-    // the campfire's fight kit (not in the catalog: the farm puts it on for a bout, a.fightColor is the corner's colour):
-    // a sleeveless rash-guard top and fight shorts in the corner's colour, bare arms and legs, bare feet, MMA gloves
+    // the campfire's no-gi kit (picked on the hero's Arena kit tab, put on by the farm for a bout): boxer shorts with a
+    // wide waistband, a sports bra or no top, open-finger MMA gloves (in the corner's colour during a bout), bare feet
     fight: function (R) {
-      var c = R.a.fightColor || '#e8473c', trim = R.a.fightTrim || '#ffffff', glove = '#26262c';
-      var g = baseBody(R, { top: c, sleeves: R.skin, pants: R.skin, boots: shade(R.skin, -0.06), hands: glove });
-      g.add(cyl(0.302, 0.302, 0.035, trim, [0, 1.085, 0], 28));                  // the top's neckline
-      g.add(cyl(0.378, 0.392, 0.2, c, [0, 0.52, 0], 28));                         // the shorts
-      g.add(cyl(0.384, 0.384, 0.055, trim, [0, 0.62, 0], 28));                    // their waistband
+      var k = R.kit || { top: 'sports_bra', shorts: R.outfit, style: 'plain', trim: '#ffffff', gloves: '#d23b36' };
+      var skin = R.skin, c = k.shorts, trim = k.trim;
+      var g = baseBody(R, { top: skin, sleeves: skin, pants: skin, boots: shade(skin, -0.05), hands: k.gloves });
+      var cloth = shortsMat(k), legCloth = shortsMat(k, true);
+      if (k.top === 'sports_bra') {
+        g.add(cyl(torsoR(1.075) + 0.012, torsoR(0.855) + 0.012, 0.22, c, [0, 0.965, 0], 28));      // the sports bra
+        g.add(cyl(torsoR(0.87) + 0.016, torsoR(0.87) + 0.016, 0.04, trim, [0, 0.87, 0], 28));        // its band
+        [1, -1].forEach(function (side) {                                                          // the straps
+          g.add(box(0.075, 0.05, 0.6, c, [side * 0.165, 1.085, 0]));
+        });
+      }
+      g.add(mesh(new THREE.CylinderGeometry(0.386, 0.402, 0.24, 28), cloth, [0, 0.53, 0]));          // the shorts
+      g.add(cyl(0.392, 0.392, 0.08, trim, [0, 0.64, 0], 28));                                        // the waistband
       [1, -1].forEach(function (side) {
         var leg = g.userData.legs[side];
-        leg.add(cyl(0.135, 0.13, 0.17, c, [0, -0.06, 0], 16));                     // a short leg of the shorts
-        leg.add(box(0.035, 0.16, 0.04, trim, [side * 0.12, -0.05, 0]));             // the side stripe
+        leg.add(mesh(new THREE.CylinderGeometry(0.145, 0.152, 0.21, 16), legCloth, [0, -0.075, 0]));   // a wide leg, to mid-thigh
+        leg.add(cyl(0.154, 0.154, 0.025, trim, [0, -0.175, 0], 16));                                  // its hem
+        if (k.style === 'stripes') leg.add(box(0.035, 0.2, 0.05, trim, [side * 0.135, -0.07, 0]));     // the side stripe
         var arm = g.userData.arms[side];
-        arm.add(cyl(0.098, 0.098, 0.06, c, [0, -0.37, 0], 14));                     // the glove's wrist strap
-        arm.add(sphere(0.045, glove, [0, -0.5, 0.08], [1.2, 0.8, 0.9]));            // the padded knuckles
+        arm.add(cyl(0.101, 0.101, 0.065, '#f7f5ef', [0, -0.37, 0], 14));                             // the glove's wrist strap
+        arm.add(sphere(0.05, k.gloves, [0, -0.5, 0.075], [1.25, 0.85, 0.9]));                        // the padded knuckles
       });
+      if (k.style === 'stripes') [1, -1].forEach(function (side) { g.add(box(0.05, 0.22, 0.035, trim, [side * 0.385, 0.53, 0])); });
       return g;
     },
     robe: function (R) {
@@ -2690,7 +2756,7 @@
 
   window.NevetHero = {
     build: build, viewer: viewer, snapshot: snapshot, itemIcon: itemIcon,
-    faceIcon: faceIcon, supported: supported, animate: animate, emote: playEmote, dispose: dispose,
+    faceIcon: faceIcon, supported: supported, animate: animate, emote: playEmote, dispose: dispose, fightLook: fightLook,
     merge: mergeMeshes,
     emotes: EMOTE_NAMES
   };

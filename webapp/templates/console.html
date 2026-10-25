@@ -16,7 +16,7 @@
   <button class="hub-tab active" type="button">Dashboard</button>
   <a class="hub-tab" href="{{ url_for('time_page') }}">Time</a>
   <button class="hub-tab" type="button" onclick="return showComingSoon('Resources')">Resources</button>
-  <a class="hub-tab" href="{{ url_for('stats') }}">XP</a>
+  <a class="hub-tab" href="{{ url_for('stats') }}">🏆 Leaderboards</a>
 </div>
 
 <div class="hub-wrap">
@@ -38,6 +38,29 @@
     {{ ui.today_body(today, compact=True) }}
     <a class="panel-link" href="{{ url_for('activity', period='7') }}">All activity →</a>
   </section>
+
+  {% if board.top %}
+  <section class="lb-card" aria-labelledby="lb-card-title">
+    <div class="lb-card-head">
+      <h2 id="lb-card-title">🏆 {{ 'Top heroes' if board.all_time else "This week's top heroes" }}</h2>
+      <a class="panel-link" href="{{ url_for('stats', period='all' if board.all_time else '7') }}">Leaderboards →</a>
+    </div>
+    <ol class="lb-card-list">
+      {% for p in board.top %}
+      <li class="{{ 'is-me' if p.me }}">
+        <span class="lb-card-place">{{ ['🥇', '🥈', '🥉'][loop.index0] if loop.index <= 3 else loop.index }}</span>
+        <a class="lb-hero" href="{{ url_for('grower_page', grower_id=p.id) }}"><span class="lb-face" data-face='{{ p.appearance | tojson }}'>{{ p.name[:1] | upper }}</span>
+          <span><b>{{ p.name }}</b><small>{{ p.rank.emoji }} {{ p.rank.title }} · Lv {{ p.level }}</small></span></a>
+        <span class="lb-card-xp"><b>{{ p.xp if board.all_time else p.xp_period }}</b> XP</span>
+      </li>
+      {% endfor %}
+    </ol>
+    <p class="lb-card-foot">
+      {% if board.me %}You: <b>#{{ board.me.place }}</b> of {{ board.count }}{% if not board.all_time and not board.me.xp_period %} · log something real to climb{% endif %}{% endif %}
+      {% if board.champion %}<span>· Arena champion: 🏆 <b>{{ board.champion }}</b></span>{% endif %}
+    </p>
+  </section>
+  {% endif %}
 
   <section class="ev-soon" aria-labelledby="ev-soon-title">
     <div class="ev-soon-head">
@@ -346,6 +369,21 @@
   })();
 </script>
 <script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+{% if board.top %}
+<script src="{{ url_for('static', filename='js/hero3d.js') }}"></script>
+<script>
+(function () {                                        // the leaderboard card's little faces (2D, cheap); letters stay as the fallback
+  if (!window.NevetHero) return;
+  var CATALOG = {{ catalog | tojson }};
+  document.querySelectorAll('.lb-face[data-face]').forEach(function (el) {
+    try {
+      var img = new Image(); img.alt = ''; img.src = NevetHero.faceIcon(JSON.parse(el.dataset.face), CATALOG, 40);
+      el.textContent = ''; el.appendChild(img);
+    } catch (e) { /* keep the letter */ }
+  });
+})();
+</script>
+{% endif %}
 <script>
 (function () {
   var canvas = document.getElementById('hub-canvas');

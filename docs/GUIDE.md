@@ -106,6 +106,12 @@ You can choose (all of it is optional, change it whenever you like):
 - **A companion** (the Companion tab): a worm, snail, bee, sprout spirit,
   frog, chick, ladybug or hedgehog. Give it a name, a colour, a size and
   an accessory (bow, party hat, flower, top hat, crown).
+- **An arena kit** (the Arena kit tab) for the campfire ring, where
+  everyone wrestles no-gi: boxer shorts in 12 colours (or your outfit's
+  colour) with 6 designs (plain, side stripes, flames, leaves, stars,
+  checks) and a trim colour, plus a sports bra or no top. **Auto** picks a
+  sports bra, or no top for male heroes. The preview shows you dressed
+  for a bout while that tab is open.
 
 Heroes are alive: they breathe, blink, and every few seconds wave, hop,
 twirl or cheer. Tap your hero to make it do something; trying on a new
@@ -251,12 +257,12 @@ dusk by itself, so the fire can glow.
   Mayim Mayim steps in to the fire and out, the Conga marches round).
   Meanwhile the **campfire tournament** goes on: every hero enters, and
   three at a time walk in, salute, bow and wrestle in the mud round the
-  fire. Wrestlers change into an MMA-style fight kit for their bout: a
-  sleeveless top and fight shorts in their corner's colour (red, blue or
-  gold), fingerless gloves, and bare feet. Hats, tools and backpacks wait
-  outside, and the kit gets muddier as they go. Afterwards they change
-  back into their own clothes. The champion's ceremony kit is gold, with
-  a championship belt. Grabs and throws pop up as "SPLAT!" and "SPLASHDOWN!", a big
+  fire. Wrestlers change into their own **no-gi arena kit** for their bout
+  (boxer shorts, a sports bra or no top, picked on the hero's Arena kit
+  tab), open-finger MMA gloves in their corner's colour (red, blue or
+  gold), and bare feet. Hats, tools and backpacks wait outside, and the
+  kit gets muddier as they go. Afterwards they change back into their own
+  clothes. The champion's gloves are gold, with a championship belt. Grabs and throws pop up as "SPLAT!" and "SPLASHDOWN!", a big
   throw lays a hero flat with stars round their head (they bounce back
   up), and the one with the most points goes through. When three are
   left, the top two go through; the last two wrestle **the final** for the
@@ -442,10 +448,22 @@ on their hero page ("Who invited you?"). An admin can set it or change it
 for anyone. The tree can't go round in a circle: nobody can be invited
 by someone they invited.
 
-## XP and levels
+## XP, levels and leaderboards
 
-Your hero earns XP from real garden work: the more you log, the higher
-your level.
+Your hero earns XP from real garden work: 10 for every action you log,
+15 more for a harvest and 5 for every plant or bin you look after. The
+more you log, the higher your level, and every level has a rank title:
+🌱 Seedling, 🌿 Sprout (level 3), 🪴 Sapling (5), 🌻 Grower (8),
+🌾 Gardener (11), 🌳 Master gardener (15) and 👑 Legend of Nevet (20).
+
+The **🏆 Leaderboards** tab (next to Dashboard and Time, at
+`/leaderboards`) ranks every hero by XP: this week, the last 30 days (XP
+earned in that time) or all time. The top three stand on a podium, your
+own place shows at the top ("You're #4 of 19"), and smaller top fives
+show the most active, the steadiest rhythm, the top harvesters (kg), the
+strongest fighters, arena glory, top scorers and top inviters. The
+dashboard has a little board with this week's top five and the arena's
+champion.
 
 ## Powers and game stats
 
@@ -460,22 +478,46 @@ a hero on the farm):
 | 🦉 Wisdom | check-ups and fertilizing |
 | 💚 Heart | feeding the worms, giving produce away and helping at events |
 
-Everyone starts with the same basic powers (10 each). Your work makes them
-grow (your first actions count the most), every level adds +1 to all of
-them, and your hero's class adds a little to one. **Nothing can be
-bought**: clothes and gear are only for looks, and nobody can set powers by
-hand. Those who do, grow.
+Real work in the garden matters far more than anything on the 3D farm,
+so powers are built from it in three ways:
 
-The powers decide how the mud arena and football go, but they're kept fair: a
-veteran is stronger than a newcomer, not unbeatable. Strength is
-compressed before every match, luck always plays a part, a hero's first
-few matches and a losing streak get a little extra spirit, everyone gets
-their turn, and football teams are balanced. A level-5 veteran wins about
-half of their bouts against two brand-new heroes; each newcomer still wins
-about one in five. The page **How powers work** (from the XP tab) shows
-every number, and they're all in the open in `webapp/games.py`.
+- **Work**: everyone starts at 10 in each power, your work makes them
+  grow (your first actions count the most), and your hero's class adds a
+  little to one.
+- **Exponential levels**: every level *multiplies* every power by 1.15.
+  Level 5 is 1.7 times level 1, level 10 3.5 times, level 20 14 times.
+- **The fractal rhythm**: the fractal (box-counting) dimension of the days
+  you did real garden work over the last 128 days, Benoit Mandelbrot's way
+  of measuring how a pattern fills its space at every scale. Every day
+  gives 1.0, every weekend 0.75, once a week 0.64, once a month 0.28, and
+  one busy weekend with nothing since 0.19. It multiplies your powers from
+  ×0.6 to ×1.4, so steady participation beats one big burst.
 
-The **XP** tab keeps the stats. For the mud arena: **glory** (points, +5
+Your rhythm also puts your hero on the real axis of the **Mandelbrot
+set**, which gives your fighting style. Your form for each move is the
+next point of the orbit z → z² + c: **Steady** heroes (in the main
+cardioid) have the same strong form every move; **Two-beat** heroes
+alternate a strong move and a weaker one; **Many-beat** heroes swing in
+4-, 8- and 16-move rhythms; **Wild** heroes (in the chaotic tail) are
+brilliant one moment and awful the next. The swing never adds strength on
+average.
+
+In a bout, a move lands with the attacker's share of the two powers:
+equals land half, twice as strong two in three, ten times as strong nine
+in ten. Luck keeps every move between 10% and 90%, and a hero's first
+five bouts and a losing streak get a little extra spirit. A weekly
+gardener at level 5 wins about four bouts in five against a newcomer and
+a casual player; a newcomer who logs a few real actions in their first
+days already wins about one in six. Football compresses powers and
+balances the teams, so it stays a game for everyone.
+
+**Nothing can be bought**: clothes, gear and the arena kit are only for
+looks, and nobody can set powers by hand. Those who do, grow. The page
+**How fighting powers work** (from the Leaderboards) shows every number,
+your own rhythm and style, and every hero on a picture of the Mandelbrot
+set; they're all in the open in `webapp/games.py`.
+
+The **Leaderboards** tab also keeps the game stats. For the mud arena: **glory** (points, +5
 for every round won, +10 for reaching a final, +25 for a grand victory),
 grand victories, finals, bouts and bouts won, points, grabs (tried and
 landed), throws, dodges, slips and times thrown; the bracket of the

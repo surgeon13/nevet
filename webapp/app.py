@@ -4,6 +4,7 @@ import os
 import re
 import hmac
 import json
+import math
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -26,6 +27,7 @@ import netaccess
 import relations
 import heroes
 import invites
+import leaderboards
 import plants
 import timeline
 import today
@@ -227,6 +229,7 @@ def hub():
         events_now=events.happening(),
         events_next=events.upcoming(days=60),
         events_soon=_events_for_dashboard(g.user["id"]),
+        board=leaderboards.dashboard(g.user["id"]), catalog=heroes.catalog(),
     )
 
 
@@ -527,7 +530,7 @@ def grower_page(grower_id):
         rel_options=relations.form_options(), my_groups=farm_db.list_groups(grower_id),
         group_kind_names=relations.GROUP_KIND,
         rel_candidates=[r for r in farm_db.list_growers() if r["id"] != grower_id],
-        powers=pw, skills=games.SKILLS, game_stats=games.hero_stats(grower_id), glory=games.glory(games.hero_stats(grower_id)),
+        powers=pw, powers_k=games.LEVEL_POWER, skills=games.SKILLS, game_stats=games.hero_stats(grower_id), glory=games.glory(games.hero_stats(grower_id)),
         matches=games.recent_matches(6, grower_id), styles=games.ARENA_STYLES,
         invites=invites.summary(grower_id), mine=_my_invite(grower_id) if g.user["id"] == grower_id else None,
         inviter_candidates=_inviter_candidates(grower_id),
@@ -1114,7 +1117,10 @@ def grower_inviter(grower_id):
 
 
 @app.route("/stats")
+@app.route("/leaderboards")
 def stats():
+    """The leaderboards (it was the XP page, so /stats still works): the hero ranking by XP from real garden work,
+    the top-five boards, the arena and football."""
     conn = get_db()
     latest = conn.execute("SELECT * FROM stats_log ORDER BY id DESC LIMIT 1").fetchone()
     history = conn.execute("SELECT * FROM stats_log ORDER BY id DESC LIMIT 50").fetchall()
@@ -1125,6 +1131,7 @@ def stats():
     fighters = sorted((r for r in board if r.get("bouts")), key=lambda r: (-r.get("glory", 0), -r.get("wins", 0), r["name"].lower()))
     players = sorted((r for r in board if r.get("matches")), key=lambda r: (-r.get("goals", 0), -r.get("match_wins", 0), r["name"].lower()))
     return render_template("stats.html", latest=latest, history=history, fighters=fighters, players=players, period=period if period in ("7", "30", "all") else "30",
+                           lb=leaderboards.rankings(days, g.user["id"]), catalog=heroes.catalog(),
                            recent=games.recent_matches(10), totals=games.totals(), styles=games.ARENA_STYLES,
                            bracket=games.bracket(), champions=games.champions(8), records=games.records(games.leaderboard(None)),
                            moves=[k for k in ("punches", "pushes", "strikes") if any(r.get(k) for r in fighters)],
@@ -1133,11 +1140,19 @@ def stats():
 
 @app.route("/powers")
 def powers_page():
-    """How heroes' powers work: where they come from, and how matches are kept fair."""
+    """How heroes' fighting powers work: real garden work, exponential levels, the fractal rhythm and the Mandelbrot set."""
     P = games.all_powers()
     rows = sorted(({"id": r["id"], "name": r["name"], **P[r["id"]]} for r in farm_db.list_growers() if r["id"] in P),
-                  key=lambda r: (-r["level"], r["name"].lower()))
-    return render_template("powers.html", g_=games, rows=rows, mine=P.get(g.user["id"]),
+                  key=lambda r: (-r["total"], r["name"].lower()))
+    W = games.RHYTHM_DAYS
+    examples = [(label, games.fractal_dimension(days, W)) for label, days in (
+        ("every day", range(W)), ("every other day", range(0, W, 2)), ("every weekend", [d for d in range(W) if d % 7 in (5, 6)]),
+        ("once a week", range(0, W, 7)), ("every two weeks", range(0, W, 14)), ("once a month", range(0, W, 30)),
+        ("one busy weekend, then nothing", [60, 61, 62]))]
+    examples = [(label, round(d, 2), games.mandel_c(d), games.style_of(games.mandel_c(d))) for label, d in examples]
+    levels = [(lv, round(games.level_mult(lv), 1)) for lv in (1, 3, 5, 8, 10, 15, 20)]
+    dots = [{"name": r["name"], "c": r["c"], "style": r["style"]["id"], "me": r["id"] == g.user["id"]} for r in rows]
+    return render_template("powers.html", g_=games, rows=rows, mine=P.get(g.user["id"]), examples=examples, levels=levels, dots=dots,
                            classes={c["id"]: c for c in heroes.catalog()["classes"]})
 
 
@@ -1667,6 +1682,17 @@ def api_event_map_deleted(event_id):
 
 # ---------- NFC / RFID tags and QR labels (tags.py; readers: scripts/nevet_tags.py) ----------
 app.jinja_env.filters["uid"] = tags.pretty_uid
+
+
+def _powerbar(p):
+    """A power's bar width in % on a log scale (powers grow exponentially with levels): 6 -> 28, 50 -> 57, 250 -> 80, 1000 -> 100."""
+    try:
+        return max(2, min(100, round(100 * math.log10(1 + float(p)) / 3)))
+    except (TypeError, ValueError):
+        return 0
+
+
+app.jinja_env.filters["powerbar"] = _powerbar
 
 
 def _tag_base():

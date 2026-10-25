@@ -104,14 +104,16 @@
     {% for sid, sname, emoji, from in skills %}
     <div class="power" title="Grows with {{ from }}">
       <span class="power-name"><span aria-hidden="true">{{ emoji }}</span> {{ sname }}</span>
-      <span class="power-bar"><span style="width: {{ [powers.powers[sid], 99] | min }}%"></span></span>
+      <span class="power-bar"><span style="width: {{ powers.powers[sid] | powerbar }}%"></span></span>
       <b class="power-val">{{ powers.powers[sid] }}</b>
       <small class="muted">{{ from }}</small>
     </div>
     {% endfor %}
   </div>
-  <p class="muted power-note">Every hero starts at 10 in each power. Level {{ powers.level }} adds +{{ powers.level - 1 }} to all of them.
-    Gear and clothes are only for looks. <a href="{{ url_for('powers_page') }}">How powers work</a></p>
+  <p class="muted power-note">Level {{ powers.level }} multiplies every power ×{{ powers.level_k }} (each level ×{{ powers_k }}).
+    Fractal rhythm {{ '%.2f' | format(powers.rhythm) }} (how steadily {{ 'you show' if is_me else 'they show' }} up for real garden work) ×{{ powers.rhythm_k }},
+    fighting style <span class="style-chip style-{{ powers.style.id }}">{{ powers.style.name }}</span>.
+    Gear and the arena kit are only for looks. <a href="{{ url_for('powers_page') }}">How powers work</a></p>
   {% endif %}
   {% set gs = game_stats %}
   {% if gs %}
