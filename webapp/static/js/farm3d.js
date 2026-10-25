@@ -2550,6 +2550,10 @@
     var a = {};
     for (var k in h.appearance) a[k] = h.appearance[k];
     if (tool !== undefined && tool !== null) a.hand = tool;
+    if (h.dress) {                                     // a bout at the campfire: the fight kit in the corner's colour, no hat, nothing on the back
+      a.body = 'fight'; a.fightColor = h.dress.color; a.fightTrim = h.dress.trim;
+      a.hand = 'none'; a.head = 'none'; a.back = 'none'; a.earrings = 'none';
+    }
     a.pet = 'none';                                    // only the heroes come to the farm; companions stay home
     a.petAccessory = 'none';
     var root = NevetHero.build(a, D.catalog, { outlines: outlines, merge: true });
@@ -2557,11 +2561,11 @@
     return root;
   }
   function setTool(h, tool) {
-    var want = tool === null || tool === undefined ? h.appearance.hand : tool;
-    if (h.tool === want && h.root) return;
+    var want = tool === null || tool === undefined ? h.appearance.hand : tool, key = want + (h.dress ? '|fight:' + h.dress.color : '');
+    if (h.toolKey === key && h.root) return;
     var old = h.root;
     h.root = buildHeroRoot(h, want);
-    h.tool = want;
+    h.tool = want; h.toolKey = key;
     if (old) {
       h.root.position.copy(old.position); h.root.rotation.copy(old.rotation);
       scene.remove(old);
@@ -3074,9 +3078,25 @@
   // the fire pit: they circle and close in, and every grab and throw happens when the station says, landing, dodged
   // or throwing someone flat (with stars). The most points goes through; they bow and go back to dancing. After the
   // final, the champion has a ceremony by the fire while everyone dances with their hands up.
-  function ringJoin(h, f) {                            // a wrestler in this bout: walk in to your corner
+  function dressForFight(h, corner, champion) {        // into the fight kit (the champion's is gold, with the belt)
+    h.dress = champion ? { color: '#e8b73a', trim: '#ffffff' } : { color: RING.colors[corner] || RING.colors[0], trim: '#ffffff' };
+    setTool(h, 'none');
+    if (champion) {
+      var u = h.root.userData, gold = new THREE.MeshToonMaterial({ color: 0xf2c94c, emissive: new THREE.Color(0x5a3c00), emissiveIntensity: 0.35 });
+      u.hero.add(mesh(new THREE.CylinderGeometry(0.405, 0.405, 0.15, 28), gold, [0, 0.6, 0]));
+      u.hero.add(mesh(new THREE.BoxGeometry(0.3, 0.22, 0.05), gold, [0, 0.6, 0.39]));
+      u.hero.add(mesh(new THREE.SphereGeometry(0.05, 10, 8), mat('#d81b60'), [0, 0.6, 0.42]));
+    }
+  }
+  function undress(h) {                                 // back into their own clothes
+    if (!h.dress) return;
+    h.dress = null;
+    setTool(h, ACTS[current].tool);
+  }
+  function ringJoin(h, f) {                            // a wrestler in this bout: into the fight kit and in to your corner
     playLeave(h);
     h.camp = false;
+    dressForFight(h, f.corner, RING.ceremony);
     h.sp = { corner: f.corner, inK: 1, vx: 0, vz: 0, kx: 0, kz: 0, atk: 0, hitT: -9, down: -9, downAt: -9, dodge: -9,
              mud: 0, target: null, retarget: 0, orbit: R() < 0.5 ? 1 : -1, stars: null, speed: 0, force: null, forceUntil: 0, speedK: h.speedK };
     h.speedK = h.sp.speedK * 1.5;                      // hurry in
@@ -3090,6 +3110,7 @@
   }
   function ringOut(h) {                                // gear off, back to normal
     removeGear(h);
+    undress(h);
     if (h.sp) {
       if (h.sp.stars) { scene.remove(h.sp.stars); h.sp.stars.material.dispose(); }
       h.speedK = h.sp.speedK;
@@ -3128,7 +3149,7 @@
     RING.fighters.forEach(function (h) {
       var s2 = RING.starts[h.sp.corner];
       if (h.root.position.distanceTo(s2) > 0.8) { h.path = []; h.onArrive = null; h.root.position.set(s2.x, 0, s2.z); }   // late: straight in
-      setTool(h, 'none');
+      if (!h.dress) dressForFight(h, h.sp.corner, RING.ceremony);
       if (!RING.ceremony) addGear(h, st);
       face(h, RING.c);
       doAct(h, RING.ceremony ? 'champion' : 'spar', 9999, null, now);
@@ -3610,6 +3631,7 @@
     if (byUser) auto = false;
     focusTarget = ACTS[name].centre.clone();
     focusUntil = now + 2.2;
+    if (name !== 'campfire' && RING.bout) arenaFinish();    // leaving the campfire: the wrestlers change back
     PARTY.group.visible = name === 'party';
     setPartyNav(name === 'party');
     form.on = false;

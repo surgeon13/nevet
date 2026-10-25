@@ -251,7 +251,12 @@ dusk by itself, so the fire can glow.
   Mayim Mayim steps in to the fire and out, the Conga marches round).
   Meanwhile the **campfire tournament** goes on: every hero enters, and
   three at a time walk in, salute, bow and wrestle in the mud round the
-  fire. Grabs and throws pop up as "SPLAT!" and "SPLASHDOWN!", a big
+  fire. Wrestlers change into an MMA-style fight kit for their bout: a
+  sleeveless top and fight shorts in their corner's colour (red, blue or
+  gold), fingerless gloves, and bare feet. Hats, tools and backpacks wait
+  outside, and the kit gets muddier as they go. Afterwards they change
+  back into their own clothes. The champion's ceremony kit is gold, with
+  a championship belt. Grabs and throws pop up as "SPLAT!" and "SPLASHDOWN!", a big
   throw lays a hero flat with stars round their head (they bounce back
   up), and the one with the most points goes through. When three are
   left, the top two go through; the last two wrestle **the final** for the

@@ -204,7 +204,9 @@ A Flask app served by waitress on port 8000:
   up all the time and rests between parties (`stepStage()`); `PARTY.group`
   holds what only shows at a party. `FARM_DARK` / `lightTarget()` keep the farm
   in daylight unless the sun / moon button says night, and the campfire
-  dims to dusk. `addGear()` puts the style's props on a hero's
+  dims to dusk. `dressForFight()` rebuilds a wrestler with hero3d's `fight` body
+  (`a.fightColor`, the corner's colour; gold plus a belt for the champion)
+  and `undress()` changes them back. `addGear()` puts the style's props on a hero's
   arms, head and body and `removeGear()` takes them off.
 - **Games** — `games.py` decides the matches the farm shows, so everyone
   watching sees the same one and the results can be kept. Powers come from

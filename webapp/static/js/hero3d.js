@@ -1433,6 +1433,24 @@
       g.add(mesh(new THREE.OctahedronGeometry(0.05), '#d83a4a', [0, 0.82, torsoR(0.82) + 0.03]));
       return g;
     },
+    // the campfire's fight kit (not in the catalog: the farm puts it on for a bout, a.fightColor is the corner's colour):
+    // a sleeveless rash-guard top and fight shorts in the corner's colour, bare arms and legs, bare feet, MMA gloves
+    fight: function (R) {
+      var c = R.a.fightColor || '#e8473c', trim = R.a.fightTrim || '#ffffff', glove = '#26262c';
+      var g = baseBody(R, { top: c, sleeves: R.skin, pants: R.skin, boots: shade(R.skin, -0.06), hands: glove });
+      g.add(cyl(0.302, 0.302, 0.035, trim, [0, 1.085, 0], 28));                  // the top's neckline
+      g.add(cyl(0.378, 0.392, 0.2, c, [0, 0.52, 0], 28));                         // the shorts
+      g.add(cyl(0.384, 0.384, 0.055, trim, [0, 0.62, 0], 28));                    // their waistband
+      [1, -1].forEach(function (side) {
+        var leg = g.userData.legs[side];
+        leg.add(cyl(0.135, 0.13, 0.17, c, [0, -0.06, 0], 16));                     // a short leg of the shorts
+        leg.add(box(0.035, 0.16, 0.04, trim, [side * 0.12, -0.05, 0]));             // the side stripe
+        var arm = g.userData.arms[side];
+        arm.add(cyl(0.098, 0.098, 0.06, c, [0, -0.37, 0], 14));                     // the glove's wrist strap
+        arm.add(sphere(0.045, glove, [0, -0.5, 0.08], [1.2, 0.8, 0.9]));            // the padded knuckles
+      });
+      return g;
+    },
     robe: function (R) {
       var g = baseBody(R, { top: R.outfit, sleeves: R.outfit, pants: R.outfit, legs: false, bell: true });
       g.add(cyl(0.37, 0.53, 0.56, R.outfit, [0, 0.28, 0], 28));

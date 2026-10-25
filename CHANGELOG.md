@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-25 (fight kit at the campfire)
+
+- **Wrestlers fight in an MMA-style kit**: when they walk into the mud
+  arena they change into a sleeveless top and fight shorts in their
+  corner's colour, fingerless gloves and bare feet. No hats, tools or
+  backpacks in the ring. They change back into their own clothes after
+  the bout. The grand champion's kit is gold, with a championship belt.
+- Leaving the campfire in the middle of a bout ends it, and the
+  wrestlers change back.
+
 ## 2026-10-23 (the farm blooms with its people)
 
 - **Bloom**: the farm grows as more heroes join, invite friends and

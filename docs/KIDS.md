@@ -51,7 +51,8 @@ all the heroes play together! They can:
 - feed the chickens, ducks and worms 🐔🦆🪱
 - play football and go on the swings and the slide ⚽
 - dance at a party with lights and music 🪩
-- dance around the campfire 🔥, while three at a time have a silly muddy
+- dance around the campfire 🔥, while three at a time put on their
+  fighting clothes (shorts, a top and big gloves) and have a silly muddy
   splash match in the mud ring round the fire. The winners go on, and at
   the end there's a champion! 🏆 Then there are fireworks, and the fire
   turns rainbow colours 🌈
