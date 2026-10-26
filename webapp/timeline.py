@@ -48,7 +48,16 @@ def _gender(look):
         return None
 
 
-def story(max_days=MAX_DAYS):
+def _tree(public):
+    """The mother tree; for viewers (public) only who invited whom, without family connections."""
+    import invites
+    t = invites.tree()
+    return {"nodes": t["nodes"], "links": []} if public else t
+
+
+def story(max_days=MAX_DAYS, public=False):
+    """public: the story for viewers without an account (viewers.py): no family connections or groups, and not
+    whom produce was given to."""
     conn = farm_db.get_conn()
     q = lambda sql, *a: conn.execute(sql, a).fetchall()
     tables = {r[0] for r in q("SELECT name FROM sqlite_master WHERE type='table'")}
@@ -82,7 +91,7 @@ def story(max_days=MAX_DAYS):
                 day["moments"].append({"kind": "harvest", "text": f"The first {base.lower()} harvest" + (f" ({g / 1000:.1f} kg)" if g >= 100 else "") + f", picked by {r['who'] or 'someone'}."})
             elif g >= 2000:
                 day["moments"].append({"kind": "harvest", "text": f"A big harvest: {g / 1000:.1f} kg of {base.lower() or 'produce'} by {r['who'] or 'someone'}."})
-        if r["log_type"] == "delivery" and r["recipient"]:
+        if r["log_type"] == "delivery" and r["recipient"] and not public:
             day["lines"].append(f"{r['who'] or 'Someone'} shared produce from the {base.lower() or 'garden'} with {r['recipient']}.")
 
     gcols = {c[1] for c in q("PRAGMA table_info(growers)")}
@@ -92,7 +101,7 @@ def story(max_days=MAX_DAYS):
         if d:
             days[d]["moments"].append({"kind": "hero", "text": f"{r['name']} joined the farm.", "name": r["name"], "by": r["by_name"]})
 
-    if "relationships" in tables:
+    if "relationships" in tables and not public:
         cols = {c[1] for c in q("PRAGMA table_info(relationships)")}
         accepted = "WHERE r.status = 'accepted'" if "status" in cols else ""
         for r in q(f"""SELECT r.kind, r.created_at, a.name AS a_name, b.name AS b_name, a.appearance AS a_look, b.appearance AS b_look
@@ -108,7 +117,7 @@ def story(max_days=MAX_DAYS):
                 text = f"{r['a_name']} is {r['b_name']}'s {relations.label(r['kind'], _gender(r['a_look']), True).lower()}."
             days[d]["moments"].append({"kind": "love", "text": text})
 
-    if "groups" in tables:
+    if "groups" in tables and not public:
         for r in q("SELECT name, kind, created_at FROM groups"):
             d = _day(r["created_at"])
             if d:
@@ -138,7 +147,7 @@ def story(max_days=MAX_DAYS):
     ordered = sorted(d for d in days if d)
     if not ordered:
         import invites
-        return {"days": [], "first": None, "today": date.today().isoformat(), "tree": invites.tree(), "counts": invites.counts()}
+        return {"days": [], "first": None, "today": date.today().isoformat(), "tree": _tree(public), "counts": invites.counts()}
     very_first = ordered[0]
     ordered = ordered[-max_days:]
     out = []
@@ -201,4 +210,4 @@ def story(max_days=MAX_DAYS):
         })
     import invites                                   # the mother tree: who invited whom, and their connections
     return {"days": out, "first": very_first.isoformat(), "today": date.today().isoformat(),
-            "total_days": len(days), "shown": len(out), "tree": invites.tree(), "counts": invites.counts()}
+            "total_days": len(days), "shown": len(out), "tree": _tree(public), "counts": invites.counts()}

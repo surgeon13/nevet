@@ -781,3 +781,18 @@ canvas.mandel { display: block; width: 100%; border-radius: 14px; background: #0
   .lb-table th, .lb-table td { padding: 7px 6px; }
   .podium-block b { font-size: 1.3rem; }
 }
+
+/* ---------- viewers without an account (viewers.py) ---------- */
+.viewer-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 10px; padding: 8px 16px;
+  background: color-mix(in srgb, #f2c230 18%, var(--bg-card)); border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+.viewer-bar-text { flex: 0 1 auto; text-align: center; }
+.viewer-welcome { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; margin: 0 0 14px; padding: 16px 18px;
+  border-radius: 18px; border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, var(--bg-card)), color-mix(in srgb, #f2c230 14%, var(--bg-card))); }
+.viewer-welcome h2 { margin: 0 0 6px; font-size: 1.2rem; }
+.viewer-welcome p { margin: 0; max-width: 44em; font-size: 0.92rem; }
+.viewer-welcome-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.node-card.is-locked { opacity: 0.6; border-style: dashed; }
+.auth-why { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, #f2c230 16%, var(--bg-card)); font-size: 0.9rem; }
+.look-around { display: flex; justify-content: center; margin: 14px 0 0; }
+.hero-field-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 0.92rem; }

@@ -54,6 +54,9 @@ in one go.
   people, volunteer jobs, a map of the site, check-ins and photos.
 - 🏷️ **Tags**: stickers and QR labels on plants. Tap one with a phone and
   the job is logged.
+- 👀 **Look around first**: visitors without an account get the brain,
+  the 3D farm, the story and the leaderboards as guests, with private
+  things (notes, family, photos unless allowed) hidden and a Join button.
 - 🏆 **Leaderboards**: heroes ranked by XP from real garden work (this
   week, 30 days, all time), a podium, rank titles from 🌱 Seedling to
   👑 Legend of Nevet, and top fives for the most active, the steadiest,

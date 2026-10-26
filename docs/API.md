@@ -7,7 +7,14 @@ The web app runs on port 8000. All routes are relative to
 
 Every page needs a logged-in player except `/login`, `/register`,
 `/join`, `/e/<id>`, `/healthz` and `POST /api/stats` (API key). All POST forms carry a
-`_csrf` token.
+`_csrf` token. Visitors without an account can also open these pages as
+viewers, GET only (`webapp/viewers.py`, when the admin allows guests): `/`,
+`/farm` (with `/api/farm/live`, `/api/games/now` and `/extras/...`), `/time`,
+`/leaderboards` (`/stats`), `/powers`, `/growers`, `/growers/<id>`,
+`/activity`, `/assets`, `/assets/<id>`, `/events` and `/t/<code>`, plus
+`/gallery` and `/media/...` if guests may see photos. A viewer's POST gets
+a redirect to `/login?why=join` (or `403` with a JSON error under `/api/`);
+other pages redirect to `/login?why=members`.
 
 | Method | Path | Description |
 |---|---|---|

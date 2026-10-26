@@ -145,7 +145,16 @@ A Flask app served by waitress on port 8000:
   plants, actions) with in-place migrations; **`heroes.py`** hero
   catalog, validation and XP; **`activity_views.py`** the dashboard /
   profile / history data and small view helpers.
-- **Accounts** — every page except log-in, sign-up, `/healthz` and the
+- **Viewers** — `viewers.py`: without a log-in, `load_user_and_guard()`
+  lets a visitor open `viewers.ENDPOINTS` (GET only) with `g.user` set to a
+  guest (`id` 0, not an admin) and `g.viewer` true; templates get
+  `viewer` (and `current_user` stays empty), and macros use `is_viewer()`.
+  Private bits (notes, recipients, connections, groups, invites, gender)
+  are left out of the pages, and `timeline.story(public=True)` drops
+  connections and groups from the story and the mother tree. The admin's
+  `guest_view` / `guest_photos` settings decide who may look and whether
+  photos are shown.
+- **Accounts** — every other page except log-in, sign-up, `/healthz` and the
   API-key stats endpoint needs a player log-in. Players are growers
   with a salted password hash; the first account is admin. Deleting a
   hero is a soft delete (`growers.deleted_at`): binned heroes drop out

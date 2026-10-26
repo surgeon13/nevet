@@ -38,6 +38,20 @@
     <button type="submit" name="action" value="new_invite" class="btn btn-ghost" onclick="return confirm('Make a new code? The old one stops working.');">Make a new code</button>
   </form>
   {% endif %}
+  {% if current_user.is_admin %}
+  <form method="post" class="auth-section">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <h3>Visitors without an account</h3>
+    <p class="auth-sub">Visitors can look around as guests: the dashboard's brain, the 3D farm, the farm story, leaderboards, heroes, plants,
+      activity and events. They can't change anything, and they never see notes, family connections, groups, invite codes, tags,
+      the garden map or the system pages.</p>
+    {% for key, label in guest_modes.items() %}
+    <label class="hero-field-row"><input type="radio" name="guest_view" value="{{ key }}"{% if guest_view == key %} checked{% endif %}> {{ label }}</label>
+    {% endfor %}
+    <label class="hero-field-row"><input type="checkbox" name="guest_photos"{% if guest_photos %} checked{% endif %}> Guests can see the camera's photos and videos</label>
+    <button type="submit" name="action" value="viewers" class="btn btn-ghost">Save</button>
+  </form>
+  {% endif %}
   {% if invite_log %}
   <div class="auth-section">
     <h3>Invite log</h3>

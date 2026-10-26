@@ -29,6 +29,7 @@
       </button>
       {% endfor %}
     </div>
+    {% if not viewer %}
     <details class="plant-model-pick">
       <summary>{% if picked %}Drawn as <b>{{ species.name }}</b>{% elif detected %}Drawn as <b>{{ species.name }}</b> (from the name){% else %}We couldn't tell which plant this is{% endif %} · <span class="link">change</span></summary>
       <form method="post" action="{{ url_for('asset_species', asset_id=asset.id) }}" class="plant-model-form">
@@ -45,15 +46,22 @@
       </form>
     </details>
     {% endif %}
+    {% endif %}
   </div>
 </section>
 
 <p class="asset-actions">
+  {% if viewer %}
+  <a class="btn btn-primary" href="{{ url_for('register') }}">🌱 Join Nevet to look after plants like {{ asset.name }}</a>
+  <a class="btn btn-ghost" href="{{ url_for('activity', plant=asset.id) }}">Full history</a>
+  {% else %}
   <a class="btn btn-primary" href="{{ url_for('log_action', asset=asset.id) }}">Log an action for {{ asset.name }}</a>
   <a class="btn btn-ghost" href="{{ url_for('activity', plant=asset.id) }}">Full history</a>
   <a class="btn btn-ghost" href="{{ url_for('map_page', asset=asset.id) }}">{{ 'Show on map' if pinned else 'Pin on map' }}</a>
+  {% endif %}
 </p>
 
+{% if not viewer %}
 <div class="asset-tags" id="tags">
   <h3>Tags</h3>
   {% if asset_tags %}
@@ -66,6 +74,7 @@
     <button class="btn btn-ghost btn-small">+ Make a tag for {{ asset.name }}</button>
   </form>
 </div>
+{% endif %}
 
 <h3>History</h3>
 {{ ui.feed(history, empty='Nothing logged for this plant yet.') }}

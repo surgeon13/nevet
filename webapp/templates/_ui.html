@@ -65,9 +65,9 @@
         {%- if show_who %}{% if l.grower_id %}<a class="feed-who" href="{{ url_for('grower_page', grower_id=l.grower_id) }}">{{ l.grower_name }}</a>{% else %}<strong>Someone</strong>{% endif %} {{ m.verb }}
         {%- else %}{{ m.verb | capitalize }}{% endif %}
         {% if l.asset_id %}<a href="{{ url_for('asset_page', asset_id=l.asset_id) }}">{{ l.asset_name }}</a>{% else %}the whole garden{% endif %}
-        {%- if l.recipient %} to {{ l.recipient }}{% endif %}
+        {%- if l.recipient and not is_viewer() %} to {{ l.recipient }}{% endif %}
       </span>
-      <span class="feed-meta">{{ l.timestamp | when }}{% if l.amount %} · {{ l.amount }}{% endif %}{% if l.notes %} · “{{ l.notes }}”{% endif %}</span>
+      <span class="feed-meta">{{ l.timestamp | when }}{% if l.amount %} · {{ l.amount }}{% endif %}{% if l.notes and not is_viewer() %} · “{{ l.notes }}”{% endif %}</span>
     </span>
   </li>
   {% else %}
@@ -101,7 +101,7 @@
   <li class="todo todo-{{ d.level }}">
     <span class="todo-icon">{{ icon(d.icon, 17) }}</span>
     <span class="todo-text"><strong>{{ d.text }}</strong><small>{{ d.detail }}</small></span>
-    <a class="btn btn-small {{ 'btn-primary' if d.level != 'ok' else 'btn-ghost' }}" href="{{ d.href }}">{{ d.button }}</a>
+    {% if not is_viewer() %}<a class="btn btn-small {{ 'btn-primary' if d.level != 'ok' else 'btn-ghost' }}" href="{{ d.href }}">{{ d.button }}</a>{% endif %}
   </li>
   {% endfor %}
 </ul>

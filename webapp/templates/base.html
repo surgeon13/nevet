@@ -45,6 +45,13 @@
     </svg>
   </button>
 </nav>
+{% if viewer %}{% block viewer_banner %}
+<div class="viewer-bar" role="note">
+  <span class="viewer-bar-text">👀 You're looking around as a guest. Heroes here grow from real work in the garden.</span>
+  <a class="btn btn-primary btn-small" href="{{ url_for('register') }}">Join Nevet</a>
+  <a class="btn btn-ghost btn-small" href="{{ url_for('login') }}">Log in</a>
+</div>
+{% endblock %}{% endif %}
 <main{% block main_attrs %}{% endblock %}>
 {% block content %}{% endblock %}
 </main>

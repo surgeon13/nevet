@@ -75,16 +75,25 @@
       <div class="farm-bloom-bar" aria-hidden="true"><i style="width: {{ (cm.level * 100) | round | int }}%"></i></div>
       <p class="farm-bloom-note">Every hero who joins, every friend you invite and every connection makes the farm grow: taller plants, more flowers, a bigger mother tree, and wonders that appear one by one.</p>
       <ul>{% for gft in cm.gifts %}<li class="{{ 'on' if gft.on else '' }}">{{ '✨' if gft.on else '🔒' }} {{ gft.name }} <small>{{ (gft.at * 100) | int }}%</small></li>{% endfor %}</ul>
-      {% if cm.next %}<p class="farm-bloom-next">Next at {{ (cm.next.at * 100) | int }}%: {{ cm.next.name | lower }}. <a href="{{ url_for('account') }}#invite">Invite a friend →</a></p>{% endif %}
+      {% if cm.next %}<p class="farm-bloom-next">Next at {{ (cm.next.at * 100) | int }}%: {{ cm.next.name | lower }}. {% if viewer %}<a href="{{ url_for('register') }}">Join and help it bloom →</a>{% else %}<a href="{{ url_for('account') }}#invite">Invite a friend →</a>{% endif %}</p>{% endif %}
     </div>
   </details>
   {% endif %}
   <p class="farm-follow" id="farm-follow" hidden></p>
+  {% if viewer and not data.tv %}
+  <a class="farm-guest" href="{{ url_for('register') }}" title="You're watching as a guest">👀 Watching as a guest · <b>Join Nevet</b></a>
+  {% endif %}
 
+  {% if viewer %}
+  <form class="farm-world" id="farm-world" method="get" action="{{ url_for('farm_page') }}" hidden>
+    <input type="hidden" name="act" id="farm-world-act" value="">
+    <p class="farm-world-head"><b>Try a land</b><span>Only on your screen: members choose the land everyone sees.</span></p>
+  {% else %}
   <form class="farm-world" id="farm-world" method="post" action="{{ url_for('farm_world_set') }}" hidden>
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
     <input type="hidden" name="act" id="farm-world-act" value="">
     <p class="farm-world-head"><b>Farm setting</b><span>Everyone on this Nevet sees the same farm.</span></p>
+  {% endif %}
     {% for key, emoji, name, line in [
       ("classic", "🌳", "Green valley", "Meadows, apple trees and rolling hills"),
       ("desert", "🌵", "Desert oasis", "Dunes, date palms, cacti and red mesas"),

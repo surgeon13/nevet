@@ -278,8 +278,9 @@ complains about permissions, run `sudo tailscale set --operator=$USER` once.
 
 What changes when Nevet is public:
 
-- Everyone needs to **log in**, as before; nothing is visible without an
-  account.
+- Visitors without an account can **look around as guests** (see below),
+  unless you limit that to the home WiFi or turn it off. Taking part
+  always needs an account.
 - People signing up **from the internet** need an **invite code**: the
   farm's code, or any player's own code. An admin finds the farm's code on
   the Account page and can make a new one at any time (the old one stops
@@ -332,6 +333,28 @@ open to the internet (`nevet public on`), with the invite code filled in
 unless `WEBAPP_PUBLIC_SIGNUP=true`; otherwise the home network address
 (phones on the garden's WiFi). The QR code is made by `webapp/qr.py`, with no
 extra packages.
+
+### Guests: looking around without an account
+
+Anyone who opens Nevet without logging in is a **viewer** (`webapp/viewers.py`):
+they get the dashboard's brain, the 3D farm, the story and the mother tree,
+the leaderboards, heroes, plants, activity, events, and a plant's page when
+they scan its sticker. They can't change anything: every form sends them to
+log in or join (`/login?why=join`), and pages for members only
+(`/login?why=members`) offer to keep looking around. Viewers never see
+notes, produce recipients, family connections or groups (also not in the
+story or on the mother tree), invite links or codes, gender, the garden
+map, tags, accounts or the system pages. An admin chooses on the Account
+page, under **Visitors without an account**:
+
+- **Anyone can look around** (the default),
+- **Only on the home WiFi and Tailscale** (internet visitors get the login
+  page),
+- **Nobody** (the login page for everyone, as before),
+
+and whether guests may see the camera's **photos and videos** (off by
+default). The settings are `guest_view` and `guest_photos` in the
+`app_settings` table.
 
 ### Events on the welcome screen
 

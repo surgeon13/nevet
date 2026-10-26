@@ -30,7 +30,7 @@
 
     <ul class="hero-equipment">
       {% set gender = (catalog.looks | selectattr('id', 'equalto', 'gender') | first).options | selectattr('id', 'equalto', hero.appearance.gender) | first %}
-      {% if gender and gender.id != 'unset' %}
+      {% if gender and gender.id != 'unset' and not viewer %}
       <li><span class="slot">Gender</span><span class="item">{{ gender.name }}</span></li>
       {% endif %}
       {% for cat in catalog.gear %}
@@ -53,6 +53,9 @@
     </ul>
 
     <div class="hero-actions">
+      {% if viewer %}
+        <a class="btn btn-primary" href="{{ url_for('register') }}">🌱 Join Nevet and grow your own hero</a>
+      {% endif %}
       {% if can_edit %}
         <a class="btn btn-primary" href="{{ url_for('grower_customize', grower_id=hero.id) }}">Customize</a>
       {% endif %}
@@ -65,7 +68,8 @@
         </form>
       {% endif %}
     </div>
-    {% if not has_account %}
+    {% if viewer %}
+    {% elif not has_account %}
       <p class="auth-note">This hero has no password yet. {{ hero.name }} can claim it by signing up with the name “{{ hero.name }}”.</p>
     {% elif current_user and current_user.is_admin and current_user.id != hero.id %}
       <details class="admin-box">
@@ -153,6 +157,7 @@
 <section class="panel panel-wide">{% include "_invite_card.html" %}</section>
 {% endif %}
 
+{% if not viewer %}
 <section class="panel panel-wide" id="connections">
   <h3 class="panel-title">Family &amp; connections</h3>
   {% if rel_error %}<p class="hero-error" role="alert">{{ rel_error }}</p>{% endif %}
@@ -232,6 +237,7 @@
   <a class="panel-link" href="{{ url_for('tags_page', kind='hero', target=hero.id) }}#new" style="margin-left: 14px;">Key fob or card for {{ 'me' if is_me else hero.name }} →</a>
   {% endif %}
 </section>
+{% endif %}
   <section class="panel">
     <h3 class="panel-title">Growing now</h3>
     {{ ui.plant_chips(b.growing, empty=('You have' if is_me else hero.name ~ ' has') ~ ' no plants growing right now.') }}

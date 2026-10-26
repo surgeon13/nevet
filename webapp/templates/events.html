@@ -2,7 +2,7 @@
 {% block title %}Nevet — Events{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='events.css') }}">{% endblock %}
 {% macro card(e) %}
-<a class="ev-card ev-k-{{ e.kind }} is-{{ e.phase }}" href="{{ url_for('event_page', event_id=e.id) }}">
+<a class="ev-card ev-k-{{ e.kind }} is-{{ e.phase }}" href="{{ url_for('event_join', event_id=e.id, v=1) if is_viewer() else url_for('event_page', event_id=e.id) }}">
   <span class="ev-date"><b>{{ e.start.day }}</b><small>{{ e.start.strftime('%b') }}</small></span>
   <span class="ev-tile" aria-hidden="true">{{ e.kind_info.emoji }}</span>
   <span class="ev-card-text">
@@ -21,7 +21,7 @@
     <h2>Events</h2>
     <p class="muted">Parties, festivals and gatherings on the farm: who's coming, who helps, what goes where, and how it went.</p>
   </div>
-  <a class="btn btn-primary" href="{{ url_for('event_new') }}">+ New event</a>
+  {% if not viewer %}<a class="btn btn-primary" href="{{ url_for('event_new') }}">+ New event</a>{% endif %}
 </div>
 
 {% if now %}
@@ -34,6 +34,9 @@
 <div class="ev-list">{% for e in upcoming %}{{ card(e) }}{% endfor %}</div>
 {% else %}
 <div class="ev-empty">
+  {% if viewer %}
+  <p><b>Nothing planned yet.</b> Join Nevet to plan the next party, harvest day or campfire night.</p>
+  {% else %}
   <p><b>Nothing planned yet.</b> Start one: pick a day, map where things go, invite the heroes.</p>
   <div class="ev-ideas">
     <a class="chip" href="{{ url_for('event_new', kind='party') }}">🎉 Party</a>
@@ -42,6 +45,7 @@
     <a class="chip" href="{{ url_for('event_new', kind='volunteer') }}">🙌 Volunteer day</a>
     <a class="chip" href="{{ url_for('event_new', kind='campfire') }}">🔥 Campfire night</a>
   </div>
+  {% endif %}
 </div>
 {% endif %}
 

@@ -26,6 +26,23 @@ page on a phone, you can play. Younger players: there's a
 13. [Powers and game stats](#powers-and-game-stats)
 14. [Small questions](#small-questions)
 
+## Just looking around
+
+You don't need an account to have a look. Open Nevet without logging in
+and you're a **guest**: you get the dashboard's brain, the 3D farm with
+every activity (the harvest, the animals, football, the campfire
+tournament, the party), the farm's story and the mother tree, the
+leaderboards, the heroes, the plants, what everyone has been doing, and
+the events coming up. Scanning a plant's sticker shows what's growing
+there.
+
+Guests can look but not take part: there's nothing to log, change or
+sign up for until you join, and a **Join Nevet** button is always
+there. Guests never see notes people wrote, who was given produce,
+family connections or groups, invite codes, the garden map, tags or the
+system pages, and only see the camera's photos if the admin allows it.
+Trying a different land on the farm only changes it on your own screen.
+
 ## Joining
 
 1. **Scan the QR code** on the screen by the garden with your phone's
@@ -533,9 +550,13 @@ Play park (football), so every stat is from a match that was shown.
 
 **Does it cost anything?** No.
 
-**Who can see my stuff?** Only people logged in to your garden's Nevet.
-Your password is stored scrambled, so nobody can read it, not even the
-admin. Family connections stay private until both people say yes.
+**Who can see my stuff?** Players logged in to your garden's Nevet see
+everything players share. Guests without an account (if the admin allows
+them) see your hero, level, powers and what you did in the garden, but
+never your notes, whom you gave produce to, your family connections and
+groups, your invite code or the garden map. Your password is stored
+scrambled, so nobody can read it, not even the admin. Family connections
+stay private until both people say yes.
 
 **Can I play on a computer?** Yes, any web browser works.
 

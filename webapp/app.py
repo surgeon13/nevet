@@ -28,6 +28,7 @@ import relations
 import heroes
 import invites
 import leaderboards
+import viewers
 import plants
 import timeline
 import today
@@ -60,7 +61,8 @@ logger = setup_logging(app)
 av.register(app)
 traffic_counter = traffic.TrafficCounter(farm_db.get_conn).install(app)
 
-# Pages anyone can open without logging in. Everything else needs an account.
+# Pages anyone can open without logging in. Visitors without an account can also look around a set of pages
+# as viewers (viewers.ENDPOINTS: the brain, the farm, the story, leaderboards...), but can't change anything.
 PUBLIC_ENDPOINTS = {"login", "register", "join", "invite_link", "event_join", "healthz", "static", "api_add_stats", "api_map_geojson", "api_tag_scan"}
 CSRF_EXEMPT = {"api_add_stats", "api_tag_scan"}        # their own API key (or the Pi itself)
 
@@ -127,10 +129,20 @@ def load_user_and_guard():
             g.user = {"id": row["id"], "name": row["name"], "is_admin": bool(row["is_admin"])}
         else:
             session.clear()                       # account deleted or password cleared
+    g.viewer = False
     if g.user is None and request.endpoint not in PUBLIC_ENDPOINTS:
+        looking = viewers.allowed(request.remote_addr)
+        if looking and request.method in ("GET", "HEAD") and viewers.viewable(request.endpoint):
+            g.user, g.viewer = dict(viewers.GUEST), True          # a viewer: can look, can't change anything
+            return None
+        if looking and request.method not in ("GET", "HEAD"):
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "Viewers can look around but not change things. Join Nevet to take part."}), 403
+            return redirect(url_for("login", why="join"))
         if request.path.startswith("/api/"):
             return jsonify({"error": "login required"}), 401
-        return redirect(url_for("login", next=request.full_path if request.query_string else request.path))
+        return redirect(url_for("login", next=request.full_path if request.query_string else request.path,
+                                why="members" if looking else None))
     if request.method == "POST" and request.endpoint not in CSRF_EXEMPT:
         # forms send the token as a field, the map page's JSON calls as a header
         if not auth.csrf_ok(session, request.form.get("_csrf") or request.headers.get("X-CSRF-Token")):
@@ -144,9 +156,12 @@ def load_user_and_guard():
 
 @app.context_processor
 def inject_user():
-    u = g.get("user")
-    return {"current_user": u, "csrf_token": lambda: auth.csrf_token(session),
-            "pending_connections": farm_db.pending_for(u["id"]) if u else 0}
+    u, viewer = g.get("user"), bool(g.get("viewer"))
+    return {"current_user": None if viewer else u, "viewer": viewer, "csrf_token": lambda: auth.csrf_token(session),
+            "pending_connections": farm_db.pending_for(u["id"]) if u and not viewer else 0}
+
+
+app.jinja_env.globals["is_viewer"] = lambda: bool(g.get("viewer"))      # (for macros imported without the page's context)
 
 
 def human_size(num_bytes):
@@ -213,16 +228,18 @@ def hub():
         banner["label"] = av.action_meta(banner.get("action"))["label"]
     report = today.report(g.user["id"])
     # the "Today at the farm" pop-up: after logging in, and on the first visit of each day,
-    # when there is something to tell (actions logged today or things to do)
+    # when there is something to tell (actions logged today or things to do); never for viewers
     day = report["date"].isoformat()
-    greet = bool(session.pop("show_today", None) or session.get("today_seen") != day)
-    session["today_seen"] = day
+    greet = not g.viewer and bool(session.pop("show_today", None) or session.get("today_seen") != day)
+    if not g.viewer:
+        session["today_seen"] = day
     return render_template(
         "console.html", today=report, greet=greet and not banner and bool(report["groups"] or report["todos"]),
         summary=farm_db.dashboard_summary(),
-        recent=recent_photos(3),
+        recent=recent_photos(3) if not g.viewer or viewers.photos() else [],
         everyone=av.activity_bundle(None),
-        mine=av.activity_bundle(g.user["id"]),
+        mine=None if g.viewer else av.activity_bundle(g.user["id"]),
+        viewer_photos=viewers.photos(),
         players=farm_db.player_activity(),
         banner=banner,
         about=about.info(),
@@ -253,7 +270,7 @@ def time_page():
         focus = int(request.args.get("hero") or 0) or None
     except ValueError:
         focus = None
-    return render_template("time.html", story=timeline.story(), view=view, focus=focus, me=g.user["id"])
+    return render_template("time.html", story=timeline.story(public=g.viewer), view=view, focus=focus, me=g.user["id"])
 
 
 @app.route("/gallery")
@@ -526,14 +543,14 @@ def grower_page(grower_id):
         has_account=bool(grower["password_hash"]), created=request.args.get("created") == "1",
         pw_set=request.args.get("pw_set") == "1", pw_error=request.args.get("pw_error"),
         delete_error=request.args.get("delete_error"),
-        connections=connections_for(grower_id, g.user), rel_error=request.args.get("rel_error"), rel_sent=request.args.get("rel_sent"),
+        connections=[] if g.viewer else connections_for(grower_id, g.user), rel_error=request.args.get("rel_error"), rel_sent=request.args.get("rel_sent"),
         rel_options=relations.form_options(), my_groups=farm_db.list_groups(grower_id),
         group_kind_names=relations.GROUP_KIND,
         rel_candidates=[r for r in farm_db.list_growers() if r["id"] != grower_id],
         powers=pw, powers_k=games.LEVEL_POWER, skills=games.SKILLS, game_stats=games.hero_stats(grower_id), glory=games.glory(games.hero_stats(grower_id)),
         matches=games.recent_matches(6, grower_id), styles=games.ARENA_STYLES,
-        invites=invites.summary(grower_id), mine=_my_invite(grower_id) if g.user["id"] == grower_id else None,
-        inviter_candidates=_inviter_candidates(grower_id),
+        invites=invites.summary(grower_id), mine=_my_invite(grower_id) if g.user["id"] == grower_id and not g.viewer else None,
+        inviter_candidates=[] if g.viewer else _inviter_candidates(grower_id),
     )
 
 
@@ -929,6 +946,8 @@ def login():
     players, unclaimed = farm_db.list_players()
     return render_template(
         "login.html", error=error, name=name, open_signup=auth.open_signup(),
+        why=request.args.get("why") if request.args.get("why") in ("members", "join") else None,
+        look_around=viewers.allowed(request.remote_addr),
         no_accounts=not players, catalog=heroes.catalog(),
         players=[{"name": p["name"], "appearance": heroes.hero_for_row(p)[1]} for p in players],
         unclaimed=[u["name"] for u in unclaimed],
@@ -1058,6 +1077,12 @@ def account():
         farm_db.set_setting("invite_code", netaccess.new_invite_code())
         logger.info("%s made a new invite code", g.user["name"])
         message = "New invite code made. The old one no longer works."
+    elif request.method == "POST" and request.form.get("action") == "viewers":
+        if not g.user["is_admin"]:
+            abort(403)
+        viewers.save(request.form.get("guest_view"), request.form.get("guest_photos") == "on")
+        logger.info("%s set visitors to %s (photos %s)", g.user["name"], viewers.mode(), "on" if viewers.photos() else "off")
+        message = "Saved who can look around without an account."
     elif request.method == "POST" and request.form.get("action") == "new_my_code":
         invites.code_for(g.user["id"], renew=True)
         logger.info("%s made a new personal invite code", g.user["name"])
@@ -1081,6 +1106,7 @@ def account():
             farm_db.set_setting("invite_code", invite)
     return render_template("account.html", message=message, error=error, invite=invite, mine=_my_invite(g.user["id"]),
                            invite_log=invites.recent(20) if g.user["is_admin"] else None,
+                           guest_view=viewers.mode(), guest_photos=viewers.photos(), guest_modes=viewers.MODES,
                            here=netaccess.where(request.remote_addr), secure=request.is_secure)
 
 
@@ -1392,7 +1418,7 @@ def event_join(event_id):
         return render_template("message.html", title="Event not found",
                                message="This event isn't on Nevet any more. Ask the person who invited you."), 404
     seen = session.get("ev_seen") or []
-    if event_id not in seen:
+    if event_id not in seen and request.args.get("v") != "1":          # (v=1: a viewer clicked it on the events page)
         events.count_qr(event_id)
         session["ev_seen"] = (seen + [event_id])[-30:]
     if g.user:
@@ -1720,7 +1746,7 @@ def tag_landing(code):
     if not tag:
         return render_template("message.html", title="Unknown tag",
                                message="This tag isn't linked to anything on Nevet (any more). An admin can set it up on the Tags page."), 404
-    tags.record(tag, "phone", grower_id=g.user["id"], result="opened on a phone")
+    tags.record(tag, "phone", grower_id=None if g.viewer else g.user["id"], result="opened by a viewer" if g.viewer else "opened on a phone")
     ctx = {"tag": tag, "url": _tag_url(tag)}
     if tag["kind"] == "plant":
         asset = farm_db.get_asset(tag["target_id"])

@@ -2,7 +2,21 @@
 {% import "_ui.html" as ui with context %}
 {% block title %}Nevet — Dashboard{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='events.css') }}">{% endblock %}
+{% block viewer_banner %}{% endblock %}
 {% block content %}
+{% if viewer %}
+<section class="viewer-welcome" aria-labelledby="viewer-welcome-title">
+  <div>
+    <h2 id="viewer-welcome-title">👋 Welcome to Nevet</h2>
+    <p>A game for a real garden: every hero here grows from real work in the garden, and their farm blooms as they do.
+      You're looking around as a guest, so have a look: tap the brain for the 3D farm, see the leaderboards and the farm's story.</p>
+  </div>
+  <div class="viewer-welcome-btns">
+    <a class="btn btn-primary" href="{{ url_for('register') }}">🌱 Join Nevet</a>
+    <a class="btn btn-ghost" href="{{ url_for('login') }}">Log in</a>
+  </div>
+</section>
+{% endif %}
 {% if banner %}
 <div class="hero-welcome log-banner" role="status">
   {% if banner.new_plant %}Added <strong>{{ banner.new_plant }}</strong> and logged {{ banner.label | lower }}.
@@ -71,7 +85,7 @@
     <div class="ev-soon-row">
       {% for ev in events_soon %}
       <article class="ev-soon-card ev-k-{{ ev.kind }}{% if ev.phase == 'now' %} is-now{% endif %}" data-answer="{{ ev.mine or '' }}">
-        <a class="ev-soon-top" href="{{ url_for('event_page', event_id=ev.id) }}">
+        <a class="ev-soon-top" href="{{ url_for('event_join', event_id=ev.id, v=1) if viewer else url_for('event_page', event_id=ev.id) }}">
           <span class="ev-soon-date" aria-hidden="true">{% if ev.phase == 'now' %}<b>NOW</b>{% else %}<small>{{ ev.start.strftime('%a') }}</small><b>{{ ev.start.day }}</b><small>{{ ev.start.strftime('%b') }}</small>{% endif %}</span>
           <span class="ev-soon-text">
             <span class="ev-soon-kind">{{ ev.kind_info.emoji }} {{ ev.kind_info.label }} · {% if ev.phase == 'now' %}happening now{% elif ev.days_to == 0 %}today {{ ev.start.strftime('%H:%M') }}{% elif ev.days_to == 1 %}tomorrow {{ ev.start.strftime('%H:%M') }}{% else %}{{ ev.start.strftime('%H:%M') }}, in {{ ev.days_to }} days{% endif %}</span>
@@ -81,7 +95,9 @@
         </a>
         <div class="ev-soon-foot">
           <span class="ev-soon-count"><b data-going>{{ ev.expected }}</b> coming{% if ev.capacity %} / {{ ev.capacity }}{% endif %} <span class="ev-soon-mine" data-mine>{% if ev.mine == 'going' %}You're going 🎉{% elif ev.mine == 'maybe' %}You said maybe{% endif %}</span></span>
-          {% if ev.phase == 'now' %}
+          {% if viewer %}
+          <a class="btn btn-primary btn-small" href="{{ url_for('event_join', event_id=ev.id, v=1) }}">{{ "🙌 I'm here" if ev.phase == 'now' else "🙋 I'd like to come" }}</a>
+          {% elif ev.phase == 'now' %}
           <a class="btn btn-primary btn-small" href="{{ url_for('event_page', event_id=ev.id) }}#day">I'm here</a>
           {% else %}
           <form method="post" action="{{ url_for('event_rsvp', event_id=ev.id) }}" data-rsvp class="ev-soon-rsvp">
@@ -113,7 +129,7 @@
     {% else %}
     <div class="ev-soon-empty">
       <p>Nothing planned yet. A harvest day, a campfire night, a party?</p>
-      <a class="btn btn-ghost btn-small" href="{{ url_for('event_new') }}">+ Plan an event</a>
+      {% if not viewer %}<a class="btn btn-ghost btn-small" href="{{ url_for('event_new') }}">+ Plan an event</a>{% endif %}
     </div>
     {% endif %}
   </section>
@@ -123,17 +139,23 @@
     <div class="ev-qr-dialog-body"></div>
   </dialog>
 
+  {% if viewer %}
+  <a class="btn btn-primary log-cta" href="{{ url_for('register') }}">🌱 Join Nevet to log what you do in the garden</a>
+  {% else %}
   <a class="btn btn-primary log-cta" href="{{ url_for('log_action') }}">{{ ui.icon('plus', 18) }} Log an action</a>
+  {% endif %}
 
   <section class="activity-panel" id="activity">
     <div class="activity-head">
       <h2>Garden activity</h2>
+      {% if not viewer %}
       <div class="seg" role="tablist" aria-label="Whose activity">
         <button type="button" role="tab" class="seg-btn active" data-scope="everyone" aria-selected="true">Everyone</button>
         <button type="button" role="tab" class="seg-btn" data-scope="mine" aria-selected="false">Just me</button>
       </div>
+      {% endif %}
     </div>
-    {% for scope, b in [('everyone', everyone), ('mine', mine)] %}
+    {% for scope, b in ([('everyone', everyone)] if viewer else [('everyone', everyone), ('mine', mine)]) %}
     <div class="activity-scope" data-scope="{{ scope }}" role="tabpanel" {% if scope == 'mine' %}hidden{% endif %}>
       {{ ui.kpis(b, 'Growing now' if scope == 'everyone' else 'My plants') }}
       <div class="panel-grid">
@@ -152,7 +174,7 @@
           <h3 class="panel-title panel-sub">Grown before</h3>
           {{ ui.plant_chips(b.before, show_owner=scope == 'everyone') }}
           {% endif %}
-          <a class="panel-link" href="{{ url_for('plant_new') }}">+ Add a plant</a>
+          {% if not viewer %}<a class="panel-link" href="{{ url_for('plant_new') }}">+ Add a plant</a>{% endif %}
         </section>
         <section class="panel">
           <h3 class="panel-title">Latest actions</h3>
@@ -194,27 +216,51 @@
   {% endif %}
 
   <div class="node-grid" id="node-grid">
+    {% if viewer and not viewer_photos %}
+    <a class="node-card is-locked" data-label="Gallery 🔒" href="{{ url_for('login', why='members', next=url_for('gallery')) }}">
+      Gallery 🔒<span class="node-sub">For members</span>
+    </a>
+    {% else %}
     <a class="node-card" data-label="Gallery" href="{{ url_for('gallery') }}">
       Gallery<span class="node-sub">Photos &amp; videos</span>
     </a>
+    {% endif %}
     <a class="node-card" data-label="Heroes" href="{{ url_for('growers_page') }}">
       Heroes<span class="node-sub">{{ summary.growers }} growers</span>
     </a>
     <a class="node-card" data-label="Plants" href="{{ url_for('assets_page') }}">
       Plants<span class="node-sub">Plants &amp; worm bins</span>
     </a>
+    {% if viewer %}
+    <a class="node-card is-locked" data-label="Map 🔒" href="{{ url_for('login', why='members', next=url_for('map_page')) }}">
+      Map 🔒<span class="node-sub">For members</span>
+    </a>
+    {% else %}
     <a class="node-card" data-label="Map" href="{{ url_for('map_page') }}">
       Map<span class="node-sub">Beds, paths &amp; plants</span>
     </a>
+    {% endif %}
     <a class="node-card" data-label="Activity" href="{{ url_for('activity') }}">
       Activity<span class="node-sub">Who did what</span>
     </a>
+    {% if viewer %}
+    <a class="node-card is-locked" data-label="System 🔒" href="{{ url_for('login', why='members', next=url_for('logs_page')) }}">
+      System 🔒<span class="node-sub">For members</span>
+    </a>
+    {% else %}
     <a class="node-card" data-label="System" href="{{ url_for('logs_page') }}">
       System<span class="node-sub">Live system logs</span>
     </a>
+    {% endif %}
+    {% if viewer %}
+    <a class="node-card is-locked" data-label="Tags 🔒" href="{{ url_for('login', why='members', next=url_for('tags_page')) }}">
+      Tags 🔒<span class="node-sub">For members</span>
+    </a>
+    {% else %}
     <a class="node-card" data-label="Tags" href="{{ url_for('tags_page') }}">
       Tags<span class="node-sub">NFC, fobs &amp; QR labels</span>
     </a>
+    {% endif %}
     <a class="node-card" data-label="Events" href="{{ url_for('events_page') }}">
       Events<span class="node-sub">{% if events_now %}Now: {{ events_now[0].title }}{% elif events_next %}Next: {{ events_next[0].title }} · {{ events_next[0].start.strftime('%-d %b') }}{% else %}Parties &amp; gatherings{% endif %}</span>
     </a>
@@ -289,7 +335,7 @@
 {% endif %}
 <script>
   var nodes = Array.from(document.querySelectorAll('#node-grid .node-card'));
-  var current = 0;
+  var current = Math.max(0, nodes.findIndex(function (n) { return !n.classList.contains('is-locked'); }));   // (a guest starts on one they can open)
 
   function updateHighlight() {
     nodes.forEach(function(n, i) {
@@ -365,7 +411,7 @@
     }
     btns.forEach(function (b) { b.addEventListener('click', function () { pick(b.dataset.scope); }); });
     var saved = null; try { saved = localStorage.getItem('nevet-activity-scope'); } catch (e) {}
-    if (saved === 'mine') pick('mine');
+    if (saved === 'mine' && document.querySelector('.activity-scope[data-scope="mine"]')) pick('mine');   // (guests have no "Just me")
   })();
 </script>
 <script src="{{ url_for('static', filename='js/three.min.js') }}"></script>

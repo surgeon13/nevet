@@ -17,8 +17,8 @@
 <div class="roster">
   <a class="hero-slot hero-slot-new" href="{{ url_for('register') }}">
     <span class="hero-slot-plus" aria-hidden="true">+</span>
-    <span class="hero-slot-name">Add a player</span>
-    <span class="hero-slot-class">Name &amp; password</span>
+    <span class="hero-slot-name">{{ 'Join Nevet' if viewer else 'Add a player' }}</span>
+    <span class="hero-slot-class">{{ 'Make your own hero' if viewer else 'Name &amp; password' | safe }}</span>
   </a>
   {% for h in heroes %}
   {% set outfit = (catalog.looks | selectattr('id', 'equalto', 'outfitColor') | first).options | selectattr('id', 'equalto', h.appearance.outfitColor) | first %}

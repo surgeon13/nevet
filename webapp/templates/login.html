@@ -2,6 +2,8 @@
 {% block title %}Log in{% endblock %}
 {% block content %}
 <div class="auth-card auth-wide" id="login-card">
+  {% if why == 'members' %}<p class="auth-why" role="status">🔒 That page is for members of this Nevet. Log in or join{% if look_around %}, or keep <a href="{{ url_for('hub') }}">looking around</a>{% endif %}.</p>
+  {% elif why == 'join' %}<p class="auth-why" role="status">👀 Guests can look around but not change anything. Log in or join to take part.</p>{% endif %}
   {% if no_accounts %}
     <h2>Welcome to Nevet</h2>
     <p class="auth-note">There are no players yet. <a href="{{ url_for('register') }}">Create the first account</a>; it becomes the admin.</p>
@@ -46,6 +48,9 @@
   </form>
   {% endif %}
 
+  {% if look_around and not no_accounts %}
+  <p class="look-around"><a class="btn btn-ghost" href="{{ url_for('hub') }}">👀 Just look around first</a></p>
+  {% endif %}
   {% if unclaimed %}
   <div class="unclaimed-list">
     <p class="auth-small muted">Heroes without a password yet, tap to claim yours:</p>

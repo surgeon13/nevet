@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-10-26 (guests can look around)
+
+- **Visitors without an account can look around as guests** instead of
+  landing on the login page: the dashboard's brain, the 3D farm with
+  every activity, the farm story and the mother tree, the leaderboards,
+  how powers work, heroes, plants, activity and events. Scanning a
+  plant's sticker shows the plant. A welcome card, a guest bar on every
+  page and a pill on the farm invite them to **Join Nevet** or log in.
+- **Viewers can't change anything**: no logging, RSVPs, plants, events,
+  hero changes or tags; every form sends them to log in or join. "Try a
+  land" on the farm only changes their own screen. Pages for members show
+  a lock on the brain and a "for members" note on the login page, with a
+  way back to looking around.
+- **Private things stay private**: guests never see notes, whom produce
+  was given to, family connections or groups (also not in the story or on
+  the mother tree), invite links and codes, gender, the garden map, tags,
+  accounts or the system pages, and see camera photos only if the admin
+  allows it.
+- **Admin settings** on the Account page: anyone can look around (the
+  default), only on the home WiFi and Tailscale, or nobody; and whether
+  guests can see photos and videos.
+
 ## 2026-10-25 (no-gi arena kits, leaderboards, fractal powers)
 
 - **No-gi arena kits**: in the campfire ring everyone wrestles in boxer
