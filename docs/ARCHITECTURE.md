@@ -209,7 +209,7 @@ A Flask app served by waitress on port 8000:
   stage's pyro; `launchWork()` fires a firework, a pool of `Points`
   bursts; `makeCannon()` / `fireCannon()` are confetti cannons. All three
   are skipped when the device asks for reduced motion. The party stage
-  (floor, booth, truss, LED wall with the `LED_FS` shader, speakers) stays
+  (floor, booth, low LED screen with the `LED_FS` shader, light poles, speakers) stays
   up all the time and rests between parties (`stepStage()`); `PARTY.group`
   holds what only shows at a party. `FARM_DARK` / `lightTarget()` keep the farm
   in daylight unless the sun / moon button says night, and the campfire

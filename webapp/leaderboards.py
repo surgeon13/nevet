@@ -59,7 +59,7 @@ def rankings(days=None, me=None):
             "xp_period": XP_LOG * p_logs.get(gid, 0) + XP_HARVEST * p_harv.get(gid, 0) + XP_PLANT * p_plants.get(gid, 0),
             "actions": p_logs.get(gid, 0), "days": p_days.get(gid, 0), "kg": round((grams.get(gid) or 0) / 1000, 1),
             "invited": invited.get(gid, 0), "rhythm": pw.get("rhythm", 0.0), "style": pw.get("style") or games.style_of(games.mandel_c(0)),
-            "power": pw.get("total", 0), "level_k": pw.get("level_k", 1), "rhythm_k": pw.get("rhythm_k", games.RHYTHM_LOW),
+            "power": pw.get("total", 0), "powers": pw.get("powers") or {}, "level_k": pw.get("level_k", 1), "rhythm_k": pw.get("rhythm_k", games.RHYTHM_LOW),
             "glory": gb.get("glory", 0), "wins": gb.get("wins", 0), "bouts": gb.get("bouts", 0), "championships": gb.get("championships", 0),
             "goals": gb.get("goals", 0), "matches": gb.get("matches", 0), "me": gid == me,
             "appearance": heroes.hero_for_row(r)[1],

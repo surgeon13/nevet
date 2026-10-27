@@ -81,6 +81,38 @@
 </div>
 {% endif %}
 
+{% set pw_rows = main | selectattr('powers') | list %}
+{% if pw_rows %}
+<section class="panel lb-powers" id="powers-compared" aria-labelledby="pw-title">
+  <h3 class="panel-title" id="pw-title">👊 Powers compared</h3>
+  <p class="muted pw-intro">Every hero's five powers, grown from real garden work. Tick up to three heroes to compare them side by side,
+    or tap a power to sort. <a href="{{ url_for('powers_page') }}">How powers work</a></p>
+  <div class="pw-compare" id="pw-compare" hidden>
+    <div class="pw-legend" id="pw-legend" aria-label="Heroes being compared"></div>
+    <div class="pw-bars" id="pw-bars" role="img" aria-label="Bars comparing the chosen heroes' powers"></div>
+  </div>
+  <div class="board-wrap"><table class="history-table pw-table" id="pw-table">
+    <thead><tr>
+      <th class="pw-pick-col" scope="col"><span class="sr-only">Compare</span></th>
+      <th class="pw-hero-col" scope="col">Hero</th>
+      {% for sid, sname, emoji, from in skills %}<th scope="col" aria-sort="none"><button type="button" class="pw-sort" data-sort="{{ sid }}" title="Sort by {{ sname }}">{{ emoji }}<span class="pw-sname"> {{ sname }}</span></button></th>{% endfor %}
+      <th scope="col" aria-sort="descending"><button type="button" class="pw-sort on" data-sort="total" title="Sort by all five added up">Total</button></th>
+    </tr></thead>
+    <tbody>
+    {% for p in pw_rows | sort(attribute='power', reverse=True) %}
+    <tr class="{{ 'is-me' if p.me }}" data-id="{{ p.id }}" data-name="{{ p.name }}" data-me="{{ 1 if p.me else 0 }}" data-total="{{ p.power }}"
+        {% for sid, sname, emoji, from in skills %}data-{{ sid }}="{{ p.powers[sid] or 0 }}" {% endfor %}>
+      <td class="pw-pick-col"><input type="checkbox" class="pw-pick" value="{{ p.id }}" aria-label="Compare {{ p.name }}"><i class="pw-dot" aria-hidden="true"></i></td>
+      <td class="pw-hero-col"><a href="{{ url_for('grower_page', grower_id=p.id) }}">{{ p.name }}</a><small> Lv {{ p.level }}</small></td>
+      {% for sid, sname, emoji, from in skills %}<td class="pw-cell" data-k="{{ sid }}">{{ p.powers[sid] or 0 }}</td>{% endfor %}
+      <td class="pw-cell pw-total" data-k="total"><b>{{ p.power }}</b></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endif %}
+
 <h3 class="lb-section">🔥 The mud arena</h3>
 <section class="summary-bar">
   <div class="stat-card"><span class="num">{{ totals.arena }}</span><span class="label">Mud bouts</span></div>
@@ -188,6 +220,119 @@
   {% else %}<p class="muted">Nothing sent through <code>/api/stats</code> yet.</p>{% endif %}
 </details>
 
+<script>
+// Powers compared: the table's cells are shaded by how strong each power is (log scale, against the strongest on
+// the farm in that column), the headers sort, and up to three ticked heroes are drawn as grouped bars. A hero keeps
+// their colour while they stay ticked (colour follows the hero, never the rank).
+(function () {
+  var table = document.getElementById('pw-table');
+  if (!table) return;
+  var SKILLS = {{ skills | map(attribute=0) | list | tojson }}, NAMES = {{ skills | map(attribute=1) | list | tojson }}, ICONS = {{ skills | map(attribute=2) | list | tojson }};
+  var body = table.tBodies[0], rows = Array.prototype.slice.call(body.rows);
+  var box = document.getElementById('pw-compare'), legend = document.getElementById('pw-legend'), bars = document.getElementById('pw-bars');
+  var slots = [null, null, null], picked = [];          // hero ids in their colour slot; the order they were ticked
+  var num = function (tr, k) { return +tr.dataset[k] || 0; };
+  // shade every cell: log scale against the column's strongest
+  ['total'].concat(SKILLS).forEach(function (k) {
+    var max = Math.max.apply(null, rows.map(function (tr) { return num(tr, k); }).concat([1]));
+    rows.forEach(function (tr) {
+      var cell = tr.querySelector('[data-k="' + k + '"]'), v = num(tr, k);
+      var t = Math.log(1 + v) / Math.log(1 + max);
+      cell.style.setProperty('--heat', Math.round(4 + 46 * t * t) + '%');
+      cell.title = (k === 'total' ? 'All five powers' : NAMES[SKILLS.indexOf(k)]) + ': ' + v;
+    });
+  });
+  // sorting
+  var sortKey = 'total', dir = -1;
+  table.querySelectorAll('.pw-sort').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var k = b.dataset.sort;
+      dir = k === sortKey ? -dir : -1; sortKey = k;
+      rows.sort(function (a, c) { return (num(a, k) - num(c, k)) * dir || a.dataset.name.localeCompare(c.dataset.name); });
+      rows.forEach(function (tr) { body.appendChild(tr); });
+      table.querySelectorAll('.pw-sort').forEach(function (o) {
+        o.classList.toggle('on', o === b);
+        o.parentNode.setAttribute('aria-sort', o === b ? (dir < 0 ? 'descending' : 'ascending') : 'none');
+      });
+    });
+  });
+  // ticking heroes to compare
+  function byId(id) { return rows.filter(function (tr) { return tr.dataset.id === String(id); })[0]; }
+  function toggle(id, on) {
+    var i = slots.indexOf(id);
+    if (on && i < 0) {
+      if (picked.length >= 3) toggle(picked[0], false);            // a fourth: the first one ticked makes room
+      slots[slots.indexOf(null)] = id; picked.push(id);
+    } else if (!on && i >= 0) {
+      slots[i] = null; picked.splice(picked.indexOf(id), 1);
+    }
+  }
+  function sync() {
+    rows.forEach(function (tr) {
+      var i = slots.indexOf(tr.dataset.id), cb = tr.querySelector('.pw-pick');
+      cb.checked = i >= 0;
+      tr.classList.toggle('pw-on', i >= 0);
+      tr.dataset.slot = i >= 0 ? i + 1 : '';
+    });
+    draw();
+  }
+  rows.forEach(function (tr) {
+    tr.querySelector('.pw-pick').addEventListener('change', function (e) { toggle(tr.dataset.id, e.target.checked); sync(); });
+    tr.addEventListener('click', function (e) {
+      if (e.target.closest('a, input, button')) return;
+      toggle(tr.dataset.id, slots.indexOf(tr.dataset.id) < 0); sync();
+    });
+  });
+  // the grouped bars: one group per power, a bar per hero, one shared axis from zero
+  var tip = document.createElement('div'); tip.className = 'pw-tip'; tip.hidden = true; document.body.appendChild(tip);
+  function draw() {
+    var chosen = slots.map(function (id, i) { return id && { tr: byId(id), slot: i + 1 }; }).filter(Boolean);
+    box.hidden = !chosen.length;
+    if (!chosen.length) return;
+    var max = 1;
+    chosen.forEach(function (c) { SKILLS.forEach(function (k) { max = Math.max(max, num(c.tr, k)); }); });
+    legend.innerHTML = '';
+    chosen.forEach(function (c) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'pw-chip'; b.dataset.slot = c.slot;
+      b.innerHTML = '<i aria-hidden="true"></i><span></span><b aria-hidden="true">×</b>';
+      b.querySelector('span').textContent = c.tr.dataset.name + ' · ' + num(c.tr, 'total');
+      b.setAttribute('aria-label', 'Stop comparing ' + c.tr.dataset.name);
+      b.addEventListener('click', function () { toggle(c.tr.dataset.id, false); sync(); });
+      legend.appendChild(b);
+    });
+    bars.innerHTML = '';
+    SKILLS.forEach(function (k, si) {
+      var g = document.createElement('div'); g.className = 'pw-group';
+      var lab = document.createElement('div'); lab.className = 'pw-glabel'; lab.textContent = ICONS[si] + ' ' + NAMES[si];
+      g.appendChild(lab);
+      var col = document.createElement('div'); col.className = 'pw-gbars';
+      chosen.forEach(function (c) {
+        var v = num(c.tr, k), row = document.createElement('div'); row.className = 'pw-bar'; row.dataset.slot = c.slot;
+        row.innerHTML = '<span class="pw-fill"></span><span class="pw-val"></span>';
+        row.querySelector('.pw-fill').style.width = 'calc((100% - 3.2em) * ' + Math.max(0.006, v / max).toFixed(4) + ')';   // (room for the number)
+        row.querySelector('.pw-val').textContent = v;
+        row.dataset.tip = c.tr.dataset.name + ' · ' + NAMES[si] + ' ' + v;
+        col.appendChild(row);
+      });
+      g.appendChild(col);
+      bars.appendChild(g);
+    });
+  }
+  bars.addEventListener('pointermove', function (e) {
+    var b = e.target.closest('.pw-bar');
+    if (!b) { tip.hidden = true; return; }
+    tip.textContent = b.dataset.tip; tip.hidden = false;
+    tip.style.left = Math.min(window.innerWidth - tip.offsetWidth - 8, e.clientX + 12) + 'px'; tip.style.top = (e.clientY - 34) + 'px';
+  });
+  bars.addEventListener('pointerleave', function () { tip.hidden = true; });
+  // to start: you and the two strongest (or the three strongest)
+  var me = rows.filter(function (tr) { return tr.dataset.me === '1'; })[0];
+  var start = (me ? [me] : []).concat(rows.filter(function (tr) { return tr !== me; })).slice(0, 3);
+  start.forEach(function (tr) { toggle(tr.dataset.id, true); });
+  sync();
+})();
+</script>
 <script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/nevet3d.js') }}"></script>
 <script src="{{ url_for('static', filename='js/hero3d.js') }}"></script>

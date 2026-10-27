@@ -1157,7 +1157,7 @@ def stats():
     fighters = sorted((r for r in board if r.get("bouts")), key=lambda r: (-r.get("glory", 0), -r.get("wins", 0), r["name"].lower()))
     players = sorted((r for r in board if r.get("matches")), key=lambda r: (-r.get("goals", 0), -r.get("match_wins", 0), r["name"].lower()))
     return render_template("stats.html", latest=latest, history=history, fighters=fighters, players=players, period=period if period in ("7", "30", "all") else "30",
-                           lb=leaderboards.rankings(days, g.user["id"]), catalog=heroes.catalog(),
+                           lb=leaderboards.rankings(days, g.user["id"]), catalog=heroes.catalog(), skills=games.SKILLS,
                            recent=games.recent_matches(10), totals=games.totals(), styles=games.ARENA_STYLES,
                            bracket=games.bracket(), champions=games.champions(8), records=games.records(games.leaderboard(None)),
                            moves=[k for k in ("punches", "pushes", "strikes") if any(r.get(k) for r in fighters)],

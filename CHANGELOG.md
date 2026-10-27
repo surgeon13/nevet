@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-10-27 (powers compared, a tidier farm bar, a minimal party stage)
+
+- **👊 Powers compared** on the Leaderboards: every hero's five powers in
+  one table, each cell shaded by strength (against the strongest on the
+  farm), sortable by any power or the total. Tick up to three heroes (you
+  and the two strongest to start) to see their powers as bars side by
+  side, each hero keeping their colour while they're ticked.
+- **The farm's top bar on phones**: the tools (names, day or night, the
+  land, live view, photo, synth) fold into a **⋯** menu, so the title and
+  what's happening ("Twist · 7 dancing · DJ Michael") fit on one line.
+  The music button stays out at a party. Wide screens keep the row of icons.
+- **A minimal party stage with great visibility**: a low, open stage
+  instead of the tall truss and the big video wall. The DJ booth between
+  two speaker stacks, a low LED screen with the NEVET sign on top, two
+  slim light poles, string lights round the floor and a disco ball. Fewer
+  beams and lasers, lighter fog, no arches over the floor, no
+  searchlights. The camera frames the floor a little closer.
+- **The mother tree moved behind the stage**, as a backdrop next to the
+  big wheel, and it **turns see-through** whenever it stands between the
+  camera and what you're watching.
+
 ## 2026-10-26 (guests can look around)
 
 - **Visitors without an account can look around as guests** instead of

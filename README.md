@@ -45,8 +45,8 @@ in one go.
 - 🚜 **A 3D farm** where all the heroes harvest, water, feed the animals
   and play football. In a field of its own they dance round the campfire
   while a mud-wrestling tournament crowns a champion, with flame jets and
-  fireworks. In another they party on a big stage with an LED wall,
-  lasers and a big wheel. There are nine different lands (desert, seaside,
+  fireworks. In another they party round a low, open DJ stage with a
+  light-up dance floor, lasers and a big wheel. There are nine different lands (desert, seaside,
   snowy mountains, jungle, a city...), and it can run as a live channel
   on a TV.
 - 🎈 **Events** for parties, festivals and work days: the next ones on the

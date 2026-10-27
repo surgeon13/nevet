@@ -796,3 +796,48 @@ canvas.mandel { display: block; width: 100%; border-radius: 14px; background: #0
 .auth-why { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, #f2c230 16%, var(--bg-card)); font-size: 0.9rem; }
 .look-around { display: flex; justify-content: center; margin: 14px 0 0; }
 .hero-field-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 0.92rem; }
+
+/* ---------- leaderboards: powers compared (stats.html) ---------- */
+.lb-powers { margin: 0 0 18px; --pw-1: #2a78d6; --pw-2: #eb6834; --pw-3: #1baf7a; }   /* the reference palette's first three slots (CVD-checked) */
+:root[data-theme="dark"] .lb-powers { --pw-1: #3987e5; --pw-2: #d95926; --pw-3: #199e70; }
+.pw-intro { margin: -4px 0 10px; font-size: 0.88rem; }
+.pw-table th, .pw-table td { text-align: right; white-space: nowrap; padding: 6px 8px; }
+.pw-table .pw-hero-col { text-align: left; }
+.pw-table .pw-hero-col small { color: var(--text-dim); font-size: 0.74rem; }
+.pw-table tbody tr { cursor: pointer; }
+.pw-table tr.is-me .pw-hero-col a { font-weight: 800; }
+.pw-cell { background: color-mix(in srgb, var(--accent) var(--heat, 0%), transparent); font-variant-numeric: tabular-nums; }
+.pw-total { border-left: 2px solid var(--bg-card); }
+.pw-pick-col { width: 2.6em; text-align: center !important; position: relative; }
+.pw-pick { width: 17px; height: 17px; accent-color: var(--accent); vertical-align: middle; }
+.pw-dot { position: absolute; left: 0; top: 4px; bottom: 4px; width: 4px; border-radius: 4px; background: transparent; }
+tr[data-slot="1"] .pw-dot { background: var(--pw-1); } tr[data-slot="2"] .pw-dot { background: var(--pw-2); } tr[data-slot="3"] .pw-dot { background: var(--pw-3); }
+.pw-sort { border: 0; background: none; font: inherit; font-weight: 700; color: var(--accent-2); cursor: pointer; padding: 2px 4px; border-radius: 8px; white-space: nowrap; }
+.pw-sort.on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--text); }
+.pw-sort.on::after { content: " ▾"; font-size: 0.7em; }
+th[aria-sort="ascending"] .pw-sort.on::after { content: " ▴"; }
+@media (max-width: 760px) { .pw-sname { display: none; } }
+.pw-compare { margin: 0 0 12px; padding: 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg); }
+.pw-legend { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.pw-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-card);
+  color: var(--text); font: inherit; font-size: 0.85rem; font-weight: 700; cursor: pointer; }
+.pw-chip i { width: 12px; height: 12px; border-radius: 4px; }
+.pw-chip b { color: var(--text-dim); font-weight: 700; }
+.pw-chip[data-slot="1"] i { background: var(--pw-1); } .pw-chip[data-slot="2"] i { background: var(--pw-2); } .pw-chip[data-slot="3"] i { background: var(--pw-3); }
+.pw-bars { display: grid; gap: 8px; }
+.pw-group { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); align-items: center; gap: 10px; }
+.pw-glabel { font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
+.pw-gbars { display: grid; gap: 2px; }
+.pw-bar { display: flex; align-items: center; gap: 6px; height: 12px; }
+.pw-fill { display: block; height: 10px; border-radius: 0 4px 4px 0; }
+.pw-bar[data-slot="1"] .pw-fill { background: var(--pw-1); } .pw-bar[data-slot="2"] .pw-fill { background: var(--pw-2); } .pw-bar[data-slot="3"] .pw-fill { background: var(--pw-3); }
+.pw-val { font-size: 0.74rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.pw-tip { position: fixed; z-index: 50; pointer-events: none; padding: 4px 8px; border-radius: 8px; background: var(--text); color: var(--bg-card); font-size: 0.8rem; font-weight: 700; white-space: nowrap; }
+@media (max-width: 520px) { .pw-group { grid-template-columns: 6.2em minmax(0, 1fr); gap: 6px; } .pw-glabel { font-size: 0.78rem; } }
+.pw-table a { color: var(--text); font-weight: 600; text-decoration: none; }
+.pw-table a:hover { text-decoration: underline; }
+@media (max-width: 520px) {
+  .pw-table th, .pw-table td { padding: 6px 4px; font-size: 0.8rem; }
+  .pw-table .pw-hero-col small { display: none; }
+  .pw-pick-col { width: 2.2em; }
+}

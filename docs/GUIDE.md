@@ -227,14 +227,16 @@ all. Heroes jog when they have a long way to go.
 
 **How to look around:** drag to turn, pinch to zoom, tap a hero to follow
 them (they wave at you, and you see their powers), tap the ground to let
-go. The camera button saves a picture. On a keyboard: keys 1-7 pick an
-activity, A turns auto on and off, Esc goes back.
+go. The camera button saves a picture. On a phone, the farm's tools
+(names, day or night, the land, live view, the camera, and the synth at a
+party) are behind the **⋯** button at the top, so the title has room. On a
+keyboard: keys 1-7 pick an activity, A turns auto on and off, Esc goes back.
 
 **The farm blooms with its people** 🌸: the more heroes join, invite
 friends and connect, the more the farm grows. The **Bloom** badge under
 the title shows how far it has come (tap it for the details). Plants grow
 taller and there are more wild flowers and butterflies. The **mother
-tree** south of the party field has a blossom for every hero, in their
+tree** behind the party stage has a blossom for every hero, in their
 outfit's colour, and grows bigger as you all do. New wonders appear as
 the bloom rises:
 
@@ -300,12 +302,15 @@ dusk by itself, so the fire can glow.
   bout and football match, so everyone watching sees the same thing, and
   every grab, throw, goal and win is kept. See [Powers and game
   stats](#powers-and-game-stats).
-- **Party!**: the party field's big stage. The DJ (whoever opened the
-  farm) stands in front of an LED video wall that changes picture every
-  16 beats, between speaker stacks, under a truss with moving lights and a
-  neon NEVET sign. There's a 17 x 15 m light-up dance floor with room for
-  everyone, two neon arches, laser fans, a disco ball, fog and balloons,
-  and searchlights sweeping the sky. A big wheel turns behind the stage.
+- **Party!**: the party field's stage, low and open so you can see
+  everyone. The DJ (whoever opened the farm) stands at the booth between
+  two speaker stacks, in front of a low LED screen that changes picture
+  every 16 beats, with the neon NEVET sign on top and a moving light on a
+  slim pole at each end. There's a 17 x 15 m light-up dance floor with
+  room for everyone, string lights round it, a disco ball, a fan of
+  lasers, a little fog and balloons. The big wheel and the mother tree
+  stand behind the stage, and anything big between you and the party
+  (like the mother tree, when the camera swings round) turns see-through.
   On every drop, flame jets fire along the stage. Every second drop, the
   confetti cannons go off and fireworks burst over the floor. Everyone
   does the same dance, from Disco and the Robot to the Chicken dance, the
@@ -481,6 +486,12 @@ show the most active, the steadiest rhythm, the top harvesters (kg), the
 strongest fighters, arena glory, top scorers and top inviters. The
 dashboard has a little board with this week's top five and the arena's
 champion.
+
+**👊 Powers compared** (on the Leaderboards) puts every hero's five powers
+side by side in a table, each cell shaded by how strong it is; tap a power
+to sort by it. Tick up to three heroes (you and the two strongest to
+start) and their powers show as bars next to each other, each hero in
+their own colour.
 
 ## Powers and game stats
 
