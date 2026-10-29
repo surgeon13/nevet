@@ -203,35 +203,49 @@
   function ms(dstr) { var t = Date.parse((dstr || '') + 'T12:00:00'); return isNaN(t) ? null : t; }
   var t0 = ms(S.first) || TN.reduce(function (m, n) { var t = ms(n.joined); return t && (!m || t < m) ? t : m; }, null) || Date.now();
   var t1 = Math.max(t0 + 86400000, ms(S.today) || Date.now());
-  var TH = Math.max(9, Math.min(26, 7 + TN.length * 0.45));             // the tree's height (metres) for the whole story
-  function yOf(t) { return 1.4 + TH * Math.max(0, Math.min(1, (t - t0) / (t1 - t0))); }
   function dateAt(p) {                                  // the story's date at a (fractional) day index
     if (!DAYS.length) return t1;
     var i = Math.max(0, Math.min(DAYS.length - 1, Math.floor(p))), j = Math.min(DAYS.length - 1, i + 1), f = Math.max(0, Math.min(1, p - i));
     var a = ms(DAYS[i].date), b = ms(DAYS[j].date);
     return a + (b - a) * f + 43200000 * (p >= DAYS.length - 1 ? 1 : 0);
   }
-  // the radial layout: each root gets a share of the circle by the size of its family, children share their parent's
+  // The canopy layout: every hero is a blossom on the tree's crown. The roots of the family (heroes who came on
+  // their own) sit at the top; each generation hangs a ring further out and lower, so the branches spread outwards
+  // like a big old tree and every hero has room round them. Families share the crown by their size, children share
+  // their parent's slice. Heroes who joined in the last two weeks are new: a bigger blossom, a golden glow, a
+  // golden name tag, and they're listed on the card.
+  var NEW_MS = 14 * 86400000;
   function size(n) { n.size = 1 + n.kids2.reduce(function (a, c) { return a + size(c); }, 0); return n.size; }
   var roots = TN.filter(function (n) { return !n.by; }), totalSize = roots.reduce(function (a, r) { return a + size(r); }, 0) || 1;
-  var sameDay = {}, maxR = 3;
-  function place(n, lo, hi, depth) {
-    n.ang = (lo + hi) / 2; n.depth = depth;
-    n.r = 2.2 + depth * 2.1 + (n.id % 3) * 0.25;
-    var t = ms(n.joined) || t0, k = sameDay[n.joined] = (sameDay[n.joined] || 0) + 1;
-    n.t = t; n.pos = V(Math.cos(n.ang) * n.r, yOf(t) + (k - 1) * 0.32, Math.sin(n.ang) * n.r);
-    maxR = Math.max(maxR, n.r);
-    var a = lo, kids = n.kids2.slice().sort(function (x, y) { return (x.t || 0) - (y.t || 0) || x.id - y.id; });
-    kids.forEach(function (c) { var w = (hi - lo) * c.size / Math.max(1, n.size - 1); place(c, a, a + w, depth + 1); a += w; });
+  var maxDepth = 0;
+  function slice(n, lo, hi, depth) {                   // first: each hero's slice of the crown and their generation
+    n.lo = lo; n.hi = hi; n.ang = (lo + hi) / 2; n.depth = depth; n.t = ms(n.joined) || t0;
+    maxDepth = Math.max(maxDepth, depth);
+    var a = lo, kids = n.kids2.slice().sort(function (x, y) { return (ms(x.joined) || 0) - (ms(y.joined) || 0) || x.id - y.id; });
+    kids.forEach(function (c, ci) { var w = (hi - lo) * c.size / Math.max(1, n.size - 1); c.sib = ci; slice(c, a, a + w, depth + 1); a += w; });
   }
   var a0 = -PI / 2;
-  roots.slice().sort(function (x, y) { return (ms(x.joined) || 0) - (ms(y.joined) || 0) || x.id - y.id; }).forEach(function (r) {
-    var w = TAU * r.size / totalSize; place(r, a0, a0 + w, 0); a0 += w;
+  roots.slice().sort(function (x, y) { return (ms(x.joined) || 0) - (ms(y.joined) || 0) || x.id - y.id; }).forEach(function (r, ri) {
+    var w = TAU * r.size / totalSize; r.sib = ri; slice(r, a0, a0 + w, 0); a0 += w;
   });
   TN.forEach(function (n) {                            // (a loop in the data would leave heroes unplaced: they grow from the trunk)
-    if (n.pos) return;
-    n.by = null; n.kids2 = []; n.size = 1; place(n, a0 - 0.2, a0 + 0.2, 0); a0 += 0.5;
+    if (n.lo !== undefined) return;
+    n.by = null; n.kids2 = []; n.size = 1; n.sib = 0; slice(n, a0 - 0.2, a0 + 0.2, 0); a0 += 0.5;
   });
+  var RC = Math.max(5.5, Math.min(15, 3 + 1.55 * Math.sqrt(TN.length)));      // the crown's radius grows with the family
+  var TRUNK_H = Math.max(2.6, Math.min(4.4, 2.2 + RC * 0.16));
+  var CROWN_Y = TRUNK_H + RC * 0.62, FLAT = 0.72;                             // the crown's middle, and how flat its dome is
+  var STEP = Math.min(0.5, 1.3 / Math.max(1, maxDepth)), TH0 = roots.length === 1 ? 0 : 0.45;
+  var maxR = 3;
+  TN.forEach(function (n) {
+    var th = n.depth === 0 ? TH0 : 0.45 + n.depth * STEP, rr = RC * (1 + (n.sib % 2 ? 0.06 : -0.03));
+    n.pos = V(Math.sin(th) * rr * Math.cos(n.ang), CROWN_Y + Math.cos(th) * rr * FLAT, Math.sin(th) * rr * Math.sin(n.ang));
+    maxR = Math.max(maxR, Math.hypot(n.pos.x, n.pos.z));
+  });
+  var TOP_Y = TN.reduce(function (m, n) { return Math.max(m, n.pos.y); }, CROWN_Y) + 1.4;
+  var HERO_LOW = TN.reduce(function (m, n) { return Math.min(m, n.pos.y); }, CROWN_Y);
+  var LOW_Y = Math.min(TRUNK_H, HERO_LOW) - 2.2;      // the view: the crown, and the top of the trunk (on a phone just the crown)
+  function lowY() { return camera.aspect < 0.8 ? HERO_LOW - 1.6 : LOW_Y; }
   var treeG = new THREE.Group(); treeG.visible = false; scene.add(treeG);
   function growable(mesh) { mesh.userData.full = mesh.geometry.index ? mesh.geometry.index.count : mesh.geometry.attributes.position.count; mesh.geometry.setDrawRange(0, 0); mesh.userData.g = 0; return mesh; }
   function setGrowth(mesh, g) {
@@ -240,41 +254,71 @@
     var n = Math.floor(mesh.userData.full * g / 6) * 6;          // (whole triangles)
     mesh.geometry.setDrawRange(0, n); mesh.visible = n > 0;
   }
-  // the trunk: the green vine and the pink one twisted together, rising through the story, with roots in the grass
-  var trunkPts = [], trunkPink = [];
-  for (var ti = 0; ti <= 60; ti++) {
-    var ty = -0.3 + (TH + 2.2) * ti / 60;
-    trunkPts.push(V(Math.sin(ti * 0.35) * 0.18, ty, Math.cos(ti * 0.29) * 0.18));
-    trunkPink.push(V(Math.cos(ti * 0.9) * 0.42, ty, Math.sin(ti * 0.9) * 0.42));
+  // the trunk: thick at the foot and tapering up into the crown, with the pink vine of its people twisted round it
+  var trunkTop = TRUNK_H + RC * 0.3;
+  var trunkGeo = new THREE.CylinderGeometry(0.95, 0.42, trunkTop + 0.3, 14, 40, true);
+  trunkGeo.rotateX(PI); trunkGeo.translate(0, (trunkTop + 0.3) / 2 - 0.3, 0);          // (upside down, so it grows from the ground up)
+  (function () {                                        // bark: a little darker in the grooves, greener towards the crown
+    var p = trunkGeo.attributes.position, cl = new Float32Array(p.count * 3), c1 = new THREE.Color(0x7a5232), c2 = new THREE.Color(0x5e9e4f), c = new THREE.Color();
+    for (var i = 0; i < p.count; i++) {
+      var y = p.getY(i), a = Math.atan2(p.getZ(i), p.getX(i));
+      c.copy(c1).lerp(c2, Math.max(0, (y - trunkTop * 0.55) / (trunkTop * 0.6))).offsetHSL(0, 0, Math.sin(a * 7 + y * 1.3) * 0.035);
+      cl[i * 3] = c.r; cl[i * 3 + 1] = c.g; cl[i * 3 + 2] = c.b;
+    }
+    trunkGeo.setAttribute('color', new THREE.BufferAttribute(cl, 3));
+  })();
+  var trunk = growable(new THREE.Mesh(trunkGeo, toon(0xffffff, { vertexColors: true })));
+  var trunkPink = [];
+  for (var ti = 0; ti <= 80; ti++) {
+    var ty = -0.25 + (trunkTop + 0.4) * ti / 80, tr = 0.98 - 0.55 * (ty / trunkTop);
+    trunkPink.push(V(Math.cos(ti * 0.42) * tr, ty, Math.sin(ti * 0.42) * tr));
   }
-  var trunkCurve = new THREE.CatmullRomCurve3(trunkPts), trunk = growable(new THREE.Mesh(paintAlong(new THREE.TubeGeometry(trunkCurve, 120, 0.36, 10, false),
-    [[0, 0x6b4a2b], [0.12, C.forest], [0.6, C.emerald], [1, 0x7ccf6a]], 30), toon(0xffffff, { vertexColors: true })));
-  var trunkP = growable(new THREE.Mesh(paintAlong(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(trunkPink), 240, 0.13, 6, false),
+  var trunkP = growable(new THREE.Mesh(paintAlong(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(trunkPink), 240, 0.12, 6, false),
     [[0, C.magenta], [0.5, C.rose], [1, C.petal]], 60), toon(0xffffff, { vertexColors: true, emissive: new THREE.Color(0x5a0a2a), emissiveIntensity: 0.25 })));
   treeG.add(trunk); treeG.add(trunkP);
-  for (var rt = 0; rt < 7; rt++) {
-    var ra = rt / 7 * TAU + 0.3, rlen = 2.2 + (rt % 3) * 0.7;
-    var rc = new THREE.CatmullRomCurve3([V(0, 0.4, 0), V(Math.cos(ra) * rlen * 0.45, 0.05, Math.sin(ra) * rlen * 0.45), V(Math.cos(ra) * rlen, -0.25, Math.sin(ra) * rlen)]);
-    treeG.add(new THREE.Mesh(new THREE.TubeGeometry(rc, 16, 0.16 - rt * 0.01, 6, false), toon(0x6b4a2b)));
+  for (var rt = 0; rt < 8; rt++) {                      // roots in the grass
+    var ra = rt / 8 * TAU + 0.3, rlen = 2.6 + (rt % 3) * 0.8;
+    var rc = new THREE.CatmullRomCurve3([V(0, 0.6, 0), V(Math.cos(ra) * rlen * 0.4, 0.12, Math.sin(ra) * rlen * 0.4), V(Math.cos(ra) * rlen, -0.2, Math.sin(ra) * rlen)]);
+    treeG.add(new THREE.Mesh(new THREE.TubeGeometry(rc, 16, 0.24 - rt * 0.012, 6, false), toon(0x6b4a2b)));
   }
-  var grass = new THREE.Mesh(new THREE.CircleGeometry(maxR + 7, 48), new THREE.MeshBasicMaterial({ map: (function () {
+  // the crown's leafy heart, inside the ring of blossoms: it hides the far side of the tree, so the near side reads
+  // clearly (the camera walks round, so everyone comes to the front)
+  var crownG = new THREE.Group(); treeG.add(crownG);
+  [[0, 0.28, 0, 0.36], [0.3, 0.12, 0.08, 0.3], [-0.28, 0.14, -0.1, 0.3], [0.06, 0.1, 0.3, 0.29], [-0.08, 0.16, -0.3, 0.29],
+   [0.2, 0.42, -0.16, 0.24], [-0.2, 0.4, 0.18, 0.24], [0.12, -0.04, -0.22, 0.24], [-0.16, -0.02, 0.2, 0.24]].forEach(function (b, bi) {
+    var m = new THREE.Mesh(new THREE.IcosahedronGeometry(RC * b[3], 1), toon([0x5fb85a, C.emerald, 0x7cc95e, 0x4fa65a][bi % 4]));
+    m.position.set(RC * b[0], CROWN_Y + RC * b[1], RC * b[2]); m.scale.y = 0.82;
+    crownG.add(m);
+  });
+  crownG.scale.setScalar(0.001);
+  var grass = new THREE.Mesh(new THREE.CircleGeometry(maxR + 8, 48), new THREE.MeshBasicMaterial({ map: (function () {
     var c = document.createElement('canvas'); c.width = c.height = 256;
     var g = c.getContext('2d'), gr = g.createRadialGradient(128, 128, 10, 128, 128, 128);
     gr.addColorStop(0, '#9fdcae'); gr.addColorStop(0.55, '#c9efd4'); gr.addColorStop(1, 'rgba(230,248,234,0)');
     g.fillStyle = gr; g.fillRect(0, 0, 256, 256); return new THREE.CanvasTexture(c);
   })(), transparent: true, depthWrite: false }));
   grass.rotation.x = -PI / 2; grass.position.y = -0.02; treeG.add(grass);
-  // a name tag: the hero's name on a little pill in their colour
-  function nameTag(text, color) {
-    var c = document.createElement('canvas'), g = c.getContext('2d'), px = 44;
+  // a name tag: the hero's name on a pill in their colour; new heroes get a golden one with a sparkle
+  function nameTag(text, color, isNew) {
+    var c = document.createElement('canvas'), g = c.getContext('2d'), px = 46, label = isNew ? '✨ ' + text : text;
     g.font = 'bold ' + px + 'px -apple-system, Segoe UI, Roboto, sans-serif';
-    var w = Math.ceil(g.measureText(text).width) + 40, h = 70;
+    var w = Math.ceil(g.measureText(label).width) + (isNew ? 116 : 44), h = 74;
     c.width = w; c.height = h; g = c.getContext('2d');
-    g.fillStyle = 'rgba(255,250,252,0.94)'; g.beginPath(); g.moveTo(35, 2); g.arcTo(w - 2, 2, w - 2, h - 2, 33); g.arcTo(w - 2, h - 2, 2, h - 2, 33); g.arcTo(2, h - 2, 2, 2, 33); g.arcTo(2, 2, w - 2, 2, 33); g.fill();
-    g.lineWidth = 4; g.strokeStyle = color; g.stroke();
-    g.font = 'bold ' + px + 'px -apple-system, Segoe UI, Roboto, sans-serif'; g.fillStyle = '#5a1838'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2 + 2);
-    var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
-    sp.scale.set(0.52 * w / h, 0.52, 1); sp.userData.w = 0.52 * w / h; sp.renderOrder = 8;
+    g.fillStyle = isNew ? 'rgba(255,248,224,0.97)' : 'rgba(255,250,252,0.95)';
+    g.beginPath(); g.moveTo(37, 3); g.arcTo(w - 3, 3, w - 3, h - 3, 34); g.arcTo(w - 3, h - 3, 3, h - 3, 34); g.arcTo(3, h - 3, 3, 3, 34); g.arcTo(3, 3, w - 3, 3, 34); g.fill();
+    g.lineWidth = isNew ? 6 : 4; g.strokeStyle = isNew ? '#e0a21b' : color; g.stroke();
+    g.font = 'bold ' + px + 'px -apple-system, Segoe UI, Roboto, sans-serif'; g.fillStyle = isNew ? '#7a4a00' : '#5a1838'; g.textBaseline = 'middle';
+    if (isNew) {
+      g.textAlign = 'left'; g.fillText(label, 22, h / 2 + 2);
+      var lw = g.measureText(label).width;
+      g.font = '800 26px -apple-system, Segoe UI, Roboto, sans-serif'; g.fillStyle = '#ffffff';
+      var bx = 22 + lw + 12;
+      g.save(); g.fillStyle = '#e0a21b'; g.beginPath(); g.moveTo(bx + 12, 18); g.arcTo(bx + 66, 18, bx + 66, 56, 14); g.arcTo(bx + 66, 56, bx, 56, 14); g.arcTo(bx, 56, bx, 18, 14); g.arcTo(bx, 18, bx + 66, 18, 14); g.fill(); g.restore();
+      g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.fillText('NEW', bx + 33, h / 2 + 1);
+    } else { g.textAlign = 'center'; g.fillText(label, w / 2, h / 2 + 2); }
+    var hh = isNew ? 0.72 : 0.58;
+    var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, depthTest: !isNew }));
+    sp.scale.set(hh * w / h, hh, 1); sp.userData.w = hh * w / h; sp.userData.h = hh; sp.renderOrder = isNew ? 9 : 8;
     return sp;
   }
   // heroes: a blossom in their outfit's colour (bigger for heroes who invited many), a glow, their name
@@ -286,29 +330,34 @@
     g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c);
   })();
   TN.forEach(function (n) {
-    var col = new THREE.Color(n.color || '#ec407a'), g = new THREE.Group(), s = 0.62 + 0.11 * Math.min(8, n.kids);
+    var col = new THREE.Color(n.color || '#ec407a'), g = new THREE.Group(), s = 0.7 + 0.1 * Math.min(8, n.kids);
     for (var j = 0; j < 6; j++) {
       var pm = new THREE.Mesh(petalGeo, toon(col.clone().offsetHSL(0, 0, j % 2 ? 0.08 : 0)));
-      pm.quaternion.setFromEuler(new THREE.Euler(0.9, j / 6 * TAU, 0)); pm.scale.setScalar(1.25); g.add(pm);
+      pm.quaternion.setFromEuler(new THREE.Euler(0.9, j / 6 * TAU, 0)); pm.scale.setScalar(1.3); g.add(pm);
     }
     g.add(new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), toon(C.gold, { emissive: new THREE.Color(0x7a4a00), emissiveIntensity: 0.3 })));
     if (!n.by) g.add(new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.045, 6, 24), toon(C.gold)));     // a root of the tree: a little gold ring
+    var halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: seedTex, transparent: true, depthWrite: false, opacity: 0 }));   // the new heroes' golden glow
+    halo.scale.setScalar(2.6); g.add(halo); n.halo = halo;
     var glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, depthWrite: false, opacity: 0.75 }));
-    glow.scale.setScalar(1.7); g.add(glow);
+    glow.scale.setScalar(1.7); g.add(glow); n.glow = glow;
     g.position.copy(n.pos); g.scale.setScalar(0.001); g.userData = { s: s, k: 0 };
     treeG.add(g); n.mesh = g;
-    n.tag = nameTag(n.name, '#' + col.getHexString()); n.tag.position.copy(n.pos).add(V(0, 0.95 * s + 0.35, 0)); n.tag.visible = false; treeG.add(n.tag);
-    var proxy = new THREE.Mesh(new THREE.SphereGeometry(0.75 * s + 0.2, 6, 4), new THREE.MeshBasicMaterial({ visible: false }));
+    var hexc = '#' + col.getHexString();
+    n.tag = nameTag(n.name, hexc, false); n.tagNew = nameTag(n.name, hexc, true);
+    [n.tag, n.tagNew].forEach(function (tg) { tg.position.copy(n.pos).add(V(0, 0.95 * s + 0.5, 0)); tg.visible = false; treeG.add(tg); });
+    var proxy = new THREE.Mesh(new THREE.SphereGeometry(0.75 * s + 0.35, 6, 4), new THREE.MeshBasicMaterial({ visible: false }));
     proxy.position.copy(n.pos); proxy.userData.hero = n.id; treeG.add(proxy); treeProxies.push(proxy);
-    // the branch from the hero who invited them (or from the trunk), green with their colour at the tip
-    var from = n.by ? byId[n.by].pos : V(0, Math.max(0.6, n.pos.y - 1.3), 0), to = n.pos;
-    var mid = from.clone().lerp(to, 0.5).add(V(0, 0.35 + from.distanceTo(to) * 0.1, 0));
-    var bc = new THREE.CatmullRomCurve3([from.clone(), from.clone().lerp(mid, 0.6), mid, to.clone()]);
-    var rad = Math.max(0.05, 0.13 - n.depth * 0.022) * (n.kids ? 1.15 : 1);
-    n.branch = growable(new THREE.Mesh(paintAlong(new THREE.TubeGeometry(bc, 36, rad, 6, false), [[0, n.by ? 0x2e9e5b : C.forest], [0.75, 0x5fbf6a], [1, col.getHex()]]),
+    // the branch from the hero who invited them (or from the top of the trunk), arching out, their colour at the tip
+    var from = n.by ? byId[n.by].pos : V(Math.cos(n.ang) * 0.3, trunkTop - 0.2, Math.sin(n.ang) * 0.3), to = n.pos;
+    var out = V(to.x - from.x, 0, to.z - from.z), dist = from.distanceTo(to);
+    var mid = from.clone().lerp(to, 0.5).add(V(0, 0.25 + dist * 0.09, 0)).add(out.multiplyScalar(0.05));
+    var bc = new THREE.CatmullRomCurve3([from.clone(), from.clone().lerp(mid, 0.55), mid, to.clone()]);
+    var rad = Math.max(0.06, 0.2 - n.depth * 0.04) * (n.kids ? 1.15 : 1);
+    n.branch = growable(new THREE.Mesh(paintAlong(new THREE.TubeGeometry(bc, 40, rad, 6, false), [[0, n.by ? 0x5a8a3a : 0x7a5232], [0.55, 0x5fbf6a], [1, col.getHex()]]),
       toon(0xffffff, { vertexColors: true })));
     n.curve = bc; treeG.add(n.branch);
-    n.leaves = [0.3, 0.52, 0.74].map(function (lu, li) {   // leaves along the branch, out once it has grown
+    n.leaves = [0.22, 0.4, 0.58, 0.76].map(function (lu, li) {   // leaves along the branch, out once it has grown
       var lf = new THREE.Mesh(leafGeo, toon(leafTones[(n.id + li) % leafTones.length]));
       lf.position.copy(bc.getPointAt(lu)); lf.rotation.set((n.id * 1.7 + li * 2.1) % TAU, (n.id + li * 2.4) % TAU, 0.5);
       lf.userData.u = lu; lf.scale.setScalar(0.001); treeG.add(lf);
@@ -316,24 +365,24 @@
     });
     n.seed = new THREE.Sprite(new THREE.SpriteMaterial({ map: seedTex, transparent: true, depthWrite: false, opacity: 0 }));
     n.seed.scale.setScalar(0.7); n.seed.visible = false; treeG.add(n.seed);
-    n.grow = 0;
+    n.grow = 0; n.isNew = false;
   });
-  // ribbons between connected heroes: partners, family, friends, teammates
+  // ribbons between connected heroes: partners, family, friends, teammates (arching over the crown)
   var RIB = { love: 0xff2d7a, family: 0xc2185b, friends: 0xff8fb8, team: 0x7fd6a8 };
   var ribbons = (TREE.links || []).map(function (l) {
     var a = byId[l.a], b = byId[l.b];
     if (!a || !b) return null;
-    var mid = a.pos.clone().lerp(b.pos, 0.5), out = V(mid.x, 0, mid.z).normalize().multiplyScalar(0.8 + a.pos.distanceTo(b.pos) * 0.12);
-    if (!isFinite(out.x)) out.set(0.8, 0, 0);
-    mid.add(out).add(V(0, 0.7 + a.pos.distanceTo(b.pos) * 0.14, 0));
+    var mid = a.pos.clone().lerp(b.pos, 0.5), d2 = a.pos.distanceTo(b.pos);
+    var out = V(mid.x, 0, mid.z); if (out.lengthSq() < 0.01) out.set(1, 0, 0);
+    mid.add(out.normalize().multiplyScalar(0.6 + d2 * 0.08)).add(V(0, 0.6 + d2 * 0.12, 0));
     var rc2 = new THREE.CatmullRomCurve3([a.pos.clone(), mid, b.pos.clone()]);
-    var m = growable(new THREE.Mesh(new THREE.TubeGeometry(rc2, 40, l.group === 'love' ? 0.06 : 0.04, 6, false),
-      toon(RIB[l.group] || RIB.team, { emissive: new THREE.Color(RIB[l.group] || RIB.team), emissiveIntensity: 0.18 })));
+    var m = growable(new THREE.Mesh(new THREE.TubeGeometry(rc2, 40, l.group === 'love' ? 0.05 : 0.035, 6, false),
+      toon(RIB[l.group] || RIB.team, { emissive: new THREE.Color(RIB[l.group] || RIB.team), emissiveIntensity: 0.18, transparent: true, opacity: 0.8 })));
     treeG.add(m);
     var hs = null;
     if (l.group === 'love' || l.group === 'family') {
       hs = new THREE.Sprite(new THREE.SpriteMaterial({ map: tinyTex, color: new THREE.Color(RIB[l.group]), transparent: true, depthWrite: false }));
-      hs.scale.setScalar(l.group === 'love' ? 0.55 : 0.4); hs.position.copy(rc2.getPointAt(0.5)).add(V(0, 0.2, 0)); hs.visible = false; treeG.add(hs);
+      hs.scale.setScalar(l.group === 'love' ? 0.5 : 0.38); hs.position.copy(rc2.getPointAt(0.5)).add(V(0, 0.2, 0)); hs.visible = false; treeG.add(hs);
     }
     return { mesh: m, heart: hs, a: a, b: b, t: Math.max(ms(l.date) || 0, a.t || 0, b.t || 0), l: l, grow: 0 };
   }).filter(Boolean);
@@ -353,7 +402,7 @@
 
   // ---------------------------------------------------------------- travelling through time
   var pos = 0, target = 0, playing = false, lastShown = -1, userAt = 0;
-  var mode = 'vine', orbit = 0.6, selected = null;
+  var mode = 'vine', orbit = 0.6, orbitTo = null, selected = null;
   ui.range.max = Math.max(0, N - 1);
   function clampDay(x) { return Math.max(0, Math.min(N - 1, x)); }
   function go(x, byUser) { target = clampDay(x); if (byUser) { userAt = performance.now(); setPlaying(false); } }
@@ -376,7 +425,7 @@
     var dx = drag.x - e.clientX, d = dx + (drag.y - e.clientY);         // left or up = forward in time
     if (Math.abs(d) > 6 || Math.abs(dx) > 6) drag.moved = true;
     if (!drag.moved) return;
-    if (mode === 'tree') { orbit = drag.o + dx * 0.008; userAt = performance.now(); }   // the tree: drag to walk round it
+    if (mode === 'tree') { orbit = drag.o + dx * 0.008; orbitTo = null; userAt = performance.now(); }   // the tree: drag to walk round it
     else go(drag.t + d / 90, true);
   });
   canvas.addEventListener('pointerup', function (e) {
@@ -396,6 +445,7 @@
   function setMode(m) {
     mode = m;
     vineG.visible = m === 'vine'; treeG.visible = m === 'tree';
+    wrap.classList.toggle('tree-mode', m === 'tree');
     scene.fog.near = m === 'tree' ? 30 : 14; scene.fog.far = m === 'tree' ? 120 : 46;
     if (modeBtn) { modeBtn.setAttribute('aria-pressed', m === 'tree'); modeBtn.setAttribute('aria-label', m === 'tree' ? 'Back to the story vine' : 'Show the mother tree'); }
     if (nameEl) nameEl.textContent = m === 'tree' ? 'Our mother tree' : 'Our farm story';
@@ -403,10 +453,37 @@
     if (legend) legend.hidden = m !== 'tree' || !TN.length;
     if (m === 'vine') select(null);
     first = true; lastShown = -1;
+    resize();
   }
   if (modeBtn) modeBtn.addEventListener('click', function () { setMode(mode === 'tree' ? 'vine' : 'tree'); });
 
+  function ago(days) { return days <= 0 ? 'today' : days === 1 ? 'yesterday' : days + ' days ago'; }
+  function showTree(i) {                                // the tree's card: who's new on the tree (as of the day you're at)
+    var d = DAYS[i], now = dateAt(i);
+    ui.date.textContent = d ? d.weekday + ' ' + d.label : '';
+    ui.count.textContent = d ? 'day ' + (i + 1) + ' of ' + DAYS.length : '';
+    var on = TN.filter(function (n) { return n.t <= now; }), fresh = on.filter(function (n) { return now - n.t < NEW_MS; });
+    fresh.sort(function (a, b) { return b.t - a.t || b.id - a.id; });
+    ui.heading.textContent = fresh.length ? '✨ New on the tree' : 'Our mother tree';
+    ui.lines.innerHTML = '';
+    function line(t, cls) { var li = document.createElement('li'); li.textContent = t; if (cls) li.className = cls; ui.lines.appendChild(li); }
+    var show = (wrap.clientWidth || 1000) < 600 ? 3 : 6;
+    fresh.slice(0, show).forEach(function (n) {
+      var when = ago(Math.floor((now - n.t) / 86400000));
+      line(n.by ? n.name + ' joined ' + when + ', invited by ' + byId[n.by].name + '.' : n.name + ' came to the farm ' + when + ', a new root.', 'tree');
+    });
+    if (fresh.length > show) line('…and ' + (fresh.length - show) + ' more new hero' + (fresh.length - show !== 1 ? 'es' : '') + '.', 'tree');
+    var inv = on.filter(function (n) { return n.by; }).length;
+    line(on.length + ' hero' + (on.length !== 1 ? 'es' : '') + ' on the tree' + (inv ? ', ' + inv + ' invited by a friend' : '') + '. Tap a blossom to meet them.');
+    ui.chips.innerHTML = '';
+    fresh.slice(0, 8).forEach(function (n) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'time-chip gold'; b.textContent = '✨ ' + n.name;
+      b.addEventListener('click', function () { select(n); });
+      ui.chips.appendChild(b);
+    });
+  }
   function showDay(i) {
+    if (mode === 'tree') { showTree(i); return; }
     var d = DAYS[i]; if (!d) return;
     ui.date.textContent = d.weekday + ' ' + d.label;
     ui.count.textContent = 'day ' + (i + 1) + ' of ' + DAYS.length;
@@ -428,7 +505,8 @@
   }
   function select(n) {                                  // a hero on the tree: their card
     selected = n;
-    TN.forEach(function (o) { if (o.tag) o.tag.scale.set(o.tag.userData.w * (o === n ? 1.5 : 1), 0.52 * (o === n ? 1.5 : 1), 1); });
+    if (n && n.ang !== undefined) { orbitTo = n.ang; userAt = performance.now(); }      // walk round to their side of the tree
+    TN.forEach(function (o) { [o.tag, o.tagNew].forEach(function (tg) { if (tg) tg.scale.set(tg.userData.w * (o === n ? 1.4 : 1), tg.userData.h * (o === n ? 1.4 : 1), 1); }); });
     if (!n) { lastShown = -1; return; }
     var jd = ms(n.joined);
     ui.date.textContent = jd ? 'Joined ' + new Date(jd).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
@@ -449,30 +527,50 @@
   }
 
   // ---------------------------------------------------------------- frame loop
+  // the tree view: the card docks on the left of a wide screen, or sits low on a phone; the tree is framed in the
+  // space it leaves (fw, fh: the free share of the width and height; ox, oy: the shift that centres the tree there)
+  function treeLayout() {
+    var w = wrap.clientWidth || 1, h = wrap.clientHeight || 1;
+    if (w >= 900) { var cw = Math.min(380, w * 0.34) + 36; return { ox: -cw / 2, oy: -10, fw: (w - cw) / w, fh: (h - 170) / h }; }
+    var top = 104, bottom = Math.min(h * 0.3, 300) + 92;
+    return { ox: 0, oy: h / 2 - (top + h - bottom) / 2, fw: 1, fh: (h - top - bottom) / h };
+  }
+  var PHONE = function () { return camera.aspect < 0.8; };
+  function treeFit() {                                  // how far back to stand so the crown fits that space (a phone sees part of it: walk round)
+    var L = treeLayout(), vt = Math.tan(camera.fov * PI / 360);
+    var halfH = (TOP_Y - lowY()) / 2 + 0.4, halfW = (maxR + 1.4) * (PHONE() ? 0.72 : 1);
+    return Math.max(halfH / (vt * L.fh), halfW / (vt * L.fw * camera.aspect)) + maxR * 0.35;
+  }
   function resize() {
     var w = wrap.clientWidth, h = wrap.clientHeight; if (!w || !h) return;
     renderer.setSize(w, h, false); camera.aspect = w / h;
-    camera.setViewOffset(w, h, 0, Math.round(h * (w / h < 0.8 ? 0.14 : 0.03)), w, h);     // the vine sits above the story card
+    if (mode === 'tree') { var L = treeLayout(); camera.setViewOffset(w, h, Math.round(L.ox), Math.round(L.oy), w, h); }
+    else camera.setViewOffset(w, h, 0, Math.round(h * (w / h < 0.8 ? 0.14 : 0.03)), w, h);     // the vine sits above the story card
     camera.updateProjectionMatrix();
   }
   window.addEventListener('resize', resize); resize();
   var clock = new THREE.Clock(), look = V(0, 0, 0), camPos = V(0, 0, 0), first = true;
   var startT = performance.now(), autoDone = false;
   function growTree(now, t, dt) {                       // everything that has happened by `now` (a time) has grown
-    var top = yOf(now), k = Math.min(1, dt * 2.2);
-    setGrowth(trunk, Math.min(1, (top + 1.2) / (TH + 2.2)));
-    setGrowth(trunkP, Math.min(1, (top + 1.2) / (TH + 2.2)));
+    var prog = Math.max(0, Math.min(1, (now - t0) / (t1 - t0))), k = Math.min(1, dt * 2.2);
+    var tg = TN.length ? 0.45 + 0.55 * Math.min(1, prog * 2.5) : 1;          // the trunk is up by the first branches
+    setGrowth(trunk, tg); setGrowth(trunkP, tg);
+    var grown = TN.filter(function (n) { return n.grow > 0.5; }).length;
+    var cs = Math.max(0.001, Math.min(1, 0.25 + 0.75 * grown / Math.max(1, TN.length)));
+    crownG.scale.setScalar(crownG.scale.x + (cs - crownG.scale.x) * Math.min(1, dt * 2));
     TN.forEach(function (n) {
       var want = n.t <= now ? 1 : 0;
+      n.isNew = want && now - n.t < NEW_MS;
       n.grow += (want - n.grow) * (want ? k : Math.min(1, dt * 5));
       if (n.grow < 0.003) n.grow = 0;
       setGrowth(n.branch, Math.min(1, n.grow * 1.35));
-      var bloom = Math.max(0, (n.grow - 0.7) / 0.3), s = n.mesh.userData.s * (bloom > 0 ? bloom : 0.001);
-      var beat = (n === selected ? 1 + Math.pow(Math.max(0, Math.sin(t * 5)), 6) * 0.25 : 1);
+      var bloom = Math.max(0, (n.grow - 0.7) / 0.3), s = n.mesh.userData.s * (bloom > 0 ? bloom : 0.001) * (n.isNew ? 1.3 : 1);
+      var beat = (n === selected || n.isNew ? 1 + Math.pow(Math.max(0, Math.sin(t * (n.isNew ? 3 : 5) + n.id)), 6) * 0.22 : 1);
       n.mesh.scale.setScalar(Math.max(0.001, s * beat));
       n.mesh.visible = bloom > 0;
-      n.mesh.children[n.mesh.children.length - 1].material.opacity = 0.55 + 0.2 * Math.sin(t * 2 + n.id);
-      n.tag.visible = bloom > 0.6;
+      n.glow.material.opacity = 0.55 + 0.2 * Math.sin(t * 2 + n.id);
+      n.halo.material.opacity = n.isNew ? 0.55 + 0.3 * Math.sin(t * 2.4 + n.id) : 0;
+      n.tag.visible = bloom > 0.6 && !n.isNew; n.tagNew.visible = bloom > 0.6 && n.isNew;
       n.leaves.forEach(function (lf) { var lk = Math.max(0, Math.min(1, (n.grow * 1.35 - lf.userData.u) * 4)); lf.scale.setScalar(Math.max(0.001, lk * 1.15)); lf.visible = lk > 0; });
       var riding = n.grow > 0.02 && n.grow < 0.72 && !calm;          // the invitation travels along the new branch
       n.seed.visible = riding;
@@ -484,7 +582,6 @@
       setGrowth(r.mesh, r.grow);
       if (r.heart) { r.heart.visible = r.grow > 0.95; r.heart.position.y = r.heart.userData.y || (r.heart.userData.y = r.heart.position.y); r.heart.position.y += Math.sin(t * 2 + r.a.id) * 0.08; }
     });
-    return top;
   }
   function frame() {
     requestAnimationFrame(frame);
@@ -498,13 +595,25 @@
     var far = camera.aspect < 0.8 ? 1.45 : 1;          // a phone held upright sees less sideways: step back
     var want, wantLook;
     if (mode === 'tree') {
-      var top = growTree(dateAt(pos), t, dt);
-      if (!calm && !drag && performance.now() - userAt > 4000) orbit += dt * 0.12;     // the camera walks slowly round the tree
-      var R = (maxR + 6) * (camera.aspect < 0.8 ? 2.3 : 1.55), focus = selected && selected.grow > 0.5 ? selected.pos : null;
-      wantLook = focus ? focus.clone() : V(0, Math.max(2.5, top * 0.55), 0);
-      want = V(Math.cos(orbit) * R, Math.max(3.5, top * 0.62 + 3.5), Math.sin(orbit) * R);
-      if (focus) want.lerp(focus.clone().add(V(Math.cos(orbit) * 11 * far, 3.4, Math.sin(orbit) * 11 * far)), 0.7);
+      growTree(dateAt(pos), t, dt);
+      if (orbitTo !== null) {                         // walking round to a hero's side, the short way
+        var da = ((orbitTo - orbit + PI) % TAU + TAU) % TAU - PI;
+        orbit += da * Math.min(1, dt * 2.5); if (Math.abs(da) < 0.01) orbitTo = null;
+      } else if (!calm && !drag && performance.now() - userAt > 4000) orbit += dt * 0.1;     // the camera walks slowly round the tree
+      var D = treeFit(), focus = selected && selected.grow > 0.5 ? selected.pos : null;
+      var midY = (TOP_Y + lowY()) / 2;
+      wantLook = focus ? focus.clone() : V(0, midY, 0);
+      want = V(Math.cos(orbit) * D, midY + D * 0.12, Math.sin(orbit) * D);
+      if (focus) want.lerp(focus.clone().add(V(Math.cos(orbit) * 10 * far, 2.4, Math.sin(orbit) * 10 * far)), 0.75);
       here = wantLook;
+      var cx = Math.cos(orbit), cz = Math.sin(orbit);
+      var tk = PHONE() ? 1.35 : 1;
+      TN.forEach(function (n) {                       // the names on the far side of the crown fade back, so the near ones read clearly
+        var r = Math.hypot(n.pos.x, n.pos.z) || 1, facing = (n.pos.x * cx + n.pos.z * cz) / r, sk = tk * (n === selected ? 1.4 : 1);
+        n.tag.scale.set(n.tag.userData.w * sk, n.tag.userData.h * sk, 1); n.tagNew.scale.set(n.tagNew.userData.w * sk, n.tagNew.userData.h * sk, 1);
+        var op = n.isNew || n === selected ? 1 : 0.28 + 0.72 * Math.max(0, Math.min(1, (facing + 0.35) / 0.7));
+        n.tag.material.opacity = op; n.tagNew.material.opacity = 1;
+      });
     } else {
       want = here.clone().add(V(5.4 * far, 2.8 * far, 4.0 * far));
       wantLook = here.clone().lerp(next, 0.5).add(V(0, 0.55, 0));
@@ -539,6 +648,10 @@
   }
   // start at the very beginning: "Once upon a time…" (or with the whole tree grown, when the tree was asked for)
   showDay(0); lastShown = 0;
+  (function () {                                        // the tree turns its newest hero towards you first
+    var newest = TN.reduce(function (m, n) { return !m || n.t > m.t ? n : m; }, null);
+    if (newest && newest.ang !== undefined) orbit = newest.ang;
+  })();
   if (S.view === 'tree') {
     setMode('tree'); pos = target = Math.max(0, N - 1);
     if (S.focus && byId[S.focus]) { TN.forEach(function (n) { n.grow = n.t <= dateAt(pos) ? 1 : 0; }); select(byId[S.focus]); }

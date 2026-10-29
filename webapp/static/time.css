@@ -67,3 +67,12 @@ html, body.time-body { height: 100%; margin: 0; overflow: hidden; background: li
 .time-legend i { width: 18px; height: 4px; border-radius: 4px; display: inline-block; }
 .time-legend[hidden] { display: none; }
 @media (max-width: 520px) { .time-legend { display: none; } }
+/* the mother tree view: the card docks to the left on a wide screen (the tree stands in the space beside it) and
+   keeps low on a phone; new heroes get golden chips that take you to them */
+@media (min-width: 900px) {
+  .time-wrap.tree-mode .time-card { left: 18px; transform: none; top: calc(84px + env(safe-area-inset-top)); bottom: auto; width: min(380px, 34vw); max-height: calc(100% - 190px); }
+}
+@media (max-width: 899px) { .time-wrap.tree-mode .time-card { max-height: min(30vh, 300px); } }
+button.time-chip { border: 0; font: inherit; cursor: pointer; }
+.time-chip.gold { background: linear-gradient(120deg, #fff1c2, #ffd36b); color: #7a4a00; box-shadow: 0 1px 0 rgba(224, 162, 27, 0.4) inset, 0 0 0 1px #f0c35a; }
+.time-chip.gold:hover { filter: brightness(1.04); }

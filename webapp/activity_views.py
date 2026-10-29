@@ -23,6 +23,15 @@ ICON_PATHS = {
     "sprout": '<path d="M12 21v-9M12 12c0-4-3-6.5-7-6.5 0 4 3 6.5 7 6.5zM12 10c0-3 2.2-5 6-5 0 3-2.2 5-6 5zM7 21h10"/>',
     "seed": '<ellipse cx="12" cy="13" rx="5" ry="7.5"/><path d="M12 6c.6 5 0 9.5-2.5 13.5"/>',
     "plus": '<path d="M12 5v14M5 12h14"/>',
+    # the dashboard's brain: one for every section
+    "camera": '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+    "users": '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.7.3 5 2.4 5 5.8"/>',
+    "map": '<path d="M9 4 3 6.5v13L9 17l6 2.5 6-2.5v-13L15 6.5z"/><path d="M9 4v13M15 6.5v13"/>',
+    "pulse": '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
+    "gear": '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
+    "tag": '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>',
+    "balloon": '<path d="M12 3c3.3 0 6 2.6 6 6 0 3.8-3.2 7-6 7s-6-3.2-6-7c0-3.4 2.7-6 6-6z"/><path d="M11 16h2l-1 2zM12 18c0 1.6-1.6 2-1 3.5"/>',
+    "lock": '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
 }
 
 STAGE_LABELS = {"seed": "seed", "germination": "sprouting", "seedling": "seedling", "growing": "growing",

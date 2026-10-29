@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-10-29 (a better mother tree, a tidier dashboard)
+
+- **The mother tree** (Time → 🌳) is a real tree now: a tapering trunk
+  with the pink vine wound round it, a leafy crown, and every hero a
+  blossom at the end of a branch all round the crown, with room round
+  each one. The roots of the family sit at the top and each generation
+  hangs a ring further out, instead of everyone crowding up the trunk.
+- **New joins stand out**: heroes who joined in the last two weeks glow
+  gold, with a bigger blossom and a golden ✨ NEW name tag. The card lists
+  them ("Lior joined yesterday, invited by Dana") with golden chips that
+  take you straight to them, and the tree turns its newest hero towards
+  you first. Names on the far side of the crown fade back.
+- The tree is framed in the space the card leaves: the card docks on the
+  left of a wide screen, and a phone shows the crown above the card with
+  bigger names.
+- **The dashboard**: every section on the brain shows its own icon in its
+  name tag (Gallery, Heroes, Plants, Map, Activity, System, Tags, Events),
+  the tags slide apart so none cover each other on a phone, the tabs stay
+  on one line (Leaderboards no longer drops to a second row), and the
+  to-do buttons move under their text on narrow screens.
+
 ## 2026-10-27 (powers compared, a tidier farm bar, a minimal party stage)
 
 - **👊 Powers compared** on the Leaderboards: every hero's five powers in

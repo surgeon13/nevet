@@ -30,7 +30,7 @@
   <button class="hub-tab active" type="button">Dashboard</button>
   <a class="hub-tab" href="{{ url_for('time_page') }}">Time</a>
   <button class="hub-tab" type="button" onclick="return showComingSoon('Resources')">Resources</button>
-  <a class="hub-tab" href="{{ url_for('stats') }}">🏆 Leaderboards</a>
+  <a class="hub-tab" href="{{ url_for('stats') }}"><span class="hub-tab-emoji" aria-hidden="true">🏆 </span>Leaderboards</a>
 </div>
 
 <div class="hub-wrap">
@@ -217,52 +217,52 @@
 
   <div class="node-grid" id="node-grid">
     {% if viewer and not viewer_photos %}
-    <a class="node-card is-locked" data-label="Gallery 🔒" href="{{ url_for('login', why='members', next=url_for('gallery')) }}">
-      Gallery 🔒<span class="node-sub">For members</span>
+    <a class="node-card is-locked" data-label="Gallery 🔒" data-icon="{{ ICON_PATHS['camera'] }}" href="{{ url_for('login', why='members', next=url_for('gallery')) }}">
+      <span class="node-ic">{{ ui.icon('camera', 22) }}</span>Gallery 🔒<span class="node-sub">For members</span>
     </a>
     {% else %}
-    <a class="node-card" data-label="Gallery" href="{{ url_for('gallery') }}">
-      Gallery<span class="node-sub">Photos &amp; videos</span>
+    <a class="node-card" data-label="Gallery" data-icon="{{ ICON_PATHS['camera'] }}" href="{{ url_for('gallery') }}">
+      <span class="node-ic">{{ ui.icon('camera', 22) }}</span>Gallery<span class="node-sub">Photos &amp; videos</span>
     </a>
     {% endif %}
-    <a class="node-card" data-label="Heroes" href="{{ url_for('growers_page') }}">
-      Heroes<span class="node-sub">{{ summary.growers }} growers</span>
+    <a class="node-card" data-label="Heroes" data-icon="{{ ICON_PATHS['users'] }}" href="{{ url_for('growers_page') }}">
+      <span class="node-ic">{{ ui.icon('users', 22) }}</span>Heroes<span class="node-sub">{{ summary.growers }} growers</span>
     </a>
-    <a class="node-card" data-label="Plants" href="{{ url_for('assets_page') }}">
-      Plants<span class="node-sub">Plants &amp; worm bins</span>
+    <a class="node-card" data-label="Plants" data-icon="{{ ICON_PATHS['sprout'] }}" href="{{ url_for('assets_page') }}">
+      <span class="node-ic">{{ ui.icon('sprout', 22) }}</span>Plants<span class="node-sub">Plants &amp; worm bins</span>
     </a>
     {% if viewer %}
-    <a class="node-card is-locked" data-label="Map 🔒" href="{{ url_for('login', why='members', next=url_for('map_page')) }}">
-      Map 🔒<span class="node-sub">For members</span>
+    <a class="node-card is-locked" data-label="Map 🔒" data-icon="{{ ICON_PATHS['map'] }}" href="{{ url_for('login', why='members', next=url_for('map_page')) }}">
+      <span class="node-ic">{{ ui.icon('map', 22) }}</span>Map 🔒<span class="node-sub">For members</span>
     </a>
     {% else %}
-    <a class="node-card" data-label="Map" href="{{ url_for('map_page') }}">
-      Map<span class="node-sub">Beds, paths &amp; plants</span>
+    <a class="node-card" data-label="Map" data-icon="{{ ICON_PATHS['map'] }}" href="{{ url_for('map_page') }}">
+      <span class="node-ic">{{ ui.icon('map', 22) }}</span>Map<span class="node-sub">Beds, paths &amp; plants</span>
     </a>
     {% endif %}
-    <a class="node-card" data-label="Activity" href="{{ url_for('activity') }}">
-      Activity<span class="node-sub">Who did what</span>
+    <a class="node-card" data-label="Activity" data-icon="{{ ICON_PATHS['pulse'] }}" href="{{ url_for('activity') }}">
+      <span class="node-ic">{{ ui.icon('pulse', 22) }}</span>Activity<span class="node-sub">Who did what</span>
     </a>
     {% if viewer %}
-    <a class="node-card is-locked" data-label="System 🔒" href="{{ url_for('login', why='members', next=url_for('logs_page')) }}">
-      System 🔒<span class="node-sub">For members</span>
+    <a class="node-card is-locked" data-label="System 🔒" data-icon="{{ ICON_PATHS['gear'] }}" href="{{ url_for('login', why='members', next=url_for('logs_page')) }}">
+      <span class="node-ic">{{ ui.icon('gear', 22) }}</span>System 🔒<span class="node-sub">For members</span>
     </a>
     {% else %}
-    <a class="node-card" data-label="System" href="{{ url_for('logs_page') }}">
-      System<span class="node-sub">Live system logs</span>
+    <a class="node-card" data-label="System" data-icon="{{ ICON_PATHS['gear'] }}" href="{{ url_for('logs_page') }}">
+      <span class="node-ic">{{ ui.icon('gear', 22) }}</span>System<span class="node-sub">Live system logs</span>
     </a>
     {% endif %}
     {% if viewer %}
-    <a class="node-card is-locked" data-label="Tags 🔒" href="{{ url_for('login', why='members', next=url_for('tags_page')) }}">
-      Tags 🔒<span class="node-sub">For members</span>
+    <a class="node-card is-locked" data-label="Tags 🔒" data-icon="{{ ICON_PATHS['tag'] }}" href="{{ url_for('login', why='members', next=url_for('tags_page')) }}">
+      <span class="node-ic">{{ ui.icon('tag', 22) }}</span>Tags 🔒<span class="node-sub">For members</span>
     </a>
     {% else %}
-    <a class="node-card" data-label="Tags" href="{{ url_for('tags_page') }}">
-      Tags<span class="node-sub">NFC, fobs &amp; QR labels</span>
+    <a class="node-card" data-label="Tags" data-icon="{{ ICON_PATHS['tag'] }}" href="{{ url_for('tags_page') }}">
+      <span class="node-ic">{{ ui.icon('tag', 22) }}</span>Tags<span class="node-sub">NFC, fobs &amp; QR labels</span>
     </a>
     {% endif %}
-    <a class="node-card" data-label="Events" href="{{ url_for('events_page') }}">
-      Events<span class="node-sub">{% if events_now %}Now: {{ events_now[0].title }}{% elif events_next %}Next: {{ events_next[0].title }} · {{ events_next[0].start.strftime('%-d %b') }}{% else %}Parties &amp; gatherings{% endif %}</span>
+    <a class="node-card" data-label="Events" data-icon="{{ ICON_PATHS['balloon'] }}" href="{{ url_for('events_page') }}">
+      <span class="node-ic">{{ ui.icon('balloon', 22) }}</span>Events<span class="node-sub">{% if events_now %}Now: {{ events_now[0].title }}{% elif events_next %}Next: {{ events_next[0].title }} · {{ events_next[0].start.strftime('%-d %b') }}{% else %}Parties &amp; gatherings{% endif %}</span>
     </a>
   </div>
 
@@ -547,14 +547,22 @@
   tryBrain(0);
 
   // ---------- labels: readable pills, constant on-screen size ----------
-  function labelCanvas(text, selected) {
+  // each section's line icon (the same set as the rest of Nevet, ICON_PATHS), drawn from SVG in the label's colours
+  function iconImage(paths, color) {
+    var img = new Image();
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="96" height="96" fill="none" stroke="' +
+      color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + paths + '</svg>');
+    return img;
+  }
+  function labelCanvas(text, selected, icons) {
     var c = document.createElement('canvas');
     var ctx = c.getContext('2d');
     var fontPx = 44;
     ctx.font = 'bold ' + fontPx + 'px sans-serif';
     var tw = Math.ceil(ctx.measureText(text).width);
+    var ic = icons && (selected ? icons.on : icons.off), hasIcon = ic && ic.complete && ic.naturalWidth > 0, iw = hasIcon ? 46 + 12 : 0;
     var padX = 26, h = 76;
-    c.width = tw + padX * 2; c.height = h;
+    c.width = tw + iw + padX * 2; c.height = h;
     ctx = c.getContext('2d');
     ctx.font = 'bold ' + fontPx + 'px sans-serif';
     var r = h / 2;
@@ -569,15 +577,16 @@
     ctx.lineWidth = 3;
     ctx.strokeStyle = selected ? cssColor('--accent', '#4c9a5b') : cssColor('--border', '#dddddd');
     ctx.stroke();
+    if (hasIcon) ctx.drawImage(ic, padX - 4, (h - 46) / 2, 46, 46);
     ctx.fillStyle = selected ? '#ffffff' : cssColor('--text', '#1e2a20');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, c.width / 2, h / 2 + 2);
+    ctx.fillText(text, (c.width + iw) / 2, h / 2 + 2);
     return c;
   }
 
   function setLabel(sprite, text, selected) {
-    var c = labelCanvas(text, selected);
+    var c = labelCanvas(text, selected, sprite.userData.icons);
     if (sprite.material.map) sprite.material.map.dispose();
     sprite.material.map = new THREE.CanvasTexture(c);
     sprite.material.needsUpdate = true;
@@ -754,6 +763,11 @@
     label.renderOrder = 10;               // labels always on top
     label.userData.text = n.dataset.label;
     label.userData.node = mesh;
+    if (n.dataset.icon) {                 // the icon draws in once its picture is ready
+      label.userData.icons = { off: iconImage(n.dataset.icon, cssColor('--accent', '#4c9a5b')), on: iconImage(n.dataset.icon, '#ffffff') };
+      var redraw = function () { setLabel(label, label.userData.text, satLabels.indexOf(label) === current); if (typeof fitCamera === 'function') fitCamera(); };
+      label.userData.icons.off.onload = redraw; label.userData.icons.on.onload = redraw;
+    }
     setLabel(label, n.dataset.label, false);
     scene.add(label);
     satLabels.push(label);
@@ -819,15 +833,34 @@
   var tmpW = new THREE.Vector3();
   function placeLabels() {
     var w = wrap.clientWidth || 1, h = wrap.clientHeight || 1;
-    var tanHalf = Math.tan(FOV * Math.PI / 360);
-    satLabels.forEach(function (l) {
+    var tanHalf = Math.tan(FOV * Math.PI / 360), M = 4;
+    var rects = satLabels.map(function (l) {
       l.userData.node.getWorldPosition(tmpW);
-      var dist = tmpW.distanceTo(camera.position);
       var r = labelRect(tmpW, l.userData.aspect, w, h);
+      r.dist = tmpW.distanceTo(camera.position); r.l = l;
+      return r;
+    });
+    // no two pills on top of each other: where they overlap, slide them apart sideways (or up and down when they
+    // sit one above the other), and keep them inside the canvas
+    for (var it = 0; it < 4; it++) {
+      for (var i = 0; i < rects.length; i++) for (var j = i + 1; j < rects.length; j++) {
+        var a = rects[i], b = rects[j];
+        var ox = Math.min(a.x + a.hw, b.x + b.hw) - Math.max(a.x - a.hw, b.x - b.hw) + 6;
+        var oy = Math.min(a.y + a.hh, b.y + b.hh) - Math.max(a.y - a.hh, b.y - b.hh) + 4;
+        if (ox <= 0 || oy <= 0) continue;
+        if (ox / (a.hw + b.hw) < oy / (a.hh + b.hh) * 1.6) { var sx = a.x < b.x ? -1 : 1; a.x += sx * ox / 2; b.x -= sx * ox / 2; }
+        else { var sy = a.y < b.y ? -1 : 1; a.y += sy * oy / 2; b.y -= sy * oy / 2; }
+      }
+      rects.forEach(function (r) {
+        r.x = Math.max(M + r.hw, Math.min(w - M - r.hw, r.x));
+        r.y = Math.max(M + r.hh, Math.min(h - M - r.hh, r.y));
+      });
+    }
+    rects.forEach(function (r) {
       tmpW.set(r.x / w * 2 - 1, 1 - r.y / h * 2, r.nz).unproject(camera);
-      l.position.copy(tmpW);
-      var worldPerPx = 2 * dist * tanHalf / h;
-      l.scale.set(LABEL_PX * l.userData.aspect * worldPerPx, LABEL_PX * worldPerPx, 1);
+      r.l.position.copy(tmpW);
+      var worldPerPx = 2 * r.dist * tanHalf / h;
+      r.l.scale.set(LABEL_PX * r.l.userData.aspect * worldPerPx, LABEL_PX * worldPerPx, 1);
     });
   }
 

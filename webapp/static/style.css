@@ -841,3 +841,26 @@ th[aria-sort="ascending"] .pw-sort.on::after { content: " ▴"; }
   .pw-table .pw-hero-col small { display: none; }
   .pw-pick-col { width: 2.2em; }
 }
+/* the dashboard on a phone: the tabs stay on one line, the farm numbers on one row */
+.node-ic { display: block; color: var(--accent); margin-bottom: 4px; }
+.node-ic .ic { display: inline-block; }
+@media (max-width: 520px) {
+  .hub-tabs { flex-wrap: nowrap; gap: 6px; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; padding: 2px 2px 4px; margin-bottom: 16px; }
+  .hub-tabs::-webkit-scrollbar { display: none; }
+  .hub-tab { flex: none; padding: 7px 12px; font-size: 12.5px; white-space: nowrap; }
+  .hub-tabs > :first-child { margin-left: auto; } .hub-tabs > :last-child { margin-right: auto; }
+}
+@media (max-width: 520px) {
+  .hub-stats-row { gap: 5px; flex-wrap: nowrap; }
+  .hub-stat { padding: 5px 9px 5px 8px; gap: 4px; font-size: 12px; white-space: nowrap; }
+  .hub-stat strong { font-size: 14px; }
+}
+@media (max-width: 520px) {
+  .hub-tab { padding: 7px 9px; font-size: 12px; }
+  .hub-tabs { gap: 5px; }
+  .todo { flex-wrap: wrap; }
+  .todo-text { flex: 1 1 calc(100% - 44px); }
+  .todo .btn { margin-left: 40px; }
+}
+@media (max-width: 379px) { .hub-tab-emoji { display: none; } }
+@media (max-width: 379px) { .hub-tab { padding: 7px 8px; } .hub-tabs { gap: 4px; } }

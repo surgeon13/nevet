@@ -73,9 +73,11 @@ try again later.
 
 The first page you see. In the middle is the **brain**: fine threads of
 mushroom roots (mycelium) reaching out to every part of Nevet, with little
-sparks running along them. Each round button on a thread opens a section:
-Plants, Heroes, Map, Events, Tags and more. The **Nevet** logo at the top
-always brings you back here.
+sparks running along them. Each round button on a thread opens a section,
+and every name tag carries its own icon: Gallery, Heroes, Plants, Map,
+Activity, System, Tags and Events. On a phone the tags slide apart so none
+of them cover each other. The **Nevet** logo at the top always brings you
+back here.
 
 **Today at the farm** sits at the top. It shows what people logged today
 (like "Dror watered the whole garden · 05:41") and what needs doing:
@@ -94,8 +96,9 @@ Every to-do has a button that takes you straight to logging it, with the
 right plants already picked. The same summary pops up the first time you
 open Nevet each day, when there's something to tell.
 
-The tabs at the top: **Dashboard**, **Time** (the farm's story) and **XP**
-(points and levels). The ⓘ button opens **About Nevet**: the garden's
+The tabs at the top: **Dashboard**, **Time** (the farm's story),
+Resources (coming soon) and **🏆 Leaderboards**; on a phone they stay on
+one line. The ⓘ button opens **About Nevet**: the garden's
 numbers, the version and what's new.
 
 Tapping the brain takes you to **the 3D farm**.
@@ -455,15 +458,22 @@ until today.
   friend who invited them.
 
 **The mother tree** 🌳: the tree button turns the story into a tree of
-who invited whom. The trunk is the two vines twisted together, and time
-runs up it. Each hero is a blossom in their outfit colour, on the branch
-of the hero who invited them, as high as the day they joined. Heroes who
-came on their own grow straight from the trunk, with a little gold ring.
-Ribbons join heroes who are partners, family, friends or teammates. Play
-the story and the tree grows day by day, a golden seed travelling along
-each new branch. Drag to walk round the tree, and tap a hero to see who
-invited them, who they invited and who they're connected to. Your hero
-page has a link straight to your branch.
+who invited whom: a big tree with a leafy crown, the pink vine of its
+people wound round the trunk. Each hero is a blossom in their outfit
+colour at the end of a branch, all round the crown with room to breathe.
+Heroes who came on their own sit at the top, with a little gold ring; the
+heroes they invited hang a ring further out, and their friends further
+still. **New heroes** (who joined in the last two weeks) glow gold, with a
+bigger blossom and a golden ✨ NEW name tag, and the card lists them ("Lior
+joined yesterday, invited by Dana"); tap one of the golden chips to go
+straight to them. The tree turns its newest hero towards you first, and
+the names on the far side fade back so the near ones read clearly. On a
+wide screen the card sits on the left, beside the tree. Ribbons join heroes
+who are partners, family, friends or teammates. Play the story and the
+tree grows day by day, a golden seed travelling along each new branch.
+Drag to walk round the tree, and tap a hero to see who invited them, who
+they invited and who they're connected to. Your hero page has a link
+straight to your branch.
 
 **Not sure who invited someone?** A hero can say who invited them once,
 on their hero page ("Who invited you?"). An admin can set it or change it
