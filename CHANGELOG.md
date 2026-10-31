@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-31 (the synth goes up to 300 BPM)
+
+- **The party synth's tempo goes up to 300 BPM** (it stopped at 180). The
+  sound engine (kg13-acid-space's `engine/acid-engine.js`) now allows
+  60-300, and the synth panel allows it too, even with an older copy of
+  the engine still on the Pi. Holding − or + speeds up the longer you
+  hold (128 to 300 in about three seconds), and tapping the number lets
+  you type a tempo.
+- **Fast tracks stay watchable**: above 160 BPM the dancers, the floor
+  lights, the screen and the formations follow half-time, so nothing
+  flashes more than about two and a half times a second. The switch is
+  seamless when the tempo crosses 160.
+
 ## 2026-10-29 (a better mother tree, a tidier dashboard)
 
 - **The mother tree** (Time → 🌳) is a real tree now: a tapering trunk

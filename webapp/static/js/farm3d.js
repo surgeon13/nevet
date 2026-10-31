@@ -3033,7 +3033,7 @@
   var campBeat = -1;
   function stepCamp(now, dt) {
     if (current !== 'campfire') return;
-    var b = beatsAt(now), beat = Math.floor(b);
+    var b = visBeats(now), beat = Math.floor(b);
     if (RING.ceremony && dance.cur.id !== 'handsup') { dance.cur = DANCES[DANCES.length - 1]; dance.startBeat = beat; }   // hands up for the champion
     else if (!RING.ceremony && beat !== campBeat && beat - dance.startBeat >= FLOOR_BEATS && beat % 4 === 0) {
       dance.k = (dance.k + 1) % DANCES.length; dance.cur = DANCES[dance.k]; dance.startBeat = beat;
@@ -3639,8 +3639,8 @@
     PARTY.group.visible = name === 'party';
     setPartyNav(name === 'party');
     form.on = false;
-    if (name === 'party') { dance.k = 0; dance.cur = DANCES[0]; dance.startBeat = Math.floor(beatsAt(now)); heroes.forEach(function (h) { h.floorK = undefined; }); }
-    if (name === 'campfire') { dance.k = 0; dance.cur = DANCES[0]; dance.startBeat = Math.floor(beatsAt(now)); CAMP.rot = 0; CAMP.inward = 0; }
+    if (name === 'party') { dance.k = 0; dance.cur = DANCES[0]; dance.startBeat = Math.floor(visBeats(now)); heroes.forEach(function (h) { h.floorK = undefined; }); }
+    if (name === 'campfire') { dance.k = 0; dance.cur = DANCES[0]; dance.startBeat = Math.floor(visBeats(now)); CAMP.rot = 0; CAMP.inward = 0; }
     else { music.stop(); if (acidPanel) acidPanel.leave(); }
     heroes.forEach(function (h, idx) { h.switchAt = now + idx * 0.06; });     // swap tools one hero at a time
     updateUI();
@@ -3779,7 +3779,7 @@
         acidJump(h, u, now);
         break;
       case 'champion':                                 // the grand champion: jumping by the fire, arms up, a twirl now and then
-        var cb = beatsAt(now);
+        var cb = visBeats(now);
         u.hero.position.y += Math.abs(Math.sin(cb * PI)) * 0.45;
         [1, -1].forEach(function (s2) { armSet(arms, s2, -2.95 + Math.sin(cb * PI * 2 + s2) * 0.15, 0.35); });
         if (cb % 8 < 1) u.hero.rotation.y = (cb % 1) * TAU;
@@ -3788,7 +3788,7 @@
         dancePose(dance.cur.form ? 'handsup' : dance.cur.id, h, u, arms, legs, now);
         acidJump(h, u, now);
         if (h === PARTY.soloHero) {                    // in the spotlight: a twirl every bar and bigger hops
-          var sb = beatsAt(now) % 4;
+          var sb = visBeats(now) % 4;
           if (sb < 1) u.hero.rotation.y = sb * TAU;
           u.hero.position.y += Math.abs(Math.sin(sb * PI)) * 0.12;
         }
@@ -3941,10 +3941,20 @@
   // first walks to a place (circle, lines, conga oval), then moves together.
   // The beat clock. It runs at 120 BPM on its own; while the acid synth plays
   // it takes the synth's tempo and is nudged into phase on every step heard.
-  var BPM = 120, beatT0 = 0, beatB0 = 0;
+  var BPM = 120, beatT0 = 0, beatB0 = 0, visOff = 0;
   function beatsAt(now) { return beatB0 + (now - beatT0) * BPM / 60; }
-  function setBPM(bpm, now) { if (bpm === BPM) return; beatB0 = beatsAt(now); beatT0 = now; BPM = bpm; }
-  function beatPhase(now) { return beatsAt(now) % 1; }
+  // What the dancers and the lights follow: the beat, or half of it above 160 BPM, so a 300 BPM track still gets
+  // dancers you can watch and lights that change no more than ~2.5 times a second. It runs on without a jump when
+  // the tempo changes.
+  function beatDiv(bpm) { return bpm > 160 ? 2 : 1; }
+  function visBeats(now) { return visOff + beatsAt(now) / beatDiv(BPM); }
+  function setBPM(bpm, now) {
+    if (bpm === BPM) return;
+    var v = visBeats(now);
+    beatB0 = beatsAt(now); beatT0 = now; BPM = bpm;
+    visOff = v - beatB0 / beatDiv(bpm);
+  }
+  function beatPhase(now) { return visBeats(now) % 1; }
   var DANCES = [
     { id: 'disco', name: 'Disco' }, { id: 'pogo', name: 'Pogo' }, { id: 'hora', name: 'Hora', form: 'hora' },
     { id: 'voodoo', name: 'Voodoo' }, { id: 'yemenite', name: 'Yemenite step' }, { id: 'robot', name: 'Robot' },
@@ -3958,7 +3968,7 @@
   function legSet(legs, s, x, z) { if (legs[s]) { legs[s].rotation.x = x; legs[s].rotation.z = s * (z || 0); } }
   // one frame of a dance's moves; b = beats (with a tiny per-hero delay so the floor ripples)
   function dancePose(id, h, u, arms, legs, now) {
-    var b = beatsAt(now) - (h.i % 4) * 0.03, ph = b % 1, up = Math.abs(Math.sin(ph * PI)), on = Math.floor(b), body = u.hero, head = u.headRig;
+    var b = visBeats(now) - (h.i % 4) * 0.03, ph = b % 1, up = Math.abs(Math.sin(ph * PI)), on = Math.floor(b), body = u.hero, head = u.headRig;
     body.position.x = 0; body.position.z = 0;
     [1, -1].forEach(function (s) { legSet(legs, s, 0, 0); });
     switch (id) {
@@ -4095,7 +4105,7 @@
     }
     var r = ringR(n), a = form.theta + k / n * TAU;
     if (kind === 'mayim' && form.moving) {             // into the middle on beats 8-15 of every 16
-      var m = ((now - form.t1) * BPM / 60) % 16;
+      var m = ((now - form.t1) * BPM / beatDiv(BPM) / 60) % 16;
       var inner = Math.max(0.55, Math.min(1, n * 0.95 / TAU / r)), f = m < 8 ? 0 : m < 12 ? (m - 8) / 4 : 1 - (m - 12) / 4;
       r *= 1 - (1 - inner) * f;                        // (never so tight that dancers overlap)
     }
@@ -4200,9 +4210,9 @@
   function stepParty(now, dt) {
     if (!PARTY.group.visible) return;
     PARTY.resting = false;
-    var b = beatsAt(now), beat = Math.floor(b), ph = b % 1, kick = Math.pow(1 - ph, 3);
+    var b = visBeats(now), beat = Math.floor(b), ph = b % 1, kick = Math.pow(1 - ph, 3);
     var live = acid.playing && now - acid.heardAt < 1.5;          // the acid synth is playing
-    if (live) kick = Math.max(Math.exp(-(now - acid.kickAt) * 9), 0.6 * Math.exp(-(now - acid.accentAt) * 7));
+    if (live && beatDiv(BPM) === 1) kick = Math.max(Math.exp(-(now - acid.kickAt) * 9), 0.6 * Math.exp(-(now - acid.accentAt) * 7));   // (fast tracks: the half-time pulse)
     if (calm) kick *= 0.35;
     var bright = live ? 0.3 + 0.36 * acid.cut : 0.6;                // the filter opens, the floor lights up
     var c = PARTY.c, S = STAGE;
@@ -4336,7 +4346,7 @@
       }
     }
     if (form.on && form.moving) {
-      form.theta += dt * (form.kind === 'conga' ? 1.25 : form.kind === 'hora' ? 0.45 : form.kind === 'mayim' ? ((((now - form.t1) * BPM / 60) % 16) < 8 ? 0.6 : 0) : 0);
+      form.theta += dt * (form.kind === 'conga' ? 1.25 : form.kind === 'hora' ? 0.45 : form.kind === 'mayim' ? ((((now - form.t1) * BPM / beatDiv(BPM) / 60) % 16) < 8 ? 0.6 : 0) : 0);
       var line = (form.order || []).filter(function (h) { return h.act === 'form'; }), cnt = form.order.length;
       line.forEach(function (h) {
         var k = form.order.indexOf(h), target = formSlot(form.kind, k, cnt, now), r = h.root.position;

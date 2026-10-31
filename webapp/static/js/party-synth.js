@@ -145,7 +145,7 @@
       try {
         var s = JSON.parse(localStorage.getItem(STORE) || 'null');
         if (!s) return;
-        if (s.bpm) eng.bpm = s.bpm; if (typeof s.swing === 'number') eng.swing = s.swing;
+        if (s.bpm) eng.bpm = Math.max(60, Math.min(300, s.bpm)); if (typeof s.swing === 'number') eng.swing = s.swing;
         if (s.acid && s.acid.length === 16) eng.acid = s.acid;
         if (s.drums) Object.keys(eng.drums).forEach(function (k) { if (s.drums[k] && s.drums[k].length === 16) eng.drums[k] = s.drums[k]; });
         if (s.p303) Object.keys(s.p303).forEach(function (k) { if (k in eng.p303) eng.p303[k] = s.p303[k]; });
@@ -302,10 +302,32 @@
       eng.swing = steps[k2]; drawTop(); save();
       say(eng.swing ? 'Swing ' + Math.round(eng.swing * 100) + '%: every second 16th comes a little late, for a shuffle.' : 'No swing: straight 16ths.');
     });
-    function nudge(d) { eng.setBpm(eng.bpm + d); drawTop(); say('BPM ' + eng.bpm + ': the tempo. The whole party follows it.'); save(); }
+    var BPM_MIN = 60, BPM_MAX = 300;                   // up to gabber and speedcore
+    function setTempo(b) {
+      b = Math.round(Math.max(BPM_MIN, Math.min(BPM_MAX, b)));
+      eng.setBpm(b);
+      if (eng.bpm !== b) {                              // (an older engine stops at 180: set it directly, the steps read it)
+        eng.bpm = b;
+        if (eng.playing && eng.onTransport) eng.onTransport({ playing: true, bpm: b });
+      }
+    }
+    function nudge(d) {
+      setTempo(eng.bpm + d); drawTop(); save();
+      say('BPM ' + eng.bpm + (eng.bpm > 160 ? ': fast! The dancers and the lights go half-time.' : ': the tempo. The whole party follows it.'));
+    }
     var rep = null;
+    bval.title = 'Tap to type a tempo (60-300 BPM)'; bval.style.cursor = 'pointer';
+    bval.addEventListener('click', function () {
+      var v = window.prompt('Tempo, from ' + BPM_MIN + ' to ' + BPM_MAX + ' BPM', eng.bpm);
+      if (v !== null && v !== '' && isFinite(+v)) { setTempo(+v); drawTop(); save(); say('BPM ' + eng.bpm + '.'); }
+    });
     [[minus, -1], [plus, 1]].forEach(function (pr) {
-      pr[0].addEventListener('pointerdown', function (e) { e.preventDefault(); nudge(pr[1]); var n = 0; rep = setInterval(function () { if (++n > 3) nudge(pr[1] * 2); }, 120); });
+      // hold it down: one step, then faster the longer you hold (2, 5, then 10 at a time: 128 to 300 in about three seconds)
+      pr[0].addEventListener('pointerdown', function (e) {
+        e.preventDefault(); nudge(pr[1]);
+        var t0 = Date.now(); clearInterval(rep);
+        rep = setInterval(function () { var held = Date.now() - t0; if (held > 400) nudge(pr[1] * (held > 2600 ? 10 : held > 1500 ? 5 : 2)); }, 120);
+      });
       ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { pr[0].addEventListener(ev, function () { clearInterval(rep); }); });
     });
     gen.addEventListener('click', function () {

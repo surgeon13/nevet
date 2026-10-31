@@ -326,7 +326,10 @@ dusk by itself, so the fire can glow.
 the party dances to it. **303** is the bass: tap a step to turn it on (tap
 again for accent, slide, rest) and drag up or down to change the note.
 **909** is the drums: tap squares to place kicks, snares, claps and hats.
-− and + change the speed, 🎲 makes a surprise pattern, and a tip line
+− and + change the speed from 60 up to 300 BPM (hold one down and it
+speeds up; tap the number to type a tempo). Above 160 BPM the dancers and
+the lights go half-time, so they stay easy to watch. 🎲 makes a surprise
+pattern, and a tip line
 explains whatever you touch. The speaker button starts and stops the
 sound. Your pattern is remembered on your device.
 
