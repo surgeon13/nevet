@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-11-03 (a clearer mother tree, and new joins you can't miss)
+
+- **The mother tree faces you now**, like a family tree in a book: the
+  trunk at the bottom, the heroes who came on their own branching off its
+  top, and each generation fanning out a ring further, so every branch
+  goes one way (out) and none cross the crown. The leaves sit behind the
+  heroes, so no blossom or name is hidden, and each ring stands far
+  enough out that names side by side don't touch (a very crowded ring
+  puts every other hero a step further out). Blossoms are proper
+  six-petal flowers facing you, and branches get thicker the more
+  heroes grew from them. Drag to look at it from the side.
+- **New joins are clear at a glance**: a bigger blossom inside a golden
+  ring that breathes, a golden glow and ✨ NEW tag, and the branch that
+  joined them to their inviter glows gold with a spark running along it.
+  The card says whose branch each one grew on ("Keren joined yesterday,
+  on Tal's branch").
+- **🔦 Just the new joins** on the card fades everyone else back, leaving
+  the new heroes and the friends who invited them; **🌳 Show everyone**
+  brings the rest back.
+- On a phone the tree is framed bigger, so names are readable: slide
+  sideways to see the rest of it.
+
 ## 2026-10-31 (the synth goes up to 300 BPM)
 
 - **The party synth's tempo goes up to 300 BPM** (it stopped at 180). The

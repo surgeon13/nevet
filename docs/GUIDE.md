@@ -461,22 +461,27 @@ until today.
   friend who invited them.
 
 **The mother tree** 🌳: the tree button turns the story into a tree of
-who invited whom: a big tree with a leafy crown, the pink vine of its
-people wound round the trunk. Each hero is a blossom in their outfit
-colour at the end of a branch, all round the crown with room to breathe.
-Heroes who came on their own sit at the top, with a little gold ring; the
-heroes they invited hang a ring further out, and their friends further
-still. **New heroes** (who joined in the last two weeks) glow gold, with a
-bigger blossom and a golden ✨ NEW name tag, and the card lists them ("Lior
-joined yesterday, invited by Dana"); tap one of the golden chips to go
-straight to them. The tree turns its newest hero towards you first, and
-the names on the far side fade back so the near ones read clearly. On a
-wide screen the card sits on the left, beside the tree. Ribbons join heroes
-who are partners, family, friends or teammates. Play the story and the
-tree grows day by day, a golden seed travelling along each new branch.
-Drag to walk round the tree, and tap a hero to see who invited them, who
-they invited and who they're connected to. Your hero page has a link
-straight to your branch.
+who invited whom, facing you like a family tree in a book, the pink vine
+of its people wound round the trunk. Heroes who came on their own branch
+off the top of the trunk, with a little gold ring; the heroes they
+invited fan out a ring further, and their friends further still. Each
+hero is a flower in their outfit colour with their name above it, and
+the leaves sit behind, so nobody is hidden.
+
+**New joins** (heroes who joined in the last two weeks) are easy to
+spot: a bigger flower in a golden ring, a golden ✨ NEW name tag, and the
+branch from the friend who invited them glows gold with a spark running
+along it. The card lists them ("Keren joined yesterday, on Tal's
+branch"); tap a golden chip to go straight to one, or **🔦 Just the new
+joins** to fade everyone else back (**🌳 Show everyone** brings them
+back). On a wide screen the card sits on the left, beside the tree.
+
+Ribbons join heroes who are partners, family, friends or teammates. Play
+the story and the tree grows day by day, a golden seed travelling along
+each new branch. Drag to look at the tree from the side (on a phone,
+slide sideways to see all of it), and tap a hero to see who invited
+them, who they invited and who they're connected to. Your hero page has
+a link straight to your branch.
 
 **Not sure who invited someone?** A hero can say who invited them once,
 on their hero page ("Who invited you?"). An admin can set it or change it
