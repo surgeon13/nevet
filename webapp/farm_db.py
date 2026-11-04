@@ -30,12 +30,15 @@ ACTIONS = [
     {"id": "fertilizing",  "label": "Fertilizing",   "verb": "fertilized",            "icon": "flask",    "for": "any"},
     {"id": "weeding",      "label": "Weeding",       "verb": "weeded around",         "icon": "leaf",     "for": "plant"},
     {"id": "pest_control", "label": "Pest control",  "verb": "treated pests on",      "icon": "bug",      "for": "plant"},
-    {"id": "feeding",      "label": "Feeding worms", "verb": "fed",                   "icon": "worm",     "for": "worm_bin"},
-    {"id": "harvest",      "label": "Harvest",       "verb": "harvested",             "icon": "basket",   "for": "any", "amount": True},
+    {"id": "feeding",      "label": "Feeding worms", "verb": "fed",                   "icon": "worm",     "for": "worm_bin", "amount": True,
+     "amount_label": "Worm food (per bin)", "weigh": True},           # weigh: in g or kg only (it earns XP per kg)
+    {"id": "harvest",      "label": "Harvest",       "verb": "harvested",             "icon": "basket",   "for": "any", "amount": True,
+     "amount_label": "Amount picked (per plant)"},
     {"id": "germination",  "label": "Sprouted",      "verb": "saw sprouts on",        "icon": "sparkle",  "for": "plant"},
     {"id": "transplant",   "label": "Transplant",    "verb": "transplanted",          "icon": "pot",      "for": "plant"},
     {"id": "observation",  "label": "Check-up",      "verb": "checked on",            "icon": "eye",      "for": "any"},
-    {"id": "delivery",     "label": "Gave away",     "verb": "gave away produce from", "icon": "gift",    "for": "any", "amount": True, "recipient": True},
+    {"id": "delivery",     "label": "Gave away",     "verb": "gave away produce from", "icon": "gift",    "for": "any", "amount": True, "recipient": True,
+     "amount_label": "Amount given (per plant)"},
     {"id": "planting",     "label": "Planting",      "verb": "planted",               "icon": "sprout",   "new_plant": True},
     {"id": "seeding",      "label": "Sowing seeds",  "verb": "sowed",                 "icon": "seed",     "new_plant": True},
     {"id": "setup",        "label": "New worm bin",  "verb": "set up",                "icon": "worm",     "new_plant": True},
@@ -155,6 +158,7 @@ def get_conn():
         conn.commit()
     conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_grower ON logs(grower_id, timestamp)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_time ON logs(timestamp)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_quantities_log ON quantities(log_id)")     # (XP reads every log's weight)
 
     cols = {r[1] for r in conn.execute("PRAGMA table_info(growers)")}
     # Recycle bin (added later): deleted heroes keep their row with
@@ -624,6 +628,55 @@ def add_log(log_type, asset_id=None, notes=None, recipient=None, location=None, 
     return log_id
 
 
+def log_kg_sql(alias="l"):
+    """SQL for what one log weighed, in kg (its quantities in g or kg)."""
+    return ("(SELECT COALESCE(SUM(CASE WHEN q.units = 'kg' THEN q.value ELSE q.value / 1000.0 END), 0) "
+            "FROM quantities q WHERE q.log_id = {a}.id AND q.units IN ('g', 'kg'))").replace("{a}", alias)
+
+
+def log_xp_sql(alias="l"):
+    """SQL for the XP one log earns (heroes.action_xp): its action's base XP, plus its weight (capped) times the
+    action's XP per kg."""
+    import heroes
+    base = "CASE {a}.log_type " + " ".join("WHEN '%s' THEN %d" % kv for kv in heroes.XP_ACTION.items()) + " ELSE %d END" % heroes.XP_BASE
+    rate = "CASE {a}.log_type " + " ".join("WHEN '%s' THEN %g" % kv for kv in heroes.XP_PER_KG.items()) + " ELSE 0 END"
+    return ("ROUND(" + base + " + (" + rate + ") * MIN(%g, " % heroes.XP_KG_CAP + log_kg_sql(alias) + "))").replace("{a}", alias)
+
+
+def hero_xp_sql(id_expr="growers.id"):
+    """SQL for a hero's XP: every log they made plus every plant or worm bin they look after."""
+    import heroes
+    return ("(COALESCE((SELECT SUM(" + log_xp_sql("xl") + ") FROM logs xl WHERE xl.grower_id = " + id_expr + "), 0)"
+            " + %d * (SELECT COUNT(*) FROM assets xa WHERE xa.grower_id = " % heroes.XP_PLANT + id_expr + "))")
+
+
+def xp_by_grower(since="", conn=None):
+    """{grower_id: XP earned since a time (ISO text; "" = all time)}: logs from then on and plants added since."""
+    import heroes
+    own = conn is None
+    conn = conn or get_conn()
+    out = {}
+    when_l, when_a = (" AND l.timestamp >= ?", " AND created_at >= ?") if since else ("", "")
+    args = (since,) if since else ()
+    for gid, xp in conn.execute("SELECT l.grower_id, SUM(" + log_xp_sql("l") + ") FROM logs l "
+                                "WHERE l.grower_id IS NOT NULL" + when_l + " GROUP BY l.grower_id", args):
+        out[gid] = out.get(gid, 0) + (xp or 0)
+    for gid, n in conn.execute("SELECT grower_id, COUNT(*) FROM assets WHERE grower_id IS NOT NULL" + when_a + " GROUP BY grower_id", args):
+        out[gid] = out.get(gid, 0) + heroes.XP_PLANT * n
+    if own:
+        conn.close()
+    return {g: int(round(v)) for g, v in out.items()}
+
+
+def weighed(asset_id, log_type):
+    """How often a plant or worm bin had an action, and the kg weighed in it: {"count", "kg", "last"}."""
+    conn = get_conn()
+    r = conn.execute("SELECT COUNT(*) AS count, COALESCE(SUM(" + log_kg_sql("l") + "), 0) AS kg, MAX(l.timestamp) AS last "
+                     "FROM logs l WHERE l.asset_id = ? AND l.log_type = ?", (asset_id, log_type)).fetchone()
+    conn.close()
+    return {"count": r["count"], "kg": round(r["kg"] or 0, 2), "last": r["last"]}
+
+
 def list_growers():
     conn = get_conn()
     rows = conn.execute("""
@@ -631,7 +684,8 @@ def list_growers():
                (SELECT COUNT(*) FROM assets WHERE assets.grower_id = growers.id) AS asset_count,
                (SELECT COUNT(*) FROM logs WHERE logs.grower_id = growers.id) AS log_count,
                (SELECT COUNT(*) FROM logs WHERE logs.grower_id = growers.id
-                 AND logs.log_type = 'harvest') AS harvest_count
+                 AND logs.log_type = 'harvest') AS harvest_count,
+               """ + hero_xp_sql("growers.id") + """ AS xp
         FROM growers WHERE growers.deleted_at IS NULL ORDER BY growers.name COLLATE NOCASE
     """).fetchall()
     conn.close()
@@ -639,12 +693,14 @@ def list_growers():
 
 
 def grower_counts(grower_id):
+    """A hero's counts and XP (pass them to heroes.progress(**counts))."""
     conn = get_conn()
     row = conn.execute("""
         SELECT
           (SELECT COUNT(*) FROM assets WHERE grower_id = :g) AS asset_count,
           (SELECT COUNT(*) FROM logs WHERE grower_id = :g) AS log_count,
-          (SELECT COUNT(*) FROM logs WHERE grower_id = :g AND log_type = 'harvest') AS harvest_count
+          (SELECT COUNT(*) FROM logs WHERE grower_id = :g AND log_type = 'harvest') AS harvest_count,
+          """ + hero_xp_sql(":g") + """ AS xp
     """, {"g": grower_id}).fetchone()
     conn.close()
     return dict(row)
@@ -842,7 +898,8 @@ def deleted_heroes():
                (SELECT COUNT(*) FROM assets WHERE assets.grower_id = growers.id) AS asset_count,
                (SELECT COUNT(*) FROM logs WHERE logs.grower_id = growers.id) AS log_count,
                (SELECT COUNT(*) FROM logs WHERE logs.grower_id = growers.id
-                 AND logs.log_type = 'harvest') AS harvest_count
+                 AND logs.log_type = 'harvest') AS harvest_count,
+               """ + hero_xp_sql("growers.id") + """ AS xp
         FROM growers WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC""").fetchall()
     conn.close()
     return rows

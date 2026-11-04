@@ -9,8 +9,22 @@
 <div class="lb-head">
   <div>
     <h2>🏆 Leaderboards</h2>
-    <p class="muted">XP only comes from <b>real garden work</b> you log: every action, every harvest, every plant you look after.
+    <p class="muted">XP only comes from <b>real garden work</b> you log: every action, every plant you look after, and the bigger jobs
+      (feeding the worms, harvests) earn more for every kilogram you weigh.
       Powers in the arena grow from the same work, exponentially with every level. <a href="{{ url_for('powers_page') }}">How powers work</a></p>
+    <details class="xp-rules">
+      <summary>How XP works</summary>
+      <table class="history-table">
+        <tr><th>You log…</th><th>XP</th><th>+ per kg weighed</th></tr>
+        <tr><td>🪱 Feeding worms</td><td><b>{{ xp.action.feeding }}</b></td><td><b>+{{ xp.per_kg.feeding }}</b></td></tr>
+        <tr><td>🧺 Harvest</td><td><b>{{ xp.action.harvest }}</b></td><td>+{{ xp.per_kg.harvest }}</td></tr>
+        <tr><td>🎁 Gave produce away</td><td><b>{{ xp.action.delivery }}</b></td><td>+{{ xp.per_kg.delivery }}</td></tr>
+        <tr><td>💧 Watering, check-ups, weeding, pruning…</td><td>{{ xp.base }}</td><td>·</td></tr>
+        <tr><td>🌱 Every plant or worm bin you look after</td><td>{{ xp.plant }}</td><td>·</td></tr>
+      </table>
+      <p class="muted" style="margin: 6px 0 0;">Weights count up to {{ xp.cap }} kg an action, for each plant or bin. So feeding a bin 2 kg of
+        scraps earns {{ xp.action.feeding }} + {{ 2 * xp.per_kg.feeding }} = <b>{{ xp.action.feeding + 2 * xp.per_kg.feeding }} XP</b>, five times a watering.</p>
+    </details>
   </div>
   <div class="seg-links" role="group" aria-label="Period">
     {% for k, lbl in [('7', 'This week'), ('30', '30 days'), ('all', 'All time')] %}<a href="{{ url_for('stats', period=k) }}" class="{{ 'on' if period == k }}">{{ lbl }}</a>{% endfor %}

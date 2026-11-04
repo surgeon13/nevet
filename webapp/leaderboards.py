@@ -2,9 +2,10 @@
 
 Everything is worked out from what's already in the database (logged actions, plants, harvest weights, game
 results, invites): nothing is stored, so the boards are always up to date and nothing can be faked or bought.
-The main ranking is XP, and XP only comes from logging real garden work (heroes.progress); a period ranks by
-the XP earned in it. The other boards are smaller top fives: most active, steadiest fractal rhythm, top
-harvesters, strongest fighters, arena glory, top scorers and top inviters.
+The main ranking is XP, and XP only comes from logging real garden work (heroes.action_xp: bigger jobs and
+weighed ones, like feeding the worms, earn more); a period ranks by the XP earned in it. The other boards are
+smaller top fives: most active, steadiest fractal rhythm, top harvesters, worm feeders, strongest fighters,
+arena glory, top scorers and top inviters.
 """
 from datetime import datetime, timedelta
 
@@ -13,7 +14,6 @@ import games
 import heroes
 
 TOP = 5                    # each small board shows this many
-XP_LOG, XP_HARVEST, XP_PLANT = 10, 15, 5     # the same weights as heroes.progress()
 
 
 def _since(days):
@@ -30,16 +30,17 @@ def rankings(days=None, me=None):
     since = _since(days)
     conn = farm_db.get_conn()
     rows = conn.execute("SELECT id, name, hero_class, appearance FROM growers WHERE deleted_at IS NULL").fetchall()
-    logs = _per_grower(conn, "SELECT grower_id, COUNT(*) FROM logs GROUP BY grower_id")
-    harv = _per_grower(conn, "SELECT grower_id, COUNT(*) FROM logs WHERE log_type = 'harvest' GROUP BY grower_id")
-    plants = _per_grower(conn, "SELECT grower_id, COUNT(*) FROM assets GROUP BY grower_id")
+    xp_all = farm_db.xp_by_grower("", conn)                  # XP: every action by its kind and weight, plus plants
+    xp_now = farm_db.xp_by_grower(since, conn) if days else xp_all
     p_logs = _per_grower(conn, "SELECT grower_id, COUNT(*) FROM logs WHERE timestamp >= ? GROUP BY grower_id", (since,))
-    p_harv = _per_grower(conn, "SELECT grower_id, COUNT(*) FROM logs WHERE log_type = 'harvest' AND timestamp >= ? GROUP BY grower_id", (since,))
-    p_plants = _per_grower(conn, "SELECT grower_id, COUNT(*) FROM assets WHERE created_at >= ? GROUP BY grower_id", (since,))
     p_days = _per_grower(conn, "SELECT grower_id, COUNT(DISTINCT substr(timestamp, 1, 10)) FROM logs WHERE timestamp >= ? GROUP BY grower_id", (since,))
-    grams = _per_grower(conn, """SELECT l.grower_id, SUM(CASE WHEN q.units = 'kg' THEN q.value * 1000 ELSE q.value END)
-                                 FROM quantities q JOIN logs l ON l.id = q.log_id
-                                 WHERE l.log_type = 'harvest' AND q.units IN ('g', 'kg') AND l.timestamp >= ? GROUP BY l.grower_id""", (since,))
+
+    def grams_of(action):                                     # g weighed for an action in the period (harvests, worm food)
+        return _per_grower(conn, """SELECT l.grower_id, SUM(CASE WHEN q.units = 'kg' THEN q.value * 1000 ELSE q.value END)
+                                    FROM quantities q JOIN logs l ON l.id = q.log_id
+                                    WHERE l.log_type = ? AND q.units IN ('g', 'kg') AND l.timestamp >= ? GROUP BY l.grower_id""", (action, since))
+    grams, worm_g = grams_of("harvest"), grams_of("feeding")
+    p_feeds = _per_grower(conn, "SELECT grower_id, COUNT(*) FROM logs WHERE log_type = 'feeding' AND timestamp >= ? GROUP BY grower_id", (since,))
     cols = {r[1] for r in conn.execute("PRAGMA table_info(growers)")}
     invited = _per_grower(conn, """SELECT invited_by, COUNT(*) FROM growers WHERE invited_by IS NOT NULL AND deleted_at IS NULL
                                    GROUP BY invited_by""") if "invited_by" in cols else {}
@@ -50,14 +51,15 @@ def rankings(days=None, me=None):
     people = []
     for r in rows:
         gid = r["id"]
-        prog = heroes.progress(plants.get(gid, 0), logs.get(gid, 0), harv.get(gid, 0))
+        prog = heroes.progress(xp=xp_all.get(gid, 0))
         pw = P.get(gid) or {}
         gb = games_board.get(gid, {})
         people.append({
             "id": gid, "name": r["name"], "level": prog["level"], "xp": prog["xp"], "next_xp": prog["next_xp"], "pct": prog["pct"],
             "rank": heroes.rank(prog["level"]),
-            "xp_period": XP_LOG * p_logs.get(gid, 0) + XP_HARVEST * p_harv.get(gid, 0) + XP_PLANT * p_plants.get(gid, 0),
+            "xp_period": xp_now.get(gid, 0),
             "actions": p_logs.get(gid, 0), "days": p_days.get(gid, 0), "kg": round((grams.get(gid) or 0) / 1000, 1),
+            "worm_kg": round((worm_g.get(gid) or 0) / 1000, 1), "feeds": p_feeds.get(gid, 0),
             "invited": invited.get(gid, 0), "rhythm": pw.get("rhythm", 0.0), "style": pw.get("style") or games.style_of(games.mandel_c(0)),
             "power": pw.get("total", 0), "powers": pw.get("powers") or {}, "level_k": pw.get("level_k", 1), "rhythm_k": pw.get("rhythm_k", games.RHYTHM_LOW),
             "glory": gb.get("glory", 0), "wins": gb.get("wins", 0), "bouts": gb.get("bouts", 0), "championships": gb.get("championships", 0),
@@ -83,6 +85,8 @@ def rankings(days=None, me=None):
         top("Most active", "🔥", lambda p: p["actions"], str, lambda p: f"on {p['days']} day{'s' if p['days'] != 1 else ''}", unit="actions"),
         top("Steadiest rhythm", "🌀", lambda p: p["rhythm"], lambda v: f"{v:.2f}", lambda p: p["style"]["name"], unit="fractal"),
         top("Top harvesters", "🧺", lambda p: p["kg"], lambda v: f"{v:g} kg", lambda p: when),
+        top("Worm feeders", "🪱", lambda p: p["worm_kg"], lambda v: f"{v:g} kg",
+            lambda p: f"{p['feeds']} feed{'s' if p['feeds'] != 1 else ''} · {when}"),
         top("Strongest fighters", "👊", lambda p: p["power"], str, lambda p: f"Lv {p['level']} ×{p['level_k']} · rhythm ×{p['rhythm_k']}", unit="power"),
         top("Arena glory", "🏆", lambda p: p["glory"], str,
             lambda p: f"{p['wins']} win{'s' if p['wins'] != 1 else ''}" + (f" · {p['championships']}🏆" if p["championships"] else ""), unit="glory"),

@@ -1,5 +1,24 @@
 # Changelog
 
+## Worm food by weight, and XP by the size of the job
+
+- **Weigh the worm food.** Feeding worms now has a "Worm food (per bin)"
+  field in g or kg, on the log form and right on a worm bin's tag
+  ("Weighed the food?"), also on a farm-wide feeding card. A worm bin's
+  page shows how often it was fed and how many kg it ate.
+- **XP follows the work.** Feeding worms earns 20 XP plus 15 for every kg,
+  a harvest 25 plus 10 a kg, giving produce away 15 plus 8 a kg; watering,
+  check-ups and the other simple jobs stay at 10, and every plant or bin
+  still adds 5. Weights count up to 10 kg an action. Nobody loses XP:
+  every action earns at least what it did before.
+- The log form shows the XP before you save ("+50 XP · 20 + 30 for 2 kg"),
+  and the save button says "1 bin" for worm bins.
+- **🪱 Worm feeders** joins the leaderboards (kg of food in the period),
+  and "How XP works" on the Leaderboards shows the table.
+- Levels, the leaderboards and the arena's fighting powers all use the
+  same XP, worked out from the logs (`farm_db.log_xp_sql`, matching
+  `heroes.action_xp`).
+
 ## 2026-11-03 (a clearer mother tree, and new joins you can't miss)
 
 - **The mother tree faces you now**, like a family tree in a book: the

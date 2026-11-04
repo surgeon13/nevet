@@ -7,7 +7,7 @@
   text-transform: uppercase; letter-spacing: 0.06em; }
 .tg-card h2 { margin: 6px 0 2px; font-size: 1.6rem; line-height: 1.15; overflow-wrap: anywhere; }
 .tg-sub { margin: 0; color: var(--text-dim); }
-.tg-big { display: grid; gap: 10px; margin-top: 16px; }
+.tg-big { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 16px; }
 .tg-big form { margin: 0; }
 .tg-btn { width: 100%; display: flex; align-items: center; gap: 12px; padding: 16px 16px; border-radius: 16px; border: 2px solid var(--border);
   background: var(--bg); color: var(--text); font: inherit; font-size: 1.05rem; font-weight: 700; text-align: left; cursor: pointer; text-decoration: none; }
@@ -21,6 +21,12 @@
 .tg-recent { list-style: none; margin: 14px 0 0; padding: 0; font-size: 0.86rem; color: var(--text-dim); display: grid; gap: 4px; }
 .tg-recent b { color: var(--text); font-weight: 600; }
 .tg-note { margin-top: 10px; }
+.tg-weigh { display: flex; flex-direction: column; gap: 6px; }
+.tg-weigh-label { font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tg-weigh-label small { font-weight: 700; color: var(--accent); }
+.tg-weigh-in { display: flex; gap: 8px; }
+.tg-weigh-in input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 1.1rem; }
+.tg-weigh-in select { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; }
 .tg-note input { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; }
 .tg-foot { margin: 14px 4px 0; font-size: 0.8rem; color: var(--text-dim); text-align: center; }
 

@@ -8,6 +8,8 @@
   {% if asset.life_stage %} · <span class="badge badge-{{ asset.life_stage }}">{{ stage_label(asset.life_stage) }}</span>{% endif %}
   {% if asset.grower_name %} · grown by <a href="{{ url_for('grower_page', grower_id=asset.grower_id) }}">{{ asset.grower_name }}</a>{% endif %}
 </p>
+{% if fed and fed.count %}<p class="weighed-line">{{ ui.icon('worm', 16) }} Fed {{ fed.count }} time{{ 's' if fed.count != 1 }}{% if fed.kg %} · <b>{{ '%g' | format(fed.kg) }} kg</b> of food{% endif %} · last {{ fed.last | when }}</p>
+{% elif harvested and harvested.count %}<p class="weighed-line">{{ ui.icon('basket', 16) }} Harvested {{ harvested.count }} time{{ 's' if harvested.count != 1 }}{% if harvested.kg %} · <b>{{ '%g' | format(harvested.kg) }} kg</b>{% endif %} · last {{ harvested.last | when }}</p>{% endif %}
 
 {% if notice %}<div class="hero-welcome" role="status">{{ notice }}</div>{% endif %}
 

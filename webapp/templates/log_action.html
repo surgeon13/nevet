@@ -3,7 +3,7 @@
 {% block title %}Log an action{% endblock %}
 {% block fab %}{% endblock %}
 {% block content %}
-<form method="post" class="log-flow" id="log-form">
+<form method="post" class="log-flow" id="log-form" data-xp-cap="{{ xp.cap }}">
   <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
   <div class="log-head">
     <h2>Log an action</h2>
@@ -18,6 +18,8 @@
       <label class="action-tile" data-for="{{ a.for }}">
         <input type="radio" name="action" value="{{ a.id }}" required
                data-amount="{{ 1 if a.amount else 0 }}" data-recipient="{{ 1 if a.recipient else 0 }}" data-for="{{ a.for }}"
+               data-amount-label="{{ a.amount_label or 'Amount (per plant)' }}" data-weigh="{{ 1 if a.weigh else 0 }}"
+               data-xp="{{ xp.action.get(a.id, xp.base) }}" data-xp-kg="{{ xp.per_kg.get(a.id, 0) }}"
                data-label="{{ a.label }}" {% if selected_action == a.id %}checked{% endif %}>
         <span class="action-icon">{{ ui.icon(a.icon, 26) }}</span>
         <span class="action-label">{{ a.label }}</span>
@@ -75,12 +77,13 @@
     <legend><span class="step-num">3</span> Details <span class="muted">(optional)</span></legend>
     <div class="detail-amount" data-show="amount" hidden>
       <label class="hero-field">
-        <span class="hero-field-label">Amount (per plant)</span>
+        <span class="hero-field-label" id="amount-label">Amount (per plant)</span>
         <span class="amount-row">
           <input type="text" inputmode="decimal" name="amount" value="{{ form.get('amount', '') }}" placeholder="e.g. 250">
           <select name="unit">{% for u in units %}<option value="{{ u }}" {% if form.get('unit') == u %}selected{% endif %}>{{ u }}</option>{% endfor %}</select>
         </span>
       </label>
+      <p class="log-hint" id="amount-hint" hidden></p>
     </div>
     <label class="check-row" data-show="harvest" hidden>
       <input type="checkbox" name="final" value="1" {% if form.get('final') %}checked{% endif %}>
@@ -106,7 +109,8 @@
     </label>
   </fieldset>
 
-  <div class="hero-save-bar">
+  <div class="hero-save-bar log-save-bar">
+    <p class="xp-hint" id="xp-hint" aria-live="polite" hidden></p>
     <a class="btn btn-ghost" href="{{ url_for('hub') }}">Cancel</a>
     <button type="submit" class="btn btn-primary" id="log-submit">Save</button>
   </div>
@@ -129,17 +133,53 @@
     });
     function show(key, on) { q('[data-show="' + key + '"]').forEach(function (el) { el.hidden = !on; }); }
     show('amount', act && act.dataset.amount === '1');
+    xpPreview(act);
     show('harvest', act && act.value === 'harvest');
     show('recipient', act && act.dataset.recipient === '1');
     show('stage', !act || act.dataset.for !== 'worm_bin');
-    var n = q('input[name=asset]:checked').length;
+    var picked = q('input[name=asset]:checked'), n = picked.length;
+    var bins = picked.every(function (i) { return i.dataset.kind === 'worm_bin'; });
     var whole = form.querySelector('input[name=whole_garden]').checked;
     var what = act ? act.dataset.label : 'action';
-    var where = n ? (n + (n === 1 ? ' plant' : ' plants')) : '';
+    var where = n ? (n + (bins ? (n === 1 ? ' bin' : ' bins') : (n === 1 ? ' plant' : ' plants'))) : '';
     if (whole) where = where ? where + ' + garden' : 'whole garden';
     submit.textContent = act && where ? 'Save ' + what.toLowerCase() + ' · ' + where : 'Save';
   }
+  // The amount field fits the action (worm food is weighed in g or kg), and a preview of the XP it earns:
+  // the action's XP for each plant or bin, plus XP for every kg weighed (heroes.action_xp, the same rounding).
+  var amountIn = form.querySelector('input[name=amount]'), unitSel = form.querySelector('select[name=unit]');
+  var xpHint = document.getElementById('xp-hint'), amountHint = document.getElementById('amount-hint');
+  var cap = parseFloat(form.dataset.xpCap) || 10;
+  var unitPicked = !!{{ 'true' if form.get('unit') else 'false' }}, lastWeigh = null;
+  unitSel.addEventListener('change', function () { unitPicked = true; });
+  function xpPreview(act) {
+    if (!act) { xpHint.hidden = true; amountHint.hidden = true; return; }
+    var weigh = act.dataset.weigh === '1';
+    document.getElementById('amount-label').textContent = act.dataset.amountLabel;
+    amountIn.placeholder = weigh ? 'e.g. 1.5' : 'e.g. 250';
+    Array.prototype.forEach.call(unitSel.options, function (o) {
+      var off = weigh && o.value !== 'g' && o.value !== 'kg';
+      o.hidden = off; o.disabled = off;
+    });
+    if (weigh !== lastWeigh && !unitPicked) unitSel.value = weigh ? 'kg' : 'g';       // worm food in kg, a harvest in g
+    if (unitSel.selectedOptions[0] && unitSel.selectedOptions[0].disabled) unitSel.value = 'kg';
+    lastWeigh = weigh;
+    var n = q('input[name=asset]:checked').length + (form.querySelector('input[name=whole_garden]').checked ? 1 : 0);
+    var base = parseFloat(act.dataset.xp) || 0, perKg = parseFloat(act.dataset.xpKg) || 0;
+    var v = parseFloat((amountIn.value || '').replace(',', '.'));
+    var kg = !isFinite(v) || v <= 0 || act.dataset.amount !== '1' ? 0 : unitSel.value === 'kg' ? v : unitSel.value === 'g' ? v / 1000 : 0;
+    var each = Math.round(base + perKg * Math.min(cap, kg));
+    amountHint.hidden = !perKg;
+    if (perKg) amountHint.textContent = (weigh ? 'Weigh it for +' : 'Weighed in g or kg: +') + perKg + ' XP per kg' +
+      (weigh ? ' (counted up to ' + cap + ' kg a bin).' : ' (up to ' + cap + ' kg).');
+    xpHint.hidden = false;
+    var extra = each - base;
+    xpHint.innerHTML = '<b>+' + each * Math.max(1, n) + ' XP</b> ' + (n > 1 ? '(' + each + ' each) ' : '') +
+      (extra > 0 ? '· ' + base + ' + ' + extra + ' for ' + (kg > cap ? cap + ' kg' : amountIn.value.trim() + ' ' + unitSel.value) :
+       perKg && !kg ? '· weigh it for more' : '');
+  }
   form.addEventListener('change', update);
+  form.addEventListener('input', function (e) { if (e.target === amountIn) xpPreview(form.querySelector('input[name=action]:checked')); });
   var mineBtn = document.getElementById('pick-mine');
   if (mineBtn) mineBtn.addEventListener('click', function () {
     var act = form.querySelector('input[name=action]:checked');

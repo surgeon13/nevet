@@ -4,6 +4,15 @@
 {% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='tags.css') }}">{% endblock %}
 {% block fab %}{% endblock %}
 {% set csrf = csrf_token() %}
+{% macro weigh_row() %}
+      <label class="tg-weigh">
+        <span class="tg-weigh-label">{{ ui.icon('worm', 16) }} Weighed the food? <small>+{{ xp.per_kg.feeding }} XP per kg</small></span>
+        <span class="tg-weigh-in">
+          <input type="text" inputmode="decimal" name="amount" pattern="[0-9]+([.,][0-9]+)?" placeholder="optional" aria-label="Worm food weight" autocomplete="off">
+          <select name="unit" aria-label="Unit"><option value="kg">kg</option><option value="g">g</option></select>
+        </span>
+      </label>
+{% endmacro %}
 {% block content %}
 <div class="tg-land">
   <div class="tg-card">
@@ -20,6 +29,7 @@
     {% else %}
     <form method="post" action="{{ url_for('tag_log', code=tag.code) }}" class="tg-big">
       <input type="hidden" name="_csrf" value="{{ csrf }}">
+      {% if quick[0].weigh %}{{ weigh_row() }}{% endif %}
       <button class="tg-btn primary" name="action" value="{{ quick[0].id }}">{{ ui.icon(quick[0].icon, 26) }}<span>{{ quick[0].label }}<small>One tap logs it as you</small></span></button>
       <div class="tg-grid">
         {% for a in quick[1:] %}<button class="tg-btn" name="action" value="{{ a.id }}">{{ ui.icon(a.icon, 20) }}<span>{{ a.label }}</span></button>{% endfor %}
@@ -44,6 +54,7 @@
     {% else %}
     <form method="post" action="{{ url_for('tag_log', code=tag.code) }}" class="tg-big">
       <input type="hidden" name="_csrf" value="{{ csrf }}">
+      {% if action_meta(tag.action).weigh %}{{ weigh_row() }}{% endif %}
       <div class="tg-note"><input type="text" name="notes" maxlength="500" placeholder="Add a note (optional)" aria-label="Note"></div>
       <button class="tg-btn primary">{{ ui.icon(action_meta(tag.action).icon, 26) }}<span>Log it: {{ tag.action_label | lower }}, the whole farm<small>As {{ current_user.name }}, right now</small></span></button>
     </form>

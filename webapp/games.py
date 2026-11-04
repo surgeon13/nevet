@@ -238,9 +238,10 @@ def all_powers(conn=None):
     for r in conn.execute("""SELECT g.id, g.hero_class,
                                     (SELECT COUNT(*) FROM assets a WHERE a.grower_id = g.id) AS asset_count,
                                     (SELECT COUNT(*) FROM logs l WHERE l.grower_id = g.id) AS log_count,
-                                    (SELECT COUNT(*) FROM logs l WHERE l.grower_id = g.id AND l.log_type = 'harvest') AS harvest_count
+                                    (SELECT COUNT(*) FROM logs l WHERE l.grower_id = g.id AND l.log_type = 'harvest') AS harvest_count,
+                                    """ + farm_db.hero_xp_sql("g.id") + """ AS xp
                              FROM growers g WHERE g.deleted_at IS NULL"""):
-        level = heroes.progress(r["asset_count"], r["log_count"], r["harvest_count"])["level"]
+        level = heroes.progress(r["asset_count"], r["log_count"], r["harvest_count"], xp=r["xp"])["level"]
         w = work.get(r["id"], {s: 0.0 for s in SKILL_IDS})
         rh, win = rhythm.get(r["id"], (0.0, RHYTHM_MIN_DAYS))
         c = mandel_c(rh)

@@ -148,8 +148,10 @@ garden keeps the history of what was done, just without the name.
 This is the heart of Nevet. After you do something in the garden, open
 **Log an action**, pick what you did (watering, planting, harvest,
 weeding, pruning, feeding worms, check-up, sprouted, gave away...) and
-which plants, and save. For a harvest you can add how much you picked. If you
-watered everything, "the whole garden" counts for every plant.
+which plants, and save. For a harvest you can add how much you picked, and
+when you feed the worms you can weigh the food (in g or kg, per bin): weighed
+work earns extra XP for every kilogram, and the form shows the XP before you
+save. If you watered everything, "the whole garden" counts for every plant.
 
 Each action earns XP for your hero and shows up for everyone in Today at
 the farm. Tags make this even faster: one tap on a sticker
@@ -490,9 +492,26 @@ by someone they invited.
 
 ## XP, levels and leaderboards
 
-Your hero earns XP from real garden work: 10 for every action you log,
-15 more for a harvest and 5 for every plant or bin you look after. The
-more you log, the higher your level, and every level has a rank title:
+Your hero earns XP from real garden work. Simple jobs (watering, check-ups,
+weeding, pruning...) earn 10 each; the bigger ones earn more, and more again
+for every kilogram you weigh:
+
+| You log | XP | + per kg weighed |
+|---|---|---|
+| 🪱 Feeding worms | 20 | +15 |
+| 🧺 Harvest | 25 | +10 |
+| 🎁 Gave produce away | 15 | +8 |
+| 💧 Anything else | 10 | |
+| 🌱 Every plant or worm bin you look after | 5 | |
+
+Weights count up to 10 kg an action (for each plant or bin), so a typo
+can't make a legend. Feeding a bin 2 kg of scraps earns 20 + 30 = 50 XP,
+five times a watering. Weigh worm food on the log form or right on a worm
+bin's tag ("Weighed the food?"); the worm bin's page adds up how often it
+was fed and how many kg it ate. The table is in `webapp/heroes.py`
+(`XP_ACTION`, `XP_PER_KG`) and on the Leaderboards ("How XP works").
+
+The more you log, the higher your level, and every level has a rank title:
 🌱 Seedling, 🌿 Sprout (level 3), 🪴 Sapling (5), 🌻 Grower (8),
 🌾 Gardener (11), 🌳 Master gardener (15) and 👑 Legend of Nevet (20).
 
@@ -501,7 +520,8 @@ The **🏆 Leaderboards** tab (next to Dashboard and Time, at
 earned in that time) or all time. The top three stand on a podium, your
 own place shows at the top ("You're #4 of 19"), and smaller top fives
 show the most active, the steadiest rhythm, the top harvesters (kg), the
-strongest fighters, arena glory, top scorers and top inviters. The
+worm feeders (kg of food), the strongest fighters, arena glory, top scorers
+and top inviters. The
 dashboard has a little board with this week's top five and the arena's
 champion.
 

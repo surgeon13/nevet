@@ -436,6 +436,14 @@ main { padding-bottom: 96px; }
 .plant-tile.is-dim { opacity: 0.45; }
 .plant-whole { border-style: dashed; }
 .amount-row { display: flex; gap: 8px; }
+.xp-rules { margin: 8px 0 0; font-size: 0.9rem; }
+.xp-rules summary { cursor: pointer; color: var(--accent-2); font-weight: 600; }
+.xp-rules table { margin-top: 6px; }
+.weighed-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: -4px 0 12px; font-size: 0.9rem; color: var(--text-dim); }
+.weighed-line b { color: var(--text); }
+.log-save-bar { flex-wrap: wrap; align-items: center; }
+.log-save-bar .xp-hint { flex: 1 1 100%; margin: 0 0 2px; text-align: right; font-size: 0.85rem; color: var(--text-dim); }
+.log-save-bar .xp-hint b { color: var(--accent-2); font-size: 1rem; }
 .amount-row input { flex: 1; min-width: 0; }
 .log-flow select, .log-flow textarea, .plant-form textarea, .plant-form select { padding: 11px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); font: inherit; font-size: 16px; }
 .log-flow textarea, .plant-form textarea { resize: vertical; }

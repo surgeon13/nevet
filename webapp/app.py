@@ -285,7 +285,7 @@ def gallery():
 # ---------------------------------------------------------------------
 
 def hero_view(row, counts=None):
-    counts = counts or {k: row[k] for k in ("asset_count", "log_count", "harvest_count") if k in row.keys()}
+    counts = counts or {k: row[k] for k in ("asset_count", "log_count", "harvest_count", "xp") if k in row.keys()}
     hero_class, appearance = heroes.hero_for_row(row)
     cls = heroes.class_by_id(hero_class)
     return {
@@ -667,7 +667,10 @@ def asset_page(asset_id):
     if not asset:
         abort(404)
     view = plant_view(asset)
+    fed = farm_db.weighed(asset_id, "feeding") if asset["asset_type"] == "worm_bin" else None
+    picked = farm_db.weighed(asset_id, "harvest") if asset["asset_type"] != "worm_bin" else None
     return render_template("asset_detail.html", asset=asset, pinned=garden_map.asset_pinned(asset_id),
+                           fed=fed, harvested=picked,
                            asset_tags=tags.list_tags("plant", asset_id),
                            history=farm_db.recent_activity(asset_id=asset_id, limit=100),
                            plant=view, species=plants.species(view["species"]), picked=plants.valid(asset["species"]),
@@ -718,6 +721,8 @@ def log_action():
         whole = request.form.get("whole_garden") == "1"
         amount = request.form.get("amount", "").strip().replace(",", ".")
         unit = request.form.get("unit") if request.form.get("unit") in av.AMOUNT_UNITS else "g"
+        if meta and meta.get("weigh") and unit not in ("g", "kg"):       # worm food is weighed (it earns XP per kg)
+            unit = "g"
         stage = request.form.get("stage") if request.form.get("stage") in ("germination", "seedling", "growing", "mature") else None
         if action == "harvest" and request.form.get("final") == "1":
             stage = "harvested"
@@ -755,7 +760,7 @@ def log_action():
         "log_action.html", error=error, form=form,
         actions=[a for a in farm_db.ACTIONS if not a.get("legacy") and not a.get("new_plant")],
         selected_action=form.get("action") or request.args.get("action", ""),
-        mine=mine, others=others, selected=selected, units=av.AMOUNT_UNITS,
+        mine=mine, others=others, selected=selected, units=av.AMOUNT_UNITS, xp=heroes.xp_rules(),
     )
 
 
@@ -1157,7 +1162,7 @@ def stats():
     fighters = sorted((r for r in board if r.get("bouts")), key=lambda r: (-r.get("glory", 0), -r.get("wins", 0), r["name"].lower()))
     players = sorted((r for r in board if r.get("matches")), key=lambda r: (-r.get("goals", 0), -r.get("match_wins", 0), r["name"].lower()))
     return render_template("stats.html", latest=latest, history=history, fighters=fighters, players=players, period=period if period in ("7", "30", "all") else "30",
-                           lb=leaderboards.rankings(days, g.user["id"]), catalog=heroes.catalog(), skills=games.SKILLS,
+                           lb=leaderboards.rankings(days, g.user["id"]), catalog=heroes.catalog(), skills=games.SKILLS, xp=heroes.xp_rules(),
                            recent=games.recent_matches(10), totals=games.totals(), styles=games.ARENA_STYLES,
                            bracket=games.bracket(), champions=games.champions(8), records=games.records(games.leaderboard(None)),
                            moves=[k for k in ("punches", "pushes", "strikes") if any(r.get(k) for r in fighters)],
@@ -1747,7 +1752,7 @@ def tag_landing(code):
         return render_template("message.html", title="Unknown tag",
                                message="This tag isn't linked to anything on Nevet (any more). An admin can set it up on the Tags page."), 404
     tags.record(tag, "phone", grower_id=None if g.viewer else g.user["id"], result="opened by a viewer" if g.viewer else "opened on a phone")
-    ctx = {"tag": tag, "url": _tag_url(tag)}
+    ctx = {"tag": tag, "url": _tag_url(tag), "xp": heroes.xp_rules()}
     if tag["kind"] == "plant":
         asset = farm_db.get_asset(tag["target_id"])
         if not asset:
@@ -1782,7 +1787,13 @@ def tag_log(code):
         abort(400)
     before = heroes.progress(**farm_db.grower_counts(g.user["id"]))
     notes = (request.form.get("notes") or "").strip()[:500] or None
-    farm_db.add_log(action, tag["target_id"] if tag["kind"] == "plant" else None, notes=notes, grower_id=g.user["id"])
+    qty = None                                   # worm food weighed on the tag page (it earns XP per kg)
+    amount = (request.form.get("amount") or "").strip().replace(",", ".")
+    if farm_db.ACTION_BY_ID[action].get("weigh") and re.fullmatch(r"\d+(\.\d+)?", amount) and float(amount) > 0:
+        unit = request.form.get("unit") if request.form.get("unit") in ("g", "kg") else "kg"
+        qty = [{"measure": "weight", "value": float(amount), "units": unit, "label": tag["name"]}]
+    farm_db.add_log(action, tag["target_id"] if tag["kind"] == "plant" else None, notes=notes, quantities=qty,
+                    grower_id=g.user["id"])
     tags.record(tag, "phone", grower_id=g.user["id"], result=f"{farm_db.ACTION_BY_ID[action]['label']} logged")
     logger.info("%s logged %s with the tag %s (%s)", g.user["name"], action, tag["code"], tag["name"])
     return _after_logging(before, action, 1 if tag["kind"] == "plant" else 0, whole=tag["kind"] == "action")

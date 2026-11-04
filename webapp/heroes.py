@@ -8,6 +8,7 @@ automatically when it changes, no restart needed.
 """
 import hashlib
 import json
+import math
 from pathlib import Path
 
 CATALOG_PATH = Path(__file__).resolve().parent / "static" / "assets" / "heroes" / "catalog.json"
@@ -145,11 +146,35 @@ def validate_name(raw):
     return name, None
 
 
-def progress(asset_count=0, log_count=0, harvest_count=0):
-    """XP from real farm activity: every logged action counts, harvests
-    count extra, each plant/bin you look after adds a little.
+# XP from real garden work. Every logged action earns its base XP; the bigger jobs earn more, and the ones you weigh
+# earn more for every kilogram: worm food, harvests and produce given away. Each plant or worm bin you look after
+# adds a little. Nobody loses anything: every action earns at least the 10 it always did.
+XP_BASE = 10                  # watering, check-ups, weeding... (and anything not listed below)
+XP_ACTION = {"feeding": 20, "harvest": 25, "delivery": 15}      # base XP for the bigger jobs
+XP_PER_KG = {"feeding": 15, "harvest": 10, "delivery": 8}       # plus this much for every kg weighed
+XP_KG_CAP = 10                # kg counted per action (a typo of 500 kg doesn't make a legend overnight)
+XP_PLANT = 5                  # every plant or worm bin you look after
+
+
+def action_xp(log_type, kg=0):
+    """The XP one logged action earns (kg: what it weighed, in kilograms). Halves round up, the same as the
+    database (farm_db.log_xp_sql) and the log form's preview."""
+    kg = max(0.0, min(XP_KG_CAP, float(kg or 0)))
+    return int(math.floor(XP_ACTION.get(log_type, XP_BASE) + XP_PER_KG.get(log_type, 0) * kg + 0.5))
+
+
+def xp_rules():
+    """The XP table for pages that show it (the log form's preview, How powers work)."""
+    return {"base": XP_BASE, "action": XP_ACTION, "per_kg": XP_PER_KG, "cap": XP_KG_CAP, "plant": XP_PLANT}
+
+
+def progress(asset_count=0, log_count=0, harvest_count=0, xp=None):
+    """A hero's XP and level. xp: worked out from their logs (farm_db's hero XP, by action and weight); without it,
+    the old count-based estimate (every action 10, harvests 15 more, every plant 5).
     Level n starts at 20*(n-1)^2 XP: 0, 20, 80, 180, 320, 500, ..."""
-    xp = 10 * (log_count or 0) + 15 * (harvest_count or 0) + 5 * (asset_count or 0)
+    if xp is None:
+        xp = XP_BASE * (log_count or 0) + (XP_ACTION["harvest"] - XP_BASE) * (harvest_count or 0) + XP_PLANT * (asset_count or 0)
+    xp = int(round(xp))
     level = 1
     while 20 * level * level <= xp:
         level += 1
