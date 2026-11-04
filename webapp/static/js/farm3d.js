@@ -40,8 +40,8 @@
   var ARENA_N = (D.heroes || []).length;
   var ARENA_W = Math.max(7.4, Math.min(9.8, 6.2 + 0.17 * ARENA_N));    // the arena wall's radius grows with the crowd
   var CAMP_R = ARENA_W + 1.8;                          // the dance ring round the arena
-  var STAGE_HX = 8.6, STAGE_HZ = 7.6;                  // the party floor (17.2 x 15.2 m)
-  var PARTY_C = V(-37.5, 0, 7.5), STAGE_N = PARTY_C.z - STAGE_HZ;     // the floor's middle and its north edge (the stage)
+  var STAGE_HX = 14.5, STAGE_HZ = 14;                  // the rave's dance field (29 x 28 m, three times the old floor)
+  var PARTY_C = V(-37.5, 0, 13.9), STAGE_N = PARTY_C.z - STAGE_HZ;    // the field's middle and its north edge (the stage)
   var WHEEL = { x: -47.5, z: -12.5, r: 6.2 };          // the big wheel behind the stage
   var PATH_E = 4.5, PATH_W = 10;                       // the paths from the yard to the campfire field and the party field
   // The farm blooms with its people (invites.community on the station): the more heroes join, invite friends and
@@ -340,7 +340,7 @@
         var x = rr(LAND.minX - 22, LAND.maxX + 22), z = rr(-44, 46);
         var inYard = x > -9.8 && x < 17 && z > (MAPG ? -19.5 : -13.5) && z < 9;
         var onPath = (Math.abs(x) < 2 && z > 5 && z < 18) || onFieldPath(x, z);
-        var onStage = x > PARTY_C.x - STAGE_HX - 1.6 && x < PARTY_C.x + STAGE_HX + 1.6 && z > STAGE_N - 4.6 && z < PARTY_C.z + STAGE_HZ + 1.6;   // the party stage
+        var onStage = x > PARTY_C.x - STAGE_HX - 1.6 && x < PARTY_C.x + STAGE_HX + 1.6 && z > STAGE_N - 4.6 && z < PARTY_C.z + STAGE_HZ + 5.4;   // the rave field, its stage, towers and sound desk
         var inArena = Math.hypot(x - FIRE.x, z - FIRE.z) < CAMP_R + 1.4 || Math.hypot(x - WHEEL.x, z - WHEEL.z) < 3.2 || Math.hypot(x - MOTHER.x, z - MOTHER.z) < 2.2;
         var inPond = Math.hypot(x - POND.x, z - POND.z) < 4.3;
         var wet = (WORLD === 'seaside' && z < -21.5) || (WORLD === 'island' && hillH(x, z) < 0.02) || (WORLD === 'city' && boxDist(x, z, 0) > 0);
@@ -1302,21 +1302,29 @@
     });
   }
 
-  // The party field, west of the yard: a low, open stage and a 17 x 15 m dance floor lit tile by tile. Minimal on
-  // purpose, so everyone on the floor can be seen from anywhere: a DJ booth between two speaker stacks, a low LED
-  // screen behind it with the NEVET sign on top, two slim light poles with a moving head each, string lights round
-  // the floor and a disco ball. Behind it all, the big wheel turns and the mother tree stands. In party mode: a few
-  // beams and lasers, a little fog, confetti, balloons, flame jets and confetti cannons on the drops, fireworks.
-  // The stage itself stays up all the time (the screen and the lights rest between parties).
-  var STAGE_COLS = 6;
-  var STAGE_ROWS = Math.max(3, Math.min(6, Math.ceil(Math.max(1, (D.heroes || []).length - 1) / STAGE_COLS)));
+  // The party field, west of the yard: an open-air rave. A 29 x 28 m dance field of packed earth that lights up
+  // panel by panel on the beat, in front of a low, open stage: a DJ booth, a low LED screen with the NEVET sign, a
+  // goal-post truss with a flown speaker hang either side and moving heads, and two big speaker stacks on the ground.
+  // Two light towers stand at the back of the field with lasers and sky searchlights, festoon cables run from the
+  // towers to the truss (the mirror ball hangs where they cross), flags line the sides and a sound desk sits under a
+  // stretched sail at the back. Minimal on purpose, so everyone on the floor can be seen from anywhere. Behind it
+  // all, the big wheel turns and the mother tree stands. In party mode: beams and lasers, a little fog, confetti,
+  // balloons, flame jets and confetti cannons on the drops, fireworks. The stage stays up all the time (the screen
+  // and the lights rest between parties).
   var PARTY = { c: PARTY_C, hx: STAGE_HX, hz: STAGE_HZ, half: Math.max(STAGE_HX, STAGE_HZ),
                 tiles: null, bulbs: null, beams: [], ball: null, confetti: null, notes: [], lasers: [], spots: [], fog: [],
                 balloons: [], speakers: [], decks: [], leds: null, neon: null, group: null, fixed: null, screen: null,
-                arches: null, archN: 0, searchlights: [], jets: [], obst: [], partyObst: [] };
+                arches: null, archN: 0, searchlights: [], jets: [], flags: [], obst: [], partyObst: [] };
   var DJ_SPOT = V(PARTY.c.x, 0, STAGE_N - 1.9);
-  var STAGE = { w: 7.2, wallZ: DJ_SPOT.z - 1.5, wallW: 9.6, wallH: 2.2, wallY: 0.75, booth: DJ_SPOT.z + 0.95, poleH: 3.6 };
-  STAGE.poleX = STAGE.wallW / 2 + 0.9;
+  var STAGE = { w: 9.0, wallZ: DJ_SPOT.z - 1.5, wallW: 12.4, wallH: 2.2, wallY: 0.75, booth: DJ_SPOT.z + 0.95,
+                trussX: 7.6, trussH: 7.2, stackX: 10.6, stackZ: STAGE_N - 1.1,
+                towerX: 5, towerZ: PARTY_C.z + STAGE_HZ + 2.2, towerH: 8.6 };      // (the light towers flank the sound desk)
+  STAGE.trussZ = STAGE.wallZ + 0.15;
+  // the crowd fills the floor from the front, row by row (rows of up to 11): the more dancers, the more of the field
+  var CROWD_N = Math.max(1, (D.heroes || []).length - 1);
+  function crowdShape(n) { var cols = Math.max(2, Math.min(11, Math.ceil(Math.sqrt(n * 1.7)))); return { cols: cols, rows: Math.max(1, Math.ceil(n / cols)) }; }
+  var CROWD_SP = { x: 3.4, z: 3.1 }, CROWD_Z = STAGE_N + 2.9;               // room to dance, and the front row a few steps from the stage
+  var CROWD_C = V(PARTY_C.x, 0, Math.min(PARTY_C.z, CROWD_Z + (crowdShape(CROWD_N).rows - 1) * CROWD_SP.z / 2 + 0.6));   // the crowd's middle
   var WHEEL_FX = { rot: null, cabins: [], bulbs: null, n: 0 };
   var LED_FS = [
     'uniform float uTime; uniform float uKick; uniform float uMode; uniform float uLevel; uniform vec2 uGrid; uniform float uAspect; varying vec2 vUv;',
@@ -1340,150 +1348,244 @@
     '  }',
     '  gl_FragColor = vec4(c * uLevel * (0.2 + 0.8 * led) + vec3(0.025, 0.025, 0.035), 1.0);',
     '}'].join('\n');
+  var ROD_GEO = new THREE.CylinderGeometry(1, 1, 1, 5);
+  function rod(a, b, r, color) {                       // a thin bar from a to b (truss chords and braces, scaffold tubes)
+    var d = b.clone().sub(a), m2 = mesh(ROD_GEO, color);
+    m2.scale.set(r, d.length(), r);
+    m2.position.copy(a).add(b).multiplyScalar(0.5);
+    m2.quaternion.setFromUnitVectors(V(0, 1, 0), d.normalize());
+    return m2;
+  }
+  function truss(a, b, s, color) {                      // a square truss from a to b, s wide: four chords, zigzag braces on two faces
+    var d = b.clone().sub(a), len = d.length(), up = Math.abs(d.y) > len * 0.7;
+    var u = up ? V(1, 0, 0) : V(0, 1, 0), w = d.clone().normalize().cross(u).normalize(), h = s / 2;
+    u = w.clone().cross(d.clone().normalize()).normalize();
+    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (k) {
+      var o = u.clone().multiplyScalar(k[0] * h).add(w.clone().multiplyScalar(k[1] * h));
+      statics.add(rod(a.clone().add(o), b.clone().add(o), 0.04, color));
+    });
+    var n = Math.max(1, Math.round(len / s));
+    [-1, 1].forEach(function (side) {
+      for (var i = 0; i < n; i++) {
+        var p0 = a.clone().add(d.clone().multiplyScalar(i / n)), p1 = a.clone().add(d.clone().multiplyScalar((i + 1) / n));
+        var sa = i % 2 ? -1 : 1, o0 = u.clone().multiplyScalar(sa * h).add(w.clone().multiplyScalar(side * h)), o1 = u.clone().multiplyScalar(-sa * h).add(w.clone().multiplyScalar(side * h));
+        statics.add(rod(p0.add(o0), p1.add(o1), 0.022, color));
+      }
+    });
+  }
   (function () {
-    var g = group(), fx = group(), c = PARTY.c, hx = PARTY.hx, hz = PARTY.hz, T = 1.0, S = STAGE;
+    var g = group(), fx = group(), c = PARTY.c, hx = PARTY.hx, hz = PARTY.hz, T = 1.45, S = STAGE;
     var nx = Math.round(hx * 2 / T), nz = Math.round(hz * 2 / T), tx = hx * 2 / nx, tz = hz * 2 / nz;
     PARTY.group = g; PARTY.fixed = fx;
     g.visible = false;
     scene.add(g); scene.add(fx);
-    // the stage deck, the floor's base and the dance floor: one instanced mesh whose colours (and a little lift) change with the beat
+    // the stage deck and the dance field: one instanced mesh of earth-coloured panels whose colours (and a little lift)
+    // change with the beat
     statics.add(box(S.w * 2, 0.05, STAGE_N - S.wallZ + 0.7, '#2a2a33', [c.x, 0.025, (STAGE_N + S.wallZ - 0.7) / 2]));
-    statics.add(box(hx * 2 + 0.3, 0.06, hz * 2 + 0.3, '#22222c', [c.x, 0.03, c.z]));
-    var tGeo = new THREE.BoxGeometry(tx * 0.94, 0.08, tz * 0.94);
+    statics.add(box(hx * 2 + 0.3, 0.05, hz * 2 + 0.3, WD.dustEdge || '#9a8360', [c.x, 0.025, c.z]));
+    var tGeo = new THREE.BoxGeometry(tx * 0.96, 0.08, tz * 0.96);
     var tiles = new THREE.InstancedMesh(tGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }), nx * nz);
-    var m = new THREE.Matrix4(), col = new THREE.Color();
-    PARTY.tilePos = [];
+    var m = new THREE.Matrix4(), col = new THREE.Color(), dust = WD.dust || ['#c8ab7c', '#c0a273', '#d0b588', '#bb9d6f'];
+    PARTY.tilePos = []; PARTY.restCol = [];
     for (var i = 0; i < nx; i++) for (var j = 0; j < nz; j++) {
       var tp = [c.x - hx + tx * (i + 0.5), c.z - hz + tz * (j + 0.5)];
       PARTY.tilePos.push(tp);
       m.makeTranslation(tp[0], 0.05, tp[1]);
       tiles.setMatrixAt(i * nz + j, m);
-      tiles.setColorAt(i * nz + j, col.set((i + j) % 2 ? '#3f3f4d' : '#4b4b5c'));
+      var rc = new THREE.Color(dust[Math.floor(R() * dust.length)]).multiplyScalar(0.92 + R() * 0.12);
+      PARTY.restCol.push(rc);
+      tiles.setColorAt(i * nz + j, rc);
     }
     PARTY.tiles = tiles; PARTY.nx = nx; PARTY.nz = nz;
     fx.add(tiles);
-    var edgeMat = new THREE.MeshBasicMaterial({ color: 0x8a3a78 });         // glowing edge around the floor
+    var edgeMat = new THREE.MeshBasicMaterial({ color: 0x8a3a78 });         // a glowing rope light round the field
     [[0, -hz - 0.17, hx * 2 + 0.44, 0.1], [0, hz + 0.17, hx * 2 + 0.44, 0.1], [-hx - 0.17, 0, 0.1, hz * 2 + 0.44], [hx + 0.17, 0, 0.1, hz * 2 + 0.44]].forEach(function (e) {
       fx.add(mesh(new THREE.BoxGeometry(e[2], 0.08, e[3]), edgeMat, [c.x + e[0], 0.06, c.z + e[1]]));
     });
     PARTY.edge = edgeMat;
-    // the DJ booth with two decks, facing the floor (south)
+    // the DJ booth with two decks, facing the floor (south), a little monitor either side
     var booth = group([DJ_SPOT.x, 0, S.booth]);
-    booth.add(box(2.4, 1.0, 0.9, '#2d2d3a', [0, 0.5, 0]));
-    booth.add(box(2.5, 0.08, 1.0, '#4a4a5c', [0, 1.04, 0]));
+    booth.add(box(2.8, 1.0, 0.9, '#2d2d3a', [0, 0.5, 0]));
+    booth.add(box(2.9, 0.08, 1.0, '#4a4a5c', [0, 1.04, 0]));
     statics.add(outline(booth));
-    var stripe = mesh(new THREE.BoxGeometry(2.2, 0.2, 0.02), new THREE.MeshBasicMaterial({ color: 0xff5ea8 }), [DJ_SPOT.x, 0.7, S.booth + 0.46]);
+    var stripe = mesh(new THREE.BoxGeometry(2.6, 0.2, 0.02), new THREE.MeshBasicMaterial({ color: 0xff5ea8 }), [DJ_SPOT.x, 0.7, S.booth + 0.46]);
     fx.add(stripe); PARTY.stripe = stripe;
     [-0.6, 0.6].forEach(function (x) {
       var deck = cyl(0.3, 0.3, 0.04, '#111', [DJ_SPOT.x + x, 1.1, S.booth], 20);
       deck.add(cyl(0.08, 0.08, 0.05, '#e3c16f', [0, 0.01, 0], 10));
       fx.add(deck); PARTY.decks.push(deck);
     });
-    PARTY.obst.push(['r', DJ_SPOT.x, S.booth, 1.25, 0.5]);
-    // a speaker stack either side of the booth (two boxes, no taller than a hero with arms up)
-    function speaker(x, y, z, w, h, d) {
+    PARTY.obst.push(['r', DJ_SPOT.x, S.booth, 1.45, 0.5]);
+    function speaker(x, y, z, w, h, d, pump) {
       var sp = group([x, y, z]);
       sp.add(box(w, h, d, '#1c1c24', [0, 0, 0]));
       var woof = cyl(Math.min(w, h) * 0.34, Math.min(w, h) * 0.34, 0.05, '#4d4d58', [0, -h * 0.12, d / 2 + 0.01], 18); woof.rotation.x = PI / 2; sp.add(woof);
       var tw = cyl(w * 0.12, w * 0.12, 0.05, '#777', [0, h * 0.3, d / 2 + 0.01], 12); tw.rotation.x = PI / 2; sp.add(tw);
-      PARTY.speakers.push(woof);
+      if (pump) PARTY.speakers.push(woof);
       fx.add(sp);
+      return sp;
     }
     [-1, 1].forEach(function (sd) {
-      var x = DJ_SPOT.x + sd * 3.4;
-      speaker(x, 0.6, S.booth, 1.0, 1.16, 0.85); speaker(x, 1.76, S.booth, 1.0, 1.16, 0.85);
-      PARTY.obst.push(['r', x, S.booth, 0.55, 0.48]);
+      speaker(DJ_SPOT.x + sd * 1.95, 0.35, S.booth + 0.1, 0.55, 0.7, 0.5, false).rotation.y = -sd * 0.35;   // the DJ's monitors
+      // the main stacks on the ground either side of the stage: two cabinets wide, three high
+      for (var cx2 = 0; cx2 < 2; cx2++) for (var cy = 0; cy < 3; cy++)
+        speaker(c.x + sd * (S.stackX + (cx2 - 0.5) * 1.05), 0.6 + cy * 1.14, S.stackZ, 1.0, 1.1, 0.9, true);
+      PARTY.obst.push(['r', c.x + sd * S.stackX, S.stackZ, 1.1, 0.5]);
     });
-    // the low LED screen behind the DJ (its top below the heads of the crowd seen from the floor's far end), and the NEVET sign on it
+    // the low LED screen behind the DJ (its top below the heads of the crowd seen from the field's far end), and the NEVET sign on it
     var screen = new THREE.Mesh(new THREE.PlaneGeometry(S.wallW, S.wallH), new THREE.ShaderMaterial({ vertexShader: FLAME_VS, fragmentShader: LED_FS,
-      uniforms: { uTime: { value: 0 }, uKick: { value: 0 }, uMode: { value: 0 }, uLevel: { value: 0.12 }, uGrid: { value: new THREE.Vector2(96, 22) }, uAspect: { value: S.wallW / S.wallH } } }));
+      uniforms: { uTime: { value: 0 }, uKick: { value: 0 }, uMode: { value: 0 }, uLevel: { value: 0.12 }, uGrid: { value: new THREE.Vector2(120, 22) }, uAspect: { value: S.wallW / S.wallH } } }));
     screen.position.set(c.x, S.wallY + S.wallH / 2, S.wallZ);
     fx.add(screen); PARTY.screen = screen;
     statics.add(box(S.wallW + 0.3, S.wallH + 0.3, 0.24, '#15151b', [c.x, S.wallY + S.wallH / 2, S.wallZ - 0.14]));
-    [-1, 1].forEach(function (sd) { statics.add(box(0.24, S.wallY, 0.4, '#2b2b33', [c.x + sd * (S.wallW / 2 - 1), S.wallY / 2, S.wallZ - 0.1])); });
+    [-1, 0, 1].forEach(function (sd) { statics.add(box(0.24, S.wallY, 0.4, '#2b2b33', [c.x + sd * (S.wallW / 2 - 1.2), S.wallY / 2, S.wallZ - 0.1])); });
     PARTY.obst.push(['r', c.x, S.wallZ - 0.14, S.wallW / 2 + 0.2, 0.22]);
     var nc = document.createElement('canvas'); nc.width = 512; nc.height = 128;
     var nctx = nc.getContext('2d');
     nctx.font = 'italic 900 92px "Trebuchet MS", "Arial Black", sans-serif'; nctx.textAlign = 'center'; nctx.textBaseline = 'middle';
     nctx.shadowColor = '#ffffff'; nctx.shadowBlur = 18; nctx.lineWidth = 7; nctx.strokeStyle = '#ffffff';
     nctx.strokeText('NEVET', 256, 66); nctx.fillStyle = '#ffffff'; nctx.fillText('NEVET', 256, 66);
-    var neon = new THREE.Mesh(new THREE.PlaneGeometry(4.0, 1.0), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(nc), transparent: true, depthWrite: false, side: THREE.DoubleSide, color: 0x6a2a5a }));
-    neon.position.set(c.x, S.wallY + S.wallH + 0.62, S.wallZ - 0.02);
+    var neon = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 1.2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(nc), transparent: true, depthWrite: false, side: THREE.DoubleSide, color: 0x6a2a5a }));
+    neon.position.set(c.x, S.wallY + S.wallH + 0.72, S.wallZ - 0.02);
     fx.add(neon); PARTY.neon = neon;
     // a row of little lights along the front lip of the stage (they chase at the party)
-    var ledN = 36, leds = new THREE.InstancedMesh(new THREE.BoxGeometry(S.w * 2 / ledN * 0.7, 0.07, 0.07), new THREE.MeshBasicMaterial({ color: 0xffffff }), ledN);
+    var ledN = 44, leds = new THREE.InstancedMesh(new THREE.BoxGeometry(S.w * 2 / ledN * 0.7, 0.07, 0.07), new THREE.MeshBasicMaterial({ color: 0xffffff }), ledN);
     for (var l = 0; l < ledN; l++) { m.makeTranslation(c.x - S.w + (l + 0.5) * S.w * 2 / ledN, 0.07, STAGE_N - 0.32); leds.setMatrixAt(l, m); leds.setColorAt(l, col.setHSL(l / ledN, 1, 0.3)); }
     fx.add(leds); PARTY.leds = leds;
-    // two slim light poles at the screen's ends, each with a moving head sweeping the floor
-    [-1, 1].forEach(function (sd, k) {
-      var x = c.x + sd * S.poleX, z = S.wallZ + 0.2;
-      statics.add(cyl(0.07, 0.09, S.poleH, '#a7adb8', [x, S.poleH / 2, z], 8));
-      statics.add(cyl(0.32, 0.36, 0.1, '#555a66', [x, 0.05, z], 12));
-      PARTY.obst.push(['c', x, z, 0.36]);
-      var head = group([x, S.poleH + 0.15, z]);
-      head.add(box(0.34, 0.28, 0.34, '#2b2b33', [0, 0, 0]));
+    // the goal-post truss over the back of the stage: two towers and a beam, open so the DJ stays in sight
+    var TR = '#b9c0ca', top = S.trussH;
+    [-1, 1].forEach(function (sd) {
+      var x = c.x + sd * S.trussX;
+      truss(V(x, 0.1, S.trussZ), V(x, top, S.trussZ), 0.42, TR);
+      statics.add(box(0.8, 0.1, 0.8, '#555a66', [x, 0.05, S.trussZ]));
+      PARTY.obst.push(['r', x, S.trussZ, 0.45, 0.45]);
+    });
+    truss(V(c.x - S.trussX - 0.21, top + 0.21, S.trussZ), V(c.x + S.trussX + 0.21, top + 0.21, S.trussZ), 0.42, TR);
+    // a flown line array hanging from the beam either side, curving down towards the crowd
+    [-1, 1].forEach(function (sd) {
+      var hang = group([c.x + sd * (S.trussX - 1.0), top - 0.05, S.trussZ + 0.25]);
+      for (var k = 0; k < 6; k++) {
+        var cab = box(1.0, 0.34, 0.62, '#1c1c24', [0, -0.25 - k * 0.36, k * k * 0.018]);
+        cab.rotation.x = -k * 0.045;
+        hang.add(cab);
+      }
+      hang.add(rod(V(0, 0, 0), V(0, 0.26, 0), 0.02, '#888'));
+      statics.add(hang);
+    });
+    // moving heads hung under the beam, sweeping the field
+    [-4.6, -1.7, 1.7, 4.6].forEach(function (dx, k) {
+      var head = group([c.x + dx, top - 0.3, S.trussZ + 0.2]);
+      head.add(box(0.34, 0.3, 0.34, '#2b2b33', [0, 0, 0]));
       fx.add(head);
-      var cone2 = mesh(new THREE.ConeGeometry(1.25, 10, 18, 1, true), new THREE.MeshBasicMaterial({ color: [0xfff2b0, 0xb0e8ff][k], transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+      var cone2 = mesh(new THREE.ConeGeometry(1.25, 10, 18, 1, true), new THREE.MeshBasicMaterial({ color: [0xfff2b0, 0xb0e8ff, 0xffb0e0, 0xc8ffb0][k], transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
       cone2.geometry.translate(0, -5, 0);
-      cone2.position.copy(head.position);
+      cone2.position.copy(head.position).y -= 0.2;
       cone2.userData = { k: k * 3 };
       g.add(cone2); PARTY.spots.push(cone2);
     });
-    // four poles with strings of coloured bulbs round the floor (they rest dim between parties), the disco ball in the middle
-    var corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(function (k) { return V(c.x + k[0] * (hx + 0.45), 0, c.z + k[1] * (hz + 0.45)); });
-    corners.forEach(function (p) { statics.add(cyl(0.07, 0.08, 4.6, '#8a5f3a', [p.x, 2.3, p.z], 6)); PARTY.obst.push(['c', p.x, p.z, 0.14]); });
-    var bulbPos = [];
-    function string(a, b, sag, count) {
+    // two light towers at the back of the field: scaffolding with a deck on top, lasers and a sky searchlight each
+    var SC = '#9aa3ad', laserGeo = new THREE.CylinderGeometry(0.02, 0.02, 1, 5, 1, true); laserGeo.translate(0, 0.5, 0);
+    var LCOL = ['#ff2d55', '#2dff6e', '#2dc8ff', '#ff2dd2'];
+    var skyGeo = new THREE.CylinderGeometry(2.6, 0.22, 70, 14, 1, true); skyGeo.translate(0, 35, 0);
+    function searchlight(x, y, z, k) {
+      var sl = mesh(skyGeo, new THREE.MeshBasicMaterial({ color: 0xe8f2ff, transparent: true, opacity: 0.05, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), [x, y, z]);
+      sl.userData = { k: k };
+      g.add(sl); PARTY.searchlights.push(sl);
+    }
+    var towerTops = [];
+    [-1, 1].forEach(function (sd, t) {
+      var x = c.x + sd * S.towerX, z = S.towerZ, H = S.towerH, w2 = 0.75;
+      var legs = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+      legs.forEach(function (k) { statics.add(rod(V(x + k[0] * w2, 0, z + k[1] * w2), V(x + k[0] * w2, H, z + k[1] * w2), 0.05, SC)); });
+      for (var lv = 1.8; lv < H; lv += 1.8) for (var e = 0; e < 4; e++) {
+        var a2 = legs[e], b2 = legs[(e + 1) % 4];
+        statics.add(rod(V(x + a2[0] * w2, lv, z + a2[1] * w2), V(x + b2[0] * w2, lv, z + b2[1] * w2), 0.035, SC));
+        statics.add(rod(V(x + a2[0] * w2, lv - 1.8, z + a2[1] * w2), V(x + b2[0] * w2, lv, z + b2[1] * w2), 0.025, SC));
+      }
+      statics.add(box(w2 * 2 + 0.3, 0.12, w2 * 2 + 0.3, '#3a3d44', [x, H, z]));
+      statics.add(box(0.7, 0.45, 0.5, '#2b2b33', [x, H + 0.3, z - 0.3]));
+      PARTY.obst.push(['r', x, z, w2 + 0.1, w2 + 0.1]);
+      towerTops.push(V(x, H + 0.1, z));
+      for (var lb = 0; lb < 3; lb++) {                // lasers from the tower over the field, criss-crossing the other tower's
+        var las = mesh(laserGeo, new THREE.MeshBasicMaterial({ color: LCOL[(lb + t) % 4], transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }), [x + (lb - 1) * 0.2, H + 0.45, z - 0.55]);
+        las.userData = { k: lb + t * 3, bank: -sd };
+        g.add(las); PARTY.lasers.push(las);
+      }
+      searchlight(x + sd * 0.3, H + 0.2, z + 0.3, t);
+    });
+    searchlight(c.x - S.trussX - 1.4, 0.3, S.trussZ - 1.2, 2);       // and two more behind the stage
+    searchlight(c.x + S.trussX + 1.4, 0.3, S.trussZ - 1.2, 3);
+    // festoon bulbs: along the sides and the back of the field on flag poles, and two cables from the truss to the
+    // towers that cross over the middle of the field (the mirror ball hangs there)
+    var bulbPos = [], wires = [];                       // (all the cables in one draw)
+    function string(a, b2, sag, count) {
       for (var k = 0; k <= count; k++) {
-        var t = k / count;
-        bulbPos.push(V(a.x + (b.x - a.x) * t, 4.45 - Math.sin(t * PI) * sag, a.z + (b.z - a.z) * t));
+        var t2 = k / count, p = V(a.x + (b2.x - a.x) * t2, a.y + (b2.y - a.y) * t2 - Math.sin(t2 * PI) * sag, a.z + (b2.z - a.z) * t2);
+        if (k) wires.push(bulbPos[bulbPos.length - 1], p);
+        bulbPos.push(p);
       }
     }
-    for (var e = 0; e < 4; e++) string(corners[e], corners[(e + 1) % 4], 0.6, 20);
+    var PY = 4.45, fz = [STAGE_N - 0.45, c.z - hz / 2, c.z, c.z + hz / 2, c.z + hz + 0.45], fxs = [-1, -0.5, 0, 0.5, 1];
+    var left = fz.map(function (z) { return V(c.x - hx - 0.45, PY, z); }), right = fz.map(function (z) { return V(c.x + hx + 0.45, PY, z); });
+    var back = fxs.map(function (k) { return V(c.x + k * (hx + 0.45), PY, c.z + hz + 0.45); });
+    [left, back, right].forEach(function (line) { for (var e = 0; e + 1 < line.length; e++) string(line[e], line[e + 1], 0.45, 14); });
+    var poles = [], seen = {};
+    left.concat(back, right).forEach(function (p) { var key = p.x.toFixed(1) + ',' + p.z.toFixed(1); if (!seen[key]) { seen[key] = 1; poles.push(p); } });
+    var FLAGC = ['#ff2bd6', '#20e3ff', '#b6ff2e', '#ff9a1f', '#8c5cff', '#ffe600'], corners = [];
+    poles.forEach(function (p, k) {
+      var corner = (Math.abs(Math.abs(p.x - c.x) - hx - 0.45) < 0.01) && (Math.abs(p.z - fz[0]) < 0.01 || Math.abs(p.z - fz[4]) < 0.01);
+      statics.add(cyl(0.07, 0.08, corner ? 4.6 : 5.4, '#8a5f3a', [p.x, corner ? 2.3 : 2.7, p.z], 6));
+      PARTY.obst.push(['c', p.x, p.z, 0.14]);
+      if (corner) { corners.push(p); return; }
+      // a feather flag on every other pole, waving
+      var fl = group([p.x, 0, p.z]), sail = new THREE.Shape();
+      sail.moveTo(0, 0); sail.quadraticCurveTo(0.95, 0.4, 0.75, 2.9); sail.quadraticCurveTo(0.35, 3.1, 0, 3.0); sail.lineTo(0, 0);
+      var flag = mesh(new THREE.ShapeGeometry(sail, 8), new THREE.MeshBasicMaterial({ color: FLAGC[k % FLAGC.length], side: THREE.DoubleSide }), [0.08, 1.35, 0]);
+      fl.add(flag);
+      fl.rotation.y = Math.atan2(p.x - c.x, p.z - c.z) + PI / 2;
+      fl.userData = { ph: k * 1.3, y: fl.rotation.y };
+      fx.add(fl); PARTY.flags.push(fl);
+    });
+    var tl = towerTops[0], tr = towerTops[1];
+    var trussL = V(c.x - S.trussX, top + 0.2, S.trussZ), trussR = V(c.x + S.trussX, top + 0.2, S.trussZ);
+    string(trussL, tr, 0.8, 40); string(trussR, tl, 0.8, 40);
+    var cross = S.trussX / (S.trussX + S.towerX);              // where the two cables cross (they're mirror images)
+    var crossY = trussL.y + (tr.y - trussL.y) * cross - Math.sin(cross * PI) * 0.8, crossZ = S.trussZ + (tr.z - S.trussZ) * cross;
+    fx.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(wires), new THREE.LineBasicMaterial({ color: 0x2a2a30 })));
     var bulbs = new THREE.InstancedMesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }), bulbPos.length);
     bulbPos.forEach(function (p, k) { m.makeTranslation(p.x, p.y, p.z); bulbs.setMatrixAt(k, m); bulbs.setColorAt(k, col.setHSL(k * 0.13 % 1, 0.6, 0.7)); });
     PARTY.bulbs = bulbs;
     fx.add(bulbs);
-    var ball = mesh(new THREE.IcosahedronGeometry(0.75, 1), mat('#c9ced6', { flatShading: true, emissive: new THREE.Color('#334'), emissiveIntensity: 0.5 }), [c.x, 6.0, c.z]);
+    var ballY = crossY - 0.8;
+    var ball = mesh(new THREE.IcosahedronGeometry(0.7, 1), mat('#c9ced6', { flatShading: true, emissive: new THREE.Color('#334'), emissiveIntensity: 0.5 }), [c.x, ballY, crossZ]);
     fx.add(ball); PARTY.ball = ball;
-    fx.add(cyl(0.012, 0.012, 1.2, '#888', [c.x, 7.2, c.z], 4));
+    fx.add(cyl(0.012, 0.012, 0.5, '#888', [c.x, ballY + 0.75, crossZ], 4));
     ['#ff4fa3', '#3fd9ff', '#ffe14d', '#7dff6a', '#b06bff', '#ff8a3d'].forEach(function (hex, k) {
-      var beam = mesh(new THREE.ConeGeometry(1.2, 5.8, 16, 1, true), new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-      beam.geometry.translate(0, -2.9, 0);
-      beam.position.set(c.x, 6.0, c.z);
+      var beam = mesh(new THREE.ConeGeometry(1.8, ballY, 16, 1, true), new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+      beam.geometry.translate(0, -ballY / 2, 0);
+      beam.position.set(c.x, ballY, crossZ);
       beam.userData.k = k;
       g.add(beam); PARTY.beams.push(beam);
     });
-    // a fan of lasers from the booth over the crowd
-    var laserGeo = new THREE.CylinderGeometry(0.02, 0.02, 1, 5, 1, true); laserGeo.translate(0, 0.5, 0);
-    var LCOL = ['#ff2d55', '#2dff6e', '#2dc8ff', '#ff2dd2'];
-    for (var lb = 0; lb < 6; lb++) {
-      var las = mesh(laserGeo, new THREE.MeshBasicMaterial({ color: LCOL[lb % 4], transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }), [DJ_SPOT.x + (lb - 2.5) * 0.22, 1.25, S.booth + 0.5]);
-      las.userData = { k: lb, bank: 0 };
-      g.add(las); PARTY.lasers.push(las);
-    }
-    // a spotlight from the sky on one dancer at a time: the dance-off
-    var solo = mesh(new THREE.ConeGeometry(0.85, 8, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-    solo.geometry.translate(0, -4, 0);
-    solo.position.set(c.x, 8, c.z);
-    g.add(solo); PARTY.solo = solo;
-    var ring = mesh(new THREE.RingGeometry(0.42, 0.62, 28), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }));
-    ring.rotation.x = -PI / 2; ring.position.set(c.x, 0.11, c.z);
-    g.add(ring); PARTY.soloRing = ring;
-    // a little low fog over the floor (never enough to hide anyone)
-    var fogTex = new THREE.CanvasTexture((function () {
-      var cv = document.createElement('canvas'); cv.width = cv.height = 64;
-      var x = cv.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
-      gr.addColorStop(0, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
-      x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
-      return cv;
-    })());
-    for (var f = 0; f < 8; f++) {
-      var fs = new THREE.Sprite(new THREE.SpriteMaterial({ map: fogTex, color: new THREE.Color().setHSL(f / 8, 0.6, 0.75), transparent: true, opacity: 0.12, depthWrite: false }));
-      fs.scale.set(4.0, 1.0, 1);
-      fs.userData = { ph: f * 1.7, ox: rr(-hx, hx), oz: rr(-hz, hz) };
-      g.add(fs); PARTY.fog.push(fs);
-    }
+    // the sound desk at the back of the field, under a stretched sail
+    (function () {
+      var x = c.x, z = c.z + hz + 3.4, pts = [[-2.3, -1.7, 3.6], [2.3, -1.7, 2.5], [2.3, 1.7, 3.6], [-2.3, 1.7, 2.5]];
+      pts.forEach(function (q) { statics.add(cyl(0.05, 0.06, q[2], '#8a5f3a', [x + q[0], q[2] / 2, z + q[1]], 6)); });
+      var sg = new THREE.BufferGeometry(), N2 = 8, pos = [], idx = [];
+      for (var a3 = 0; a3 <= N2; a3++) for (var b3 = 0; b3 <= N2; b3++) {       // a hypar: the sail's two high corners and two low ones
+        var u2 = a3 / N2, v2 = b3 / N2, P = function (k) { return pts[k]; };
+        var y = (1 - u2) * (1 - v2) * P(0)[2] + u2 * (1 - v2) * P(1)[2] + u2 * v2 * P(2)[2] + (1 - u2) * v2 * P(3)[2];
+        pos.push(x - 2.3 + 4.6 * u2, y, z - 1.7 + 3.4 * v2);
+        if (a3 < N2 && b3 < N2) { var i0 = a3 * (N2 + 1) + b3; idx.push(i0, i0 + 1, i0 + N2 + 1, i0 + 1, i0 + N2 + 2, i0 + N2 + 1); }
+      }
+      sg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); sg.setIndex(idx); sg.computeVertexNormals();
+      statics.add(new THREE.Mesh(sg, new THREE.MeshToonMaterial({ color: new THREE.Color('#ff4fb8'), side: THREE.DoubleSide })));
+      var desk = group([x, 0, z]);
+      desk.add(box(2.4, 0.95, 0.9, '#2d2d3a', [0, 0.475, 0]));
+      desk.add(box(2.3, 0.08, 0.8, '#5a5a6c', [0, 0.99, -0.02]));
+      statics.add(outline(desk));
+      PARTY.obst.push(['r', x, z, 1.3, 0.55]);
+    })();
     // balloons tied to the corner poles
     corners.forEach(function (p, k) {
       ['#ff5ea8', '#ffd84d', '#5ec8ff'].forEach(function (hex, j) {
@@ -1494,8 +1596,36 @@
         g.add(b); PARTY.balloons.push(b);
       });
     });
-    // confetti falling over the floor
-    var CN = 280, cg = new THREE.BufferGeometry(), cp = new Float32Array(CN * 3), cc = new Float32Array(CN * 3);
+    // the booth's fan of lasers over the crowd
+    for (var lb2 = 0; lb2 < 6; lb2++) {
+      var las2 = mesh(laserGeo, new THREE.MeshBasicMaterial({ color: LCOL[lb2 % 4], transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }), [DJ_SPOT.x + (lb2 - 2.5) * 0.22, 1.25, S.booth + 0.5]);
+      las2.userData = { k: lb2, bank: 0 };
+      g.add(las2); PARTY.lasers.push(las2);
+    }
+    // a spotlight from the sky on one dancer at a time: the dance-off
+    var solo = mesh(new THREE.ConeGeometry(0.85, 8, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    solo.geometry.translate(0, -4, 0);
+    solo.position.set(c.x, 8, c.z);
+    g.add(solo); PARTY.solo = solo;
+    var ring = mesh(new THREE.RingGeometry(0.42, 0.62, 28), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }));
+    ring.rotation.x = -PI / 2; ring.position.set(c.x, 0.11, c.z);
+    g.add(ring); PARTY.soloRing = ring;
+    // a little low fog and dust over the field (never enough to hide anyone)
+    var fogTex = new THREE.CanvasTexture((function () {
+      var cv = document.createElement('canvas'); cv.width = cv.height = 64;
+      var x = cv.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+      return cv;
+    })());
+    for (var f = 0; f < 14; f++) {
+      var fs = new THREE.Sprite(new THREE.SpriteMaterial({ map: fogTex, color: new THREE.Color().setHSL(f / 14, 0.5, 0.78), transparent: true, opacity: 0.12, depthWrite: false }));
+      fs.scale.set(5.0, 1.1, 1);
+      fs.userData = { ph: f * 1.7, ox: rr(-hx + 1, hx - 1), oz: rr(-hz + 1, hz - 1) };
+      g.add(fs); PARTY.fog.push(fs);
+    }
+    // confetti falling over the field
+    var CN = 460, cg = new THREE.BufferGeometry(), cp = new Float32Array(CN * 3), cc = new Float32Array(CN * 3);
     PARTY.confettiSeeds = [];
     for (var q = 0; q < CN; q++) {
       PARTY.confettiSeeds.push([rr(-hx, hx), rr(0, 1), rr(-hz, hz), rr(0.35, 0.8)]);
@@ -1506,7 +1636,7 @@
     PARTY.confetti = new THREE.Points(cg, new THREE.PointsMaterial({ size: 0.12, vertexColors: true, transparent: true, opacity: 0.9, depthWrite: false }));
     PARTY.confetti.frustumCulled = false;
     g.add(PARTY.confetti);
-    // music notes rising from the speakers
+    // music notes rising from the speaker stacks
     var noteTex = new THREE.CanvasTexture((function () {
       var cv = document.createElement('canvas'); cv.width = cv.height = 64;
       var x = cv.getContext('2d'); x.fillStyle = '#ffffff'; x.font = 'bold 54px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('♪', 32, 34);
@@ -1514,22 +1644,22 @@
     })());
     for (var nn = 0; nn < 8; nn++) {
       var sp2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTex, color: new THREE.Color().setHSL(nn / 8, 0.9, 0.65), transparent: true, depthWrite: false }));
-      sp2.scale.setScalar(0.55);
+      sp2.scale.setScalar(0.6);
       sp2.userData = { ph: nn / 8, side: nn % 2 ? 1 : -1 };
       g.add(sp2); PARTY.notes.push(sp2);
     }
     // flame jets along the front of the stage (they fire on the drops)
-    [-6.4, -4.8, 4.8, 6.4].forEach(function (dx) {
+    [-8.2, -6.6, 6.6, 8.2].forEach(function (dx) {
       var x = c.x + dx, z = STAGE_N - 0.45;
       statics.add(box(0.5, 0.28, 0.5, '#202027', [x, 0.14, z]));
       statics.add(cyl(0.09, 0.11, 0.1, '#888', [x, 0.32, z], 8));
       PARTY.obst.push(['c', x, z, 0.36]);
-      PARTY.jets.push(makeJet(x, z, 0.36, 4.2));
+      PARTY.jets.push(makeJet(x, z, 0.36, 4.6));
     });
-    // confetti cannons on top of the light poles, aimed over the crowd
+    // confetti cannons on top of the truss towers, aimed over the crowd
     PARTY.cannons = [-1, 1].map(function (sd) {
-      statics.add(rot(cyl(0.18, 0.22, 0.7, '#3a3d44', [c.x + sd * S.poleX, S.poleH + 0.6, S.wallZ + 0.2], 10), 0.7, 0, -sd * 0.5));
-      return makeCannon(V(c.x + sd * S.poleX, S.poleH + 0.85, S.wallZ + 0.4), V(c.x - sd * 1.5, 0, c.z + 1));
+      statics.add(rot(cyl(0.2, 0.24, 0.8, '#3a3d44', [c.x + sd * S.trussX, top + 0.75, S.trussZ + 0.1], 10), 0.7, 0, -sd * 0.5));
+      return makeCannon(V(c.x + sd * S.trussX, top + 1.0, S.trussZ + 0.3), V(c.x - sd * 2, 0, CROWD_C.z + 2));
     });
   })();
   // The big wheel behind the stage: twelve gondolas on a lit rim, turning all day (the lights chase faster at the party)
@@ -2820,7 +2950,7 @@
       }
     },
     party: {
-      name: 'Party!', tool: null, night: 0, centre: V(PARTY.c.x, 1.2, PARTY.c.z - 1.4), view: 1.5,
+      name: 'Party!', tool: null, night: 0, centre: V(PARTY.c.x, 1.2, CROWD_C.z - 1.6), view: 1.75 + 0.06 * Math.max(0, crowdShape(CROWD_N).rows - 4),
       stat: function () {
         var who = heroes.filter(function (h) { return h.act === 'party' || h.act === 'form' || h.act === 'formReady'; }).length;
         if (acid.playing) return dance.cur.name + ' · ' + who + ' dancing to the 303 & 909 · ' + BPM + ' BPM';
@@ -2834,14 +2964,16 @@
       }
     }
   };
-  function floorSlot(h, kk) {                         // dancers spread over the floor with room round each: rows to the back, like a crowd
-    var dancers = heroes.filter(function (o) { return o !== heroes[0]; }), n = Math.max(1, dancers.length);
+  function floorSlot(h, kk) {                         // a crowd facing the stage, from the front row back, room round each dancer
+    var dancers = heroes.filter(function (o) { return o !== heroes[0]; }), n = Math.max(1, dancers.length, CROWD_N);   // (heroes arrive one by one: lay out for everyone)
     var k = kk !== undefined ? kk : h.floorK !== undefined ? h.floorK : Math.max(0, dancers.indexOf(h));
-    var cols = n <= 4 ? 2 : n <= 9 ? 3 : n <= 16 ? 4 : n <= 25 ? 5 : STAGE_COLS, rows = Math.max(2, Math.min(STAGE_ROWS, Math.ceil(n / cols)));
-    var spX = Math.min(3.3, (PARTY.hx * 2 - 2.4) / Math.max(1, cols - 1)), spZ = Math.min(3.0, (PARTY.hz * 2 - 2.4) / (rows - 1));
+    var sh = crowdShape(n), cols = sh.cols, rows = Math.max(1, Math.min(sh.rows, Math.floor((PARTY.hz * 2 - 4) / 1.9) + 1));
+    var spX = Math.min(CROWD_SP.x, (PARTY.hx * 2 - 2.4) / Math.max(1, cols - 1)), spZ = Math.min(CROWD_SP.z, (PARTY.hz * 2 - 4) / Math.max(1, rows - 1));
     var per = cols * rows, i = k % cols, j = Math.floor(k / cols) % rows, extra = Math.floor(k / per) * 0.8;
+    var inRow = Math.min(cols, n - Math.floor(k / cols) * cols);                 // (a short last row stands in the middle)
     var stagger = rows > 1 && j % 2 ? spX * 0.25 : -spX * 0.25 * (rows > 1 ? 1 : 0);   // rows offset like a crowd, not a grid
-    return V(PARTY.c.x + (i - (cols - 1) / 2) * spX + stagger * 0.5 + extra, 0, PARTY.c.z + 0.3 + (j - (rows - 1) / 2) * spZ + extra * 0.5);
+    var fan = 1 + j * 0.04;                                                      // and a little wider to the back
+    return V(PARTY.c.x + (i - (Math.min(cols, inRow) - 1) / 2) * spX * fan + stagger * 0.5 + extra, 0, CROWD_Z + j * spZ + extra * 0.5);
   }
   var ORDER = ['harvest', 'water', 'plant', 'animals', 'play', 'campfire', 'party'];
   var EVENT = D.event && ACTS[D.event.act] ? D.event : null;      // an event on the farm right now (events.py): the heroes join in
@@ -4086,15 +4218,15 @@
   }
   // formation dances: where each dancer belongs (k of n) right now
   var form = { on: false, moving: false, kind: null, order: [], t0: 0, t1: 0, theta: 0 }, partyBeat = -1;
-  var CONGA_A = PARTY.hx - 0.45, CONGA_B = PARTY.hz - 0.45;                      // an oval just inside the floor's edge
+  var CONGA_A = Math.min(PARTY.hx - 0.45, 9.5), CONGA_B = Math.min(PARTY.hz - 0.45, CROWD_C.z - STAGE_N - 1.2, 7.5);   // an oval round the crowd
   var CONGA_LEN = PI * (3 * (CONGA_A + CONGA_B) - Math.sqrt((3 * CONGA_A + CONGA_B) * (CONGA_A + 3 * CONGA_B)));
   var CONGA_R = CONGA_LEN / TAU;                      // arc length per radian, on average
   function congaPoint(s) {
     var a = s / CONGA_R;
-    return V(PARTY.c.x + Math.cos(a) * CONGA_A, 0, PARTY.c.z + 0.2 + Math.sin(a) * CONGA_B);
+    return V(PARTY.c.x + Math.cos(a) * CONGA_A, 0, CROWD_C.z + 0.2 + Math.sin(a) * CONGA_B);
   }
   function congaGap(n) { return Math.min(1.7, CONGA_LEN / Math.max(1, n)); }
-  var RING_C = V(PARTY.c.x, 0, PARTY.c.z + 0.4);       // rings sit a little back from the booth
+  var RING_C = V(PARTY.c.x, 0, Math.max(CROWD_C.z + 0.4, STAGE_N + 1.4 + Math.max(2.6, CROWD_N * 1.75 / TAU)));   // rings where the crowd is (clear of the stage)
   function ringR(n) { return Math.min(Math.min(PARTY.hx, PARTY.hz) - 0.5, Math.max(2.6, n * 1.75 / TAU)); }
   function formSlot(kind, k, n, now) {
     if (kind === 'conga') return congaPoint(form.theta - k * congaGap(n));
@@ -4119,7 +4251,7 @@
       for (var r0 = 0; r0 < line.length; r0 += per) rows.push(line.slice(r0, r0 + per).sort(function (a, b) { return a.root.position.x - b.root.position.x; }));
       line = [].concat.apply([], rows);
     } else {                                           // in the order they stand around the floor, so nobody crosses
-      var cc = kind === 'conga' ? V(PARTY.c.x, 0, PARTY.c.z + 0.2) : RING_C;
+      var cc = kind === 'conga' ? V(PARTY.c.x, 0, CROWD_C.z + 0.2) : RING_C;
       line.forEach(function (h) { h.ang = Math.atan2(h.root.position.z - cc.z, h.root.position.x - cc.x); });
       line.sort(function (a, b) { return kind === 'conga' ? b.ang - a.ang : a.ang - b.ang; });
     }
@@ -4187,13 +4319,16 @@
       WHEEL_FX.bulbs.setColorAt(b, col);
     }
     WHEEL_FX.bulbs.instanceColor.needsUpdate = true;
+    PARTY.flags.forEach(function (fl) {               // the flags wave (harder at the party)
+      fl.rotation.y = fl.userData.y + Math.sin(now * (party ? 2.6 : 1.1) + fl.userData.ph) * (party ? 0.32 : 0.16);
+    });
     var scr = PARTY.screen.material.uniforms;
     scr.uTime.value = now;
     if (!party) {
       scr.uLevel.value += (0.14 - scr.uLevel.value) * Math.min(1, dt * 2); scr.uKick.value = 0; scr.uMode.value = 0;
       if (!PARTY.resting) {                            // the party's over: the floor, the LEDs and the sign go quiet
         PARTY.resting = true;
-        for (var t = 0; t < PARTY.tilePos.length; t++) PARTY.tiles.setColorAt(t, col.set((Math.floor(t / PARTY.nz) + t % PARTY.nz) % 2 ? '#3f3f4d' : '#4b4b5c'));
+        for (var t = 0; t < PARTY.tilePos.length; t++) PARTY.tiles.setColorAt(t, PARTY.restCol[t]);
         PARTY.tiles.instanceColor.needsUpdate = true;
         var mtx = new THREE.Matrix4();
         PARTY.tilePos.forEach(function (tp, i) { mtx.makeTranslation(tp[0], 0.05, tp[1]); PARTY.tiles.setMatrixAt(i, mtx); });
@@ -4233,7 +4368,7 @@
           default: on = R() < 0.42;                                                               // sparkle
         }
         PARTY.lit[i * nz + j] = on;
-        col.setHSL(hue, 0.9, on ? bright : 0.14);
+        if (on) col.setHSL(hue, 0.9, bright); else col.copy(PARTY.restCol[i * nz + j]).multiplyScalar(0.42);   // the earth in the shade
         PARTY.tiles.setColorAt(i * nz + j, col);
       }
       PARTY.tiles.instanceColor.needsUpdate = true;
@@ -4251,11 +4386,11 @@
         PARTY.jets.slice(0, 4).forEach(function (jt, k) { fireJet(jt, now, [0.18, 0, 0, 0.18][k]); });
         if (beat % 32 === 0) {
           PARTY.cannons.forEach(function (cn) { fireCannon(cn, now); });
-          for (var fw = 0; fw < 4; fw++) launchWork(V(c.x + (fw - 1.5) * 4.5, 0.5, S.wallZ - 2.2), rr(11, 17), null, now, fw * 0.28, V(c.x + (fw - 1.5) * 4, 0, c.z - 3));
+          for (var fw = 0; fw < 4; fw++) launchWork(V(c.x + (fw - 1.5) * 4.5, 0.5, S.wallZ - 2.2), rr(11, 17), null, now, fw * 0.28, V(c.x + (fw - 1.5) * 4, 0, CROWD_C.z - 2));
         }
         PARTY.screenMode = (PARTY.screenMode || 0) + 1;
       }
-      if (beat % 4 === 0 && !calm && R() < 0.2) launchWork(V(c.x + rr(-12, 12), 0.5, S.wallZ - 2.2), rr(11, 17), null, now, 0, V(c.x + rr(-8, 8), 0, c.z - rr(0, 6)));
+      if (beat % 4 === 0 && !calm && R() < 0.2) launchWork(V(c.x + rr(-12, 12), 0.5, S.wallZ - 2.2), rr(11, 17), null, now, 0, V(c.x + rr(-8, 8), 0, CROWD_C.z - rr(-2, 4)));
     }
     var mtx = PARTY.tmpM || (PARTY.tmpM = new THREE.Matrix4());
     for (var t = 0; t < PARTY.tilePos.length; t++) {
@@ -4277,13 +4412,13 @@
     PARTY.lasers.forEach(function (las) {
       var u = las.userData, k = u.k, len;
       if (u.bank === 0) len = aimAt(las, LASER_UP, c.x + Math.sin(now * 1.3 + k * 0.9) * (PARTY.hx + 1) , 0.2, c.z + PARTY.hz + 2 + Math.sin(now * 0.7 + k) * 1.5);
-      else len = aimAt(las, LASER_UP, c.x - u.bank * (Math.sin(now * 0.9 + k * 0.7) * 0.5 + 0.5) * PARTY.hx * 1.6 + u.bank * 1.5, 0.15, c.z + Math.cos(now * 1.1 + k * 1.3) * PARTY.hz * 0.9);
+      else len = aimAt(las, LASER_UP, c.x - u.bank * ((Math.sin(now * 0.9 + k * 0.7) * 0.5 + 0.5) * PARTY.hx * 1.5 - 4), 0.15, CROWD_C.z + Math.cos(now * 1.1 + k * 1.3) * PARTY.hz * 0.55);
       las.scale.y = len;
       las.material.opacity = 0.2 + 0.3 * Math.abs(Math.sin(now * 3 + k));
     });
     PARTY.spots.forEach(function (sp) {               // the moving heads swing across the floor (never off it)
       var k = sp.userData.k;
-      aimAt(sp, CONE_DOWN, c.x + Math.sin(now * 0.7 + k * 1.9) * PARTY.hx * 0.75, 0, c.z + Math.cos(now * 0.55 + k * 1.3) * PARTY.hz * 0.7);
+      sp.scale.y = aimAt(sp, CONE_DOWN, c.x + Math.sin(now * 0.7 + k * 1.9) * PARTY.hx * 0.7, 0, c.z + Math.cos(now * 0.55 + k * 1.3) * PARTY.hz * 0.75) / 10;
     });
     PARTY.searchlights.forEach(function (sl) {        // searchlights sweep the sky
       var k = sl.userData.k;
@@ -4334,7 +4469,7 @@
     });
     PARTY.notes.forEach(function (nt) {
       var u = (now * 0.35 + nt.userData.ph) % 1;
-      nt.position.set(DJ_SPOT.x + nt.userData.side * 3.4 + Math.sin(u * 9) * 0.3, 2.5 + u * 2.6, S.booth + 0.5 + u * 0.8);
+      nt.position.set(DJ_SPOT.x + nt.userData.side * S.stackX + Math.sin(u * 9) * 0.3, 3.8 + u * 2.6, S.stackZ + 0.5 + u * 0.8);
       nt.material.opacity = Math.sin(u * PI);
     });
     // a formation: once everyone is in place, they all move together
@@ -4842,6 +4977,7 @@
     plants: plants,
     blocked: function (x, z, pad) { return blockedAt(x, z, pad); },
     party: function () { return { dance: dance.cur.id, name: dance.cur.name, form: form.on ? form.kind : null, moving: form.moving }; },
+    floorSlots: function () { return heroes.slice(1).map(function (h, k) { var v = floorSlot(h, k); return [+v.x.toFixed(2), +v.z.toFixed(2)]; }); },
     ring: function () {
       return { phase: RING.phase, bout: RING.bout && RING.bout.id, style: ringStyle().id, winner: RING.winner && RING.winner.name, points: RING.points,
                fighters: RING.fighters.map(function (h) { return { id: h.id, name: h.name, act: h.act, gear: !!h.gear, kit: h.dress ? h.dress.gloves : null, x: +h.root.position.x.toFixed(2), z: +h.root.position.z.toFixed(2), down: h.sp.down > clockNow() }; }),
@@ -4864,7 +5000,7 @@
       if (what === 'jets' || !what) FX.jets.forEach(function (j, i) { fireJet(j, now, i * 0.03); });
       if (what === 'works' || !what) for (var i = 0; i < 6; i++) {
         var bj = RING.braziers[i % RING.braziers.length];
-        if (current === 'party') launchWork(V(PARTY.c.x + rr(-10, 10), 0.5, STAGE.wallZ - 2.2), rr(11, 17), null, now, i * 0.2, V(PARTY.c.x + rr(-8, 8), 0, PARTY.c.z - 3));
+        if (current === 'party') launchWork(V(PARTY.c.x + rr(-10, 10), 0.5, STAGE.wallZ - 2.2), rr(11, 17), null, now, i * 0.2, V(PARTY.c.x + rr(-8, 8), 0, CROWD_C.z - 2));
         else launchWork(bj.pos, rr(9, 15), null, now, i * 0.2, overArena(bj));
       }
       if (what === 'cannons' || !what) FX.cannons.forEach(function (c) { fireCannon(c, now); });

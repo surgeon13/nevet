@@ -225,8 +225,8 @@ just for fun.
 
 **The farm's layout:** the farmyard is in the middle (beds, barn, pond,
 windmill, and a signpost in the yard). The **campfire field** is to the east
-with the mud arena, and the **party field** is to the west with the big stage
-and a big wheel. The **play park** is beyond the yard's gate. Each big
+with the mud arena, and the **party field** is to the west with an open-air
+rave (a big stage and dance field) and a big wheel. The **play park** is beyond the yard's gate. Each big
 activity has a field of its own, so everyone has room and you can see them
 all. Heroes jog when they have a long way to go.
 
@@ -307,13 +307,20 @@ dusk by itself, so the fire can glow.
   bout and football match, so everyone watching sees the same thing, and
   every grab, throw, goal and win is kept. See [Powers and game
   stats](#powers-and-game-stats).
-- **Party!**: the party field's stage, low and open so you can see
-  everyone. The DJ (whoever opened the farm) stands at the booth between
-  two speaker stacks, in front of a low LED screen that changes picture
-  every 16 beats, with the neon NEVET sign on top and a moving light on a
-  slim pole at each end. There's a 17 x 15 m light-up dance floor with
-  room for everyone, string lights round it, a disco ball, a fan of
-  lasers, a little fog and balloons. The big wheel and the mother tree
+- **Party!**: an open-air rave on the party field, low and open so you
+  can see everyone. The DJ (whoever opened the farm) stands at the booth
+  in front of a low LED screen that changes picture every 16 beats, with
+  the neon NEVET sign on top, under a goal-post truss with a speaker hang
+  either side and moving lights sweeping the field; two big speaker
+  stacks stand on the ground. The dance field is 29 x 28 m of packed
+  earth (three times the old floor) that lights up panel by panel on the
+  beat. The crowd faces the stage from the front, every dancer with room
+  round them, and the more heroes come the further back it fills. Flags
+  and string lights line the sides, two light towers at the back shoot
+  lasers over the crowd and searchlights into the sky, cables of bulbs run
+  from the towers to the truss with the mirror ball hanging where they
+  cross, and the sound desk sits under a pink sail at the back. A little
+  fog and balloons too. The big wheel and the mother tree
   stand behind the stage, and anything big between you and the party
   (like the mother tree, when the camera swings round) turns see-through.
   On every drop, flame jets fire along the stage. Every second drop, the

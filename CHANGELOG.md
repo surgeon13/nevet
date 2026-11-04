@@ -1,5 +1,24 @@
 # Changelog
 
+## The party is an open-air rave
+
+- **A much bigger dance field.** The party floor grew from 17 x 15 m to
+  29 x 28 m (three times the space): packed earth that lights up panel by
+  panel on the beat, with a glowing rope edge.
+- **Outdoor rave stage.** A goal-post truss over the stage with a flown
+  speaker hang either side and four moving heads, big speaker stacks on
+  the ground, a wider LED screen and the NEVET sign. It stays low and open
+  so the DJ and the crowd are always in sight.
+- **Around the field:** flags and festoon lights along the sides, two
+  scaffold light towers at the back with lasers and sky searchlights,
+  bulb cables from the towers to the truss with the mirror ball where
+  they cross, and the sound desk under a stretched pink sail.
+- **Room to dance.** The crowd faces the stage from the front with about
+  3.4 x 3.1 m each and fills further back as more heroes come (rows of up
+  to 11). The Conga, rings and lines dance round the crowd, not the whole
+  field, so nobody has far to walk. The crowd's layout no longer shifts
+  while heroes are still arriving.
+
 ## Worm food by weight, and XP by the size of the job
 
 - **Weigh the worm food.** Feeding worms now has a "Worm food (per bin)"
