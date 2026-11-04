@@ -45,7 +45,7 @@
     outline = K.outline; blobShadow = K.blobShadow; statics = K.statics; scene = K.scene; movers = K.movers; hillH = K.hillH;
     rng = K.rng; R = K.R; rr = K.rr; V = K.V; SEA_Y = K.SEA_Y; PLAY = K.PLAY; WORLD = K.world; WORLD_ANIM = K.WORLD_ANIM;
     EXTRA_OBST = K.EXTRA_OBST; INNER_TREES = K.INNER_TREES; textCanvas = K.textCanvas; merge = K.merge;
-    // the box the scenery goes round: 1 m beyond the farm's outer fence (it grew: the campfire and party fields)
+    // the box the scenery goes round: 1 m beyond the farm's edge (it grew: the meadows, the dance field, the play park)
     BOX = K.BOX || { x0: -21, x1: 21, z0: -21, z1: PLAY.maxZ + 1.2 };
     var EAST = BOX.x1 - 21, WEST = BOX.x0 + 21;         // how far the east and west edges moved out (hand-placed scenery moves with them)
     var SPREAD = ((BOX.x1 - BOX.x0) + (BOX.z1 - BOX.z0)) / 98.6;     // more round a bigger farm, as thick as before

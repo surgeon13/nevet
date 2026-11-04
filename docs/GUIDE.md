@@ -223,12 +223,17 @@ through the gate (up to 16, the most active first) and they do things
 together. **Nothing on the farm changes the garden's real records**: it's
 just for fun.
 
-**The farm's layout:** the farmyard is in the middle (beds, barn, pond,
-windmill, and a signpost in the yard). The **campfire field** is to the east
-with the mud arena, and the **party field** is to the west with an open-air
-rave (a big stage and dance field) and a big wheel. The **play park** is beyond the yard's gate. Each big
-activity has a field of its own, so everyone has room and you can see them
-all. Heroes jog when they have a long way to go.
+**The farm's layout:** the **mud arena** is the heart of the farm, right in
+the middle, with the rave's dance field round it and the stage on its north
+side. The **farmyard** is to the north (beds, barn, pond, windmill, and a
+signpost in the yard), the **play park** to the south, and open meadows to
+the east (the gladiators' tents) and the west (the big wheel and the mother
+tree). There are no fences: the farm is open to everyone, and wild rabbits
+hop in from the meadows. The areas are divided by nature, with low hedges
+dotted with flowers and rows of trees in the farm's setting (palms by the
+sea, pines in the snow...), and gaps where the paths go through. You walk
+from the yard to the arena under a wooden arch with roses and the farm's
+name. Heroes jog when they have a long way to go.
 
 **How to look around:** drag to turn, pinch to zoom, tap a hero to follow
 them (they wave at you, and you see their powers), tap the ground to let
@@ -272,10 +277,11 @@ dusk by itself, so the fire can glow.
   and heroes go to them first.
 - **Planting day**: sowing the new field and watching it sprout.
 - **Campfire dance** 🔥: dusk falls and the fire roars up in the middle of
-  **the mud arena** in the campfire field: a gladiators' ring round a big
+  **the mud arena** in the middle of the farm: a gladiators' ring round a big
   fire pit, sized for the crowd (up to about 20 m across). It has a
   sandstone wall, marble columns with torches, four gates, gladiators'
-  tents, and eight braziers that shoot flames into the sky.
+  tents in the east meadow, and eight braziers that shoot flames into the
+  sky.
   Everyone dances round it, the same dances as the party (Disco, Pogo,
   the Robot, the Chicken dance, and ring dances: the Hora steps round,
   Mayim Mayim steps in to the fire and out, the Conga marches round).
@@ -307,22 +313,31 @@ dusk by itself, so the fire can glow.
   bout and football match, so everyone watching sees the same thing, and
   every grab, throw, goal and win is kept. See [Powers and game
   stats](#powers-and-game-stats).
-- **Party!**: an open-air rave on the party field, low and open so you
-  can see everyone. The DJ (whoever opened the farm) stands at the booth
+- **The arena folds up for the party** 🤖: switch from the Campfire to the
+  Party and the mud arena transforms, like a Transformer. The gate arches,
+  torch columns and braziers screw down into the ground, the eight wall
+  sections unlock one after another, swing upright and slide in to lock
+  together (with a shower of sparks) into a tower in the middle of the
+  dance field, a column rises out of the fire pit and lifts the campfire to
+  the top, so it burns above the dancers, and the floor's panels flip over
+  the mud from the rim in. Go back to the Campfire and it all unfolds
+  again into the mud pit. Any other activity opens it too.
+- **Party!**: an open-air rave round the arena in the middle of the farm,
+  low and open so you can see everyone. The DJ (whoever opened the farm) stands at the booth
   in front of a low LED screen that changes picture every 16 beats, with
   the neon NEVET sign on top, under a goal-post truss with a speaker hang
   either side and moving lights sweeping the field; two big speaker
   stacks stand on the ground. The dance field is 29 x 28 m of packed
   earth (three times the old floor) that lights up panel by panel on the
-  beat. The crowd faces the stage from the front, every dancer with room
-  round them, and the more heroes come the further back it fills. Flags
-  and string lights line the sides, two light towers at the back shoot
-  lasers over the crowd and searchlights into the sky, cables of bulbs run
-  from the towers to the truss with the mirror ball hanging where they
-  cross, and the sound desk sits under a pink sail at the back. A little
-  fog and balloons too. The big wheel and the mother tree
-  stand behind the stage, and anything big between you and the party
-  (like the mother tree, when the camera swings round) turns see-through.
+  beat, with the fire tower in the middle. The crowd faces the stage from
+  the front and round the tower, every dancer with room round them, and
+  the more heroes come the further back it fills; the Hora, Mayim Mayim
+  and the Conga go round the fire. Flags and string lights line the sides,
+  two light towers at the back shoot lasers over the crowd and
+  searchlights into the sky, and the sound desk sits under a pink sail at
+  the back. A little fog and balloons too. The big wheel turns in the
+  meadow beside the stage, and anything big between you and the party
+  (the fire tower, the mother tree) turns see-through.
   On every drop, flame jets fire along the stage. Every second drop, the
   confetti cannons go off and fireworks burst over the floor. Everyone
   does the same dance, from Disco and the Robot to the Chicken dance, the

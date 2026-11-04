@@ -27,29 +27,41 @@
                petals: ['#ffffff', '#f6d743', '#f29bc0'], yard: '#d8c497', path: '#d2bb8c', pitch: '#7cc25c', border: '#4f9a3e', borderStyle: 'hedge' }
   };                                                   // (the settings live in farm-worlds.js)
   var WORLD = WORLDS[D.world] ? D.world : 'classic', WD = WORLDS[WORLD];
-  // the play park beyond the yard's gate: football, swings, a slide, a seesaw, a trampoline and a sandbox
-  var PLAY = { minX: -19.6, maxX: 19.6, minZ: 16, maxZ: 34.4 };
-  // The whole farm inside its outer fence (metres, x to the east, z to the south), about four times the ground the
-  // farm used to have: the farmyard in the middle (beds, barn, pond, windmill), the campfire field to the east with
-  // the mud arena round the fire pit, the party field to the west with the big stage, and the play park beyond the
-  // yard's gate. Activities that need room get a field of their own, so everyone can be seen.
-  var LAND = { minX: -55, maxX: 55, minZ: -20, maxZ: 35.4 };
-  var HEDGE_X = PLAY.maxX + 0.5;                       // the play park's hedges, between the park and the two fields
-  var FIRE = V(37.5, 0, 4.5);                         // the campfire field's fire pit (the mud arena is built round it)
+  // The farm is open: no fences round it, and its areas are divided by nature (hedges and rows of trees, with gaps
+  // where the paths go through). The mud pit is its heart: the arena stands in the middle of the farm with the rave's
+  // dance field round it and the stage to the north. The farmyard (beds, barn, pond, windmill) is to the north, the
+  // play park to the south, and open meadows east and west (the gladiators' tents, the big wheel, the mother tree).
+  // When the party starts, the arena folds itself up into a fire tower in the middle of the dance field.
+  // (metres, x to the east, z to the south)
+  var PLAY = { minX: -19.6, maxX: 19.6, minZ: 60, maxZ: 78.4 };      // the play park, south of the dance field
+  var PDZ = PLAY.minZ - 16;                                         // (how far south the park moved; its pieces are placed from the old spots)
+  var LAND = { minX: -55, maxX: 55, minZ: -20, maxZ: PLAY.maxZ + 1 }; // where heroes go (no fence: just the farm's edge)
+  var HEDGE_X = 20.5;                                  // the rows of hedges and trees between the middle and the meadows
+  var FIRE = V(0, 0, 37.5);                           // the fire pit in the middle of the farm (the mud arena is built round it)
   var FIRE_K = 1.6;                                   // the fire pit, its flames and its glow, bigger than the old yard fire
   var ARENA_N = (D.heroes || []).length;
   var ARENA_W = Math.max(7.4, Math.min(9.8, 6.2 + 0.17 * ARENA_N));    // the arena wall's radius grows with the crowd
   var CAMP_R = ARENA_W + 1.8;                          // the dance ring round the arena
-  var STAGE_HX = 14.5, STAGE_HZ = 14;                  // the rave's dance field (29 x 28 m, three times the old floor)
-  var PARTY_C = V(-37.5, 0, 13.9), STAGE_N = PARTY_C.z - STAGE_HZ;    // the field's middle and its north edge (the stage)
-  var WHEEL = { x: -47.5, z: -12.5, r: 6.2 };          // the big wheel behind the stage
-  var PATH_E = 4.5, PATH_W = 10;                       // the paths from the yard to the campfire field and the party field
+  var STAGE_HX = 14.5, STAGE_HZ = 14;                  // the rave's dance field round the arena (29 x 28 m)
+  var PARTY_C = V(FIRE.x, 0, FIRE.z), STAGE_N = PARTY_C.z - STAGE_HZ;  // the field's middle (the fire) and its north edge (the stage)
+  var WHEEL = { x: -34, z: 24, r: 6.2 };               // the big wheel in the west meadow, beside the stage
+  var PATH_E = 4.5, PATH_W = 10;                       // the paths from the yard out to the east and west meadows
+  var PATHS = [                                        // every path: [x0, x1, z0, z1]
+    [-1.5, 1.5, 5.75, 18.7],                           // from the yard's middle through the arch
+    [-18.4, 18.4, 16.7, 18.7],                         // the lane behind the stage
+    [-18.4, -16.4, 16.7, 53.5], [16.4, 18.4, 16.7, 53.5],    // down both sides of the dance field
+    [-1.3, 1.3, STAGE_N + 2 * STAGE_HZ, PLAY.maxZ],    // from the dance field on through the play park
+    [-30, -1.4, PATH_W - 1.2, PATH_W + 1.2], [5.4, 30, PATH_E - 1.2, PATH_E + 1.2],   // the meadows, from the yard
+    [-29.5, -18.4, WHEEL.z - 1, WHEEL.z + 1],          // to the big wheel
+    [18.4, 23.6, FIRE.z - 1, FIRE.z + 1]               // to the gladiators' tents
+  ];
+  function onPath(x, z, m) { m = m || 0; return PATHS.some(function (p) { return x > p[0] - m && x < p[1] + m && z > p[2] - m && z < p[3] + m; }); }
   // The farm blooms with its people (invites.community on the station): the more heroes join, invite friends and
   // connect, the taller the plants, the more flowers, the bigger the mother tree, and wonders appear one by one.
   var BLOOM = D.community || { level: 0, unlocked: [] }, BL = Math.max(0, Math.min(1, +BLOOM.level || 0));
   function blooms(k) { return (BLOOM.unlocked || []).indexOf(k) >= 0; }
   var PG = { x: 1 + 0.1 * BL, y: 1 + 0.45 * BL };      // how much taller (and a little wider) the plants grow
-  var MOTHER = { x: -30.5, z: -13 };                   // the farm's mother tree, behind the party stage (a backdrop, never in the way)
+  var MOTHER = { x: -30.5, z: -13 };                   // the farm's mother tree, in the west meadow by the yard (never in the way)
 
   // seeded random, so the farm looks the same on every visit
   function rng(seed) {
@@ -230,11 +242,11 @@
   scene.add(statics);
 
   // ---------------------------------------------------------------- ground
-  var FARM = { minX: -20, maxX: 20, minZ: -20, maxZ: 16 };     // the farmyard (its south fence, with the gate, faces the play park)
-  var POND = { x: 15.6, z: 10.5 };                    // out east, by the path to the campfire field
+  var FARM = { minX: -20, maxX: 20, minZ: -20, maxZ: 16 };     // the farmyard (a hedge along its south side, with the arch, faces the stage)
+  var POND = { x: 15.6, z: 10.5 };                    // out east, by the path to the east meadow
   var ANIMALS = [];                                   // worm bins & beds, hives, the chickens, the ducks: 'Animal care' visits them all
   var SEA_Y = -0.38;                                  // the sea's level (the seaside's beach and the island's lagoon)
-  // the box the land around the farm is built round (1 m beyond the outer fence; farm-worlds.js gets it too)
+  // the box the land around the farm is built round (1 m beyond the farm's edge; farm-worlds.js gets it too)
   var BOX = { x0: LAND.minX - 1, x1: LAND.maxX + 1, z0: LAND.minZ - 1, z1: LAND.maxZ + 0.2 };
   function boxDist(x, z, m) {                          // how far beyond the farm (plus a margin m)
     var dx = Math.max(0, x < 0 ? BOX.x0 - x - m : x - BOX.x1 - m), dz = Math.max(0, z < 0 ? BOX.z0 - z - m : z - BOX.z1 - m);
@@ -290,21 +302,11 @@
   var yard = mesh(new THREE.CircleGeometry(6.5, 40), WD.yard);
   yard.rotation.x = -PI / 2; yard.position.set(0, 0.012, 1);
   statics.add(yard);
-  var pathM = mesh(new THREE.PlaneGeometry(3, 11.5), WD.path);
-  pathM.rotation.x = -PI / 2; pathM.position.set(0, 0.01, 11.5);
-  statics.add(pathM);
-  var parkPath = mesh(new THREE.PlaneGeometry(2.6, PLAY.maxZ - 17), WD.path);     // on through the play park
-  parkPath.rotation.x = -PI / 2; parkPath.position.set(0, 0.01, (PLAY.maxZ + 17) / 2);
-  statics.add(parkPath);
-  // paths out to the two fields: east past the pond to the arena's west gate, west past the greenhouse to the dance floor
-  [[5.4, FIRE.x - ARENA_W + 0.4, PATH_E, 2.4], [PARTY_C.x + STAGE_HX + 0.2, -1.4, PATH_W, 2.4]].forEach(function (p) {
-    var pm = mesh(new THREE.PlaneGeometry(p[1] - p[0], p[3]), WD.path);
-    pm.rotation.x = -PI / 2; pm.position.set((p[0] + p[1]) / 2, 0.009, p[2]);
+  PATHS.forEach(function (p, k) {                      // the paths (a hair apart in height where they cross)
+    var pm = mesh(new THREE.PlaneGeometry(p[1] - p[0], p[3] - p[2]), WD.path);
+    pm.rotation.x = -PI / 2; pm.position.set((p[0] + p[1]) / 2, 0.008 + k * 0.0004, (p[2] + p[3]) / 2);
     statics.add(pm);
   });
-  function onFieldPath(x, z) {                         // (ground cover keeps off the paths)
-    return (Math.abs(z - PATH_E) < 1.6 && x > 4.5 && x < FIRE.x - ARENA_W + 1) || (Math.abs(z - PATH_W) < 1.6 && x > PARTY_C.x + STAGE_HX && x < -1);
-  }
   var lane = mesh(new THREE.PlaneGeometry(26, 2.2), WD.path);        // the lane in front of the beds
   lane.rotation.x = -PI / 2; lane.position.set(3.5, 0.011, -4.1);
   statics.add(lane);
@@ -313,6 +315,7 @@
   // by the sea, ferns and toadstools in the forest
   function parkBusy(x, z) {                            // the play park's pitch, playground and path
     if (z < PLAY.minZ - 0.5 || z > PLAY.maxZ + 0.6) return false;
+    z -= PDZ;                                          // (the park's pieces, from where they first stood)
     return (x > -19 && x < -2 && z > 20.4 && z < 31) || (x > 2.6 && x < 19 && z > 17.6 && z < 33.6) || Math.abs(x) < 2;
   }
   (function () {
@@ -337,14 +340,15 @@
     var PETALS = WD.petals;
     function freeSpot() {
       for (var tries = 0; tries < 30; tries++) {
-        var x = rr(LAND.minX - 22, LAND.maxX + 22), z = rr(-44, 46);
+        var x = rr(LAND.minX - 22, LAND.maxX + 22), z = rr(-44, LAND.maxZ + 12);
         var inYard = x > -9.8 && x < 17 && z > (MAPG ? -19.5 : -13.5) && z < 9;
-        var onPath = (Math.abs(x) < 2 && z > 5 && z < 18) || onFieldPath(x, z);
-        var onStage = x > PARTY_C.x - STAGE_HX - 1.6 && x < PARTY_C.x + STAGE_HX + 1.6 && z > STAGE_N - 4.6 && z < PARTY_C.z + STAGE_HZ + 5.4;   // the rave field, its stage, towers and sound desk
+        var onAPath = onPath(x, z, 0.4);
+        var onStage = x > PARTY_C.x - STAGE_HX - 1.6 && x < PARTY_C.x + STAGE_HX + 1.6 && z > STAGE_N - 4.6 && z < PARTY_C.z + STAGE_HZ + 5.4;   // the dance field, its stage, towers and sound desk
+        var byTents = x > 22 && x < 30 && Math.abs(z - FIRE.z) < 11;
         var inArena = Math.hypot(x - FIRE.x, z - FIRE.z) < CAMP_R + 1.4 || Math.hypot(x - WHEEL.x, z - WHEEL.z) < 3.2 || Math.hypot(x - MOTHER.x, z - MOTHER.z) < 2.2;
         var inPond = Math.hypot(x - POND.x, z - POND.z) < 4.3;
         var wet = (WORLD === 'seaside' && z < -21.5) || (WORLD === 'island' && hillH(x, z) < 0.02) || (WORLD === 'city' && boxDist(x, z, 0) > 0);
-        if (!inYard && !onPath && !onStage && !inArena && !inPond && !wet && !parkBusy(x, z)) return [x, z];
+        if (!inYard && !onAPath && !onStage && !byTents && !inArena && !inPond && !wet && !parkBusy(x, z)) return [x, z];
       }
       return WORLD === 'city' || WORLD === 'island' ? [rr(-18, 18), rr(-19, -14)] : [rr(LAND.maxX + 3, LAND.maxX + 20), rr(-18, 30)];
     }
@@ -364,39 +368,66 @@
     if (stems) scene.add(stems);
   })();
 
-  // ---------------------------------------------------------------- fence & gate
+  // ---------------------------------------------------------------- hedges and trees between the areas
+  // No fences: the farm is open to everyone (and to the animals and plants round it). Its areas are divided by nature:
+  // low hedges dotted with flowers, and rows of trees (in the farm's setting: palms by the sea, pines in the snow...),
+  // with gaps where the paths go through. The yard's way south is a wooden arch with the farm's name, in the hedge.
+  var PARK_N = PLAY.minZ - 0.6;                         // the hedge between the dance field and the play park
+  var DIVIDE_OBST = [], DIVIDE_TREES = [];
   (function () {
-    var posts = [], rails = [];
-    function edge(ax, az, bx, bz, gap) {
-      var len = Math.hypot(bx - ax, bz - az), n = Math.round(len / 2.5);
-      for (var i = 0; i <= n; i++) {
-        var t = i / n, x = ax + (bx - ax) * t, z = az + (bz - az) * t;
-        if (gap && Math.abs(x) < 1.9 && Math.abs(z - FARM.maxZ) < 0.1) continue;
-        posts.push([x, z]);
-        if (i < n) {
-          var t2 = (i + 0.5) / n, mx = ax + (bx - ax) * t2, mz = az + (bz - az) * t2;
-          if (gap && Math.abs(mx) < 2.6 && Math.abs(mz - FARM.maxZ) < 0.1) continue;
-          rails.push([mx, mz, Math.atan2(bz - az, bx - ax), len / n]);
+    var rows = [                                       // [x0, z0, x1, z1, gaps: [from, to] along the row]
+      [-HEDGE_X, LAND.minZ + 0.8, -HEDGE_X, LAND.maxZ - 0.6, [[PATH_W - 1.7, PATH_W + 1.7], [WHEEL.z - 1.7, WHEEL.z + 1.7]]],
+      [HEDGE_X, LAND.minZ + 0.8, HEDGE_X, LAND.maxZ - 0.6, [[PATH_E - 1.7, PATH_E + 1.7], [FIRE.z - 1.7, FIRE.z + 1.7]]],
+      [-HEDGE_X + 0.9, FARM.maxZ, HEDGE_X - 0.9, FARM.maxZ, [[-2.5, 2.5]]],      // the yard's south side (the arch in the gap)
+      [-HEDGE_X + 0.9, PARK_N, HEDGE_X - 0.9, PARK_N, [[-2.0, 2.0]]]             // between the dance field and the play park
+    ];
+    var bushes = [], blooms2 = [];
+    rows.forEach(function (row, ri) {
+      var alongZ = row[0] === row[2], a0 = alongZ ? row[1] : row[0], a1 = alongZ ? row[3] : row[2], fixed = alongZ ? row[0] : row[1];
+      function gapAt(t) { return row[4].some(function (g) { return t > g[0] && t < g[1]; }); }
+      var trees = [];
+      if (alongZ) for (var t = a0 + 3; t < a1 - 1; t += 9) {        // a tree every 9 m on the long rows (not by the barn, the gaps or the tents)
+        var nearGap = row[4].some(function (g) { return t > g[0] - 2.6 && t < g[1] + 2.6; });
+        var byBarn = fixed < 0 && t > -15 && t < -4, byTents = fixed > 0 && Math.abs(t - FIRE.z) < 9;
+        if (!nearGap && !byBarn && !byTents) { trees.push(t); DIVIDE_TREES.push([fixed, t]); }
+      }
+      var seg0 = null;
+      function closeSeg(t) {
+        if (seg0 === null) return;
+        var mid = (seg0 + t) / 2, half = (t - seg0) / 2 + 0.35;
+        DIVIDE_OBST.push(alongZ ? [fixed, mid, 0.55, half] : [mid, fixed, half, 0.55]);
+        seg0 = null;
+      }
+      for (var u = a0; u <= a1; u += 1.15) {
+        if (gapAt(u)) { closeSeg(u - 1.15); continue; }
+        if (seg0 === null) seg0 = u;
+        if (trees.some(function (tt) { return Math.abs(tt - u) < 1.5; })) continue;   // (under the trees)
+        var j = R(), x = alongZ ? fixed + (j - 0.5) * 0.3 : u, z = alongZ ? u : fixed + (j - 0.5) * 0.3, sc = 0.8 + R() * 0.45;
+        bushes.push([x, z, sc, R()]);
+        if (R() < 0.45) for (var f = 0; f < 3; f++) {
+          var fa = R() * TAU;
+          blooms2.push([x + Math.cos(fa) * 0.42 * sc, 0.55 * sc + R() * 0.25, z + Math.sin(fa) * 0.42 * sc, ri + f]);
         }
       }
-    }
-    edge(LAND.minX, LAND.minZ, LAND.maxX, LAND.minZ);           // the outer fence round the whole farm
-    edge(LAND.maxX, LAND.minZ, LAND.maxX, LAND.maxZ);
-    edge(LAND.maxX, LAND.maxZ, LAND.minX, LAND.maxZ);
-    edge(LAND.minX, LAND.maxZ, LAND.minX, LAND.minZ);
-    edge(HEDGE_X, FARM.maxZ, -HEDGE_X, FARM.maxZ, true);         // the yard's fence along the play park, with the gate
-    var postGeo = new THREE.BoxGeometry(0.22, 1.2, 0.22); postGeo.translate(0, 0.6, 0);
-    var railGeo = new THREE.BoxGeometry(1, 0.12, 0.08);
-    var wood = mat('#b98b5a'), wood2 = mat('#a57849');
-    var P = new THREE.InstancedMesh(postGeo, wood2, posts.length), Rl = new THREE.InstancedMesh(railGeo, wood, rails.length * 2);
-    var m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), p = new THREE.Vector3();
-    posts.forEach(function (pp, i) { m.compose(p.set(pp[0], 0, pp[1]), q.identity(), s.set(1, 1, 1)); P.setMatrixAt(i, m); });
-    rails.forEach(function (r, i) {
-      q.setFromAxisAngle(V(0, 1, 0), -r[2]);
-      [0.45, 0.88].forEach(function (y, k) { m.compose(p.set(r[0], y, r[1]), q, s.set(r[3] + 0.1, 1, 1)); Rl.setMatrixAt(i * 2 + k, m); });
+      closeSeg(a1);
     });
-    scene.add(P); scene.add(Rl);
-    // gate posts with a little arch and a sign
+    var bushGeo = new THREE.IcosahedronGeometry(0.62, 1); bushGeo.scale(1, 0.78, 1); bushGeo.translate(0, 0.4, 0);
+    var bushM = new THREE.InstancedMesh(bushGeo, new THREE.MeshToonMaterial({ color: 0xffffff }), bushes.length);
+    var m = new THREE.Matrix4(), q = new THREE.Quaternion(), sv = new THREE.Vector3(), pv = new THREE.Vector3(), col = new THREE.Color();
+    var base = new THREE.Color(WD.bush || WD.border && WD.borderStyle === 'hedge' && WD.border || WD.tuft || '#4f9a3e');
+    bushes.forEach(function (bsh, i) {
+      q.setFromAxisAngle(V(0, 1, 0), bsh[3] * TAU);
+      m.compose(pv.set(bsh[0], hillH(bsh[0], bsh[1]), bsh[1]), q, sv.set(bsh[2], bsh[2] * (0.85 + bsh[3] * 0.3), bsh[2]));
+      bushM.setMatrixAt(i, m);
+      bushM.setColorAt(i, col.copy(base).multiplyScalar(0.82 + bsh[3] * 0.3));
+    });
+    scene.add(bushM);
+    if (blooms2.length && WD.flowers !== false) {
+      var bl = new THREE.InstancedMesh(new THREE.SphereGeometry(0.09, 7, 5), new THREE.MeshToonMaterial({ color: 0xffffff }), blooms2.length);
+      blooms2.forEach(function (b2, i) { m.makeTranslation(b2[0], b2[1] + hillH(b2[0], b2[2]), b2[2]); bl.setMatrixAt(i, m); bl.setColorAt(i, col.set(WD.petals[b2[3] % WD.petals.length])); });
+      scene.add(bl);
+    }
+    // the wooden arch over the way from the yard, with the farm's name and roses climbing it
     var gate = group([0, 0, FARM.maxZ]);
     [-1.9, 1.9].forEach(function (x) { gate.add(box(0.34, 2.9, 0.34, '#8a5f3a', [x, 1.45, 0])); });
     gate.add(box(4.3, 0.3, 0.36, '#8a5f3a', [0, 2.95, 0]));
@@ -405,6 +436,11 @@
     sign.position.set(0, 2.45, 0.2);
     gate.add(sign);
     var signBack = sign.clone(); signBack.rotation.y = PI; signBack.position.z = -0.2; gate.add(signBack);
+    [-1.9, 1.9].forEach(function (x, k) {                // leaves and roses up the posts and along the top
+      for (var lf = 0; lf < 7; lf++) gate.add(sphere(0.22, '#4f8f3e', [x + Math.sin(lf * 2.1 + k) * 0.2, 0.3 + lf * 0.42, Math.cos(lf * 1.7) * 0.2], [1, 0.8, 1], 6));
+      for (var rs2 = 0; rs2 < 4; rs2++) gate.add(sphere(0.09, WD.petals[(rs2 + k) % WD.petals.length], [x + Math.sin(rs2 * 2.7) * 0.25, 0.6 + rs2 * 0.65, 0.22], null, 6));
+    });
+    for (var tl = 0; tl < 9; tl++) gate.add(sphere(0.2, '#4f8f3e', [-2 + tl * 0.5, 3.12, Math.sin(tl * 1.3) * 0.12], [1, 0.7, 1], 6));
     statics.add(outline(gate));
   })();
 
@@ -1036,8 +1072,9 @@
 
   // ---------------------------------------------------------------- trees and the land around the farm (by setting)
   var WORLD_ANIM = [];                                 // little things that move (boats, gulls, tumbleweeds, the lighthouse...)
-  // the trees inside the fence (heroes walk round them): two in the yard, the rest in the corners of the fields
-  var INNER_TREES = [[17, -2], [-18, -16], [51, -16.5], [51, 31], [-51, 31], [24.5, 31], [-24.5, 31]];
+  // the trees on the farm (heroes walk round them): two in the yard, some in the meadows, and the rows between the areas
+  var INNER_TREES = [[17, -2], [-18, -16], [51, -16.5], [51, 31], [-51, 31], [-50, 66], [49, 64], [38, 48], [-42, 50]];
+  DIVIDE_TREES.forEach(function (t) { if (INNER_TREES.every(function (o) { return Math.hypot(o[0] - t[0], o[1] - t[1]) > 4.5; })) INNER_TREES.push(t); });
   var EXTRA_OBST = [];                                 // more things heroes walk round (the oasis palms)
   if (window.NevetWorlds) NevetWorlds.build({
     group: group, cyl: cyl, box: box, sphere: sphere, cone: cone, mesh: mesh, mat: mat, rot: rot, outline: outline, blobShadow: blobShadow,
@@ -1109,7 +1146,7 @@
     });
   })();
 
-  // The campfire in the middle of the campfire field (the mud arena is built round it): a ring of big stones, a tepee
+  // The campfire in the middle of the farm (the mud arena is built round it): a ring of big stones, a tepee
   // of logs on a bed of glowing coals, and a fire drawn with shaders: flames (noise rising through a fire colour ramp)
   // on planes that always face you, a white-hot core, a glow, firelight on the ground, embers and sparks, smoke, and a
   // flickering light. It's lit for the Campfire dance (and at night in dark mode). For the champion it burns rainbow.
@@ -1166,10 +1203,11 @@
       var log = cyl(0.11 * K, 0.13 * K, 1.45 * K, l % 2 ? '#6b4423' : '#5a381d', [0.34 * K, 0.55 * K, 0], 8); log.rotation.z = 0.55;
       lg.add(log); g.add(lg);
     }
-    statics.add(g);
+    scene.add(g); FIREFX.rig = g;                       // (it rides up the fire tower when the arena folds for the party)
+    if (NevetHero.merge) NevetHero.merge(g, function () { return false; });
     for (var cI = 0; cI < 16; cI++) {                   // glowing coals
-      var ca = cI / 16 * TAU, coal = mesh(new THREE.SphereGeometry(0.12 * K, 7, 5), new THREE.MeshBasicMaterial({ color: 0xff5a14 }), [FIRE.x + Math.cos(ca) * rr(0.15, 0.62) * K, 0.07 * K, FIRE.z + Math.sin(ca) * rr(0.15, 0.62) * K]);
-      coal.scale.set(1.3, 0.6, 1.1); coal.userData.ph = cI * 1.7; scene.add(coal); FIREFX.coals.push(coal);
+      var ca = cI / 16 * TAU, coal = mesh(new THREE.SphereGeometry(0.12 * K, 7, 5), new THREE.MeshBasicMaterial({ color: 0xff5a14 }), [Math.cos(ca) * rr(0.15, 0.62) * K, 0.07 * K, Math.sin(ca) * rr(0.15, 0.62) * K]);
+      coal.scale.set(1.3, 0.6, 1.1); coal.userData.ph = cI * 1.7; g.add(coal); FIREFX.coals.push(coal);
     }
     [[2.1, 2.9, 1.0, 0.0], [1.1, 1.9, 1.35, 3.1], [1.0, 1.6, 0.9, 6.3], [0.9, 1.4, 0.9, 9.7], [0.95, 1.5, 0.9, 12.9], [0.85, 1.3, 0.9, 15.4]].forEach(function (f, k) {
       var fb = flameBoard(f[0] * K, f[1] * K, f[2], f[3]);
@@ -1182,7 +1220,7 @@
     FIREFX.glow.position.set(FIRE.x, 1.3 * K, FIRE.z); FIREFX.glow.scale.setScalar(6 * K); FIREFX.glow.renderOrder = 4; scene.add(FIREFX.glow);
     FIREFX.ground = new THREE.Mesh(new THREE.CircleGeometry(3.0 * K, 48), new THREE.MeshBasicMaterial({ map: radialTex([[0, 'rgba(255,150,60,0.75)'], [0.5, 'rgba(255,100,30,0.25)'], [1, 'rgba(255,80,20,0)']]),
       blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0 }));
-    FIREFX.ground.rotation.x = -PI / 2; FIREFX.ground.position.set(FIRE.x, 0.05, FIRE.z); FIREFX.ground.renderOrder = 3; scene.add(FIREFX.ground);
+    FIREFX.ground.rotation.x = -PI / 2; FIREFX.ground.position.set(FIRE.x, 0.1, FIRE.z); FIREFX.ground.renderOrder = 3; scene.add(FIREFX.ground);
     var smokeTex = radialTex([[0, 'rgba(90,90,96,0.55)'], [0.6, 'rgba(110,110,116,0.22)'], [1, 'rgba(120,120,126,0)']]);
     for (var sI = 0; sI < 12; sI++) {
       var sm = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex, transparent: true, depthWrite: false, opacity: 0 }));
@@ -1302,15 +1340,15 @@
     });
   }
 
-  // The party field, west of the yard: an open-air rave. A 29 x 28 m dance field of packed earth that lights up
-  // panel by panel on the beat, in front of a low, open stage: a DJ booth, a low LED screen with the NEVET sign, a
-  // goal-post truss with a flown speaker hang either side and moving heads, and two big speaker stacks on the ground.
-  // Two light towers stand at the back of the field with lasers and sky searchlights, festoon cables run from the
-  // towers to the truss (the mirror ball hangs where they cross), flags line the sides and a sound desk sits under a
-  // stretched sail at the back. Minimal on purpose, so everyone on the floor can be seen from anywhere. Behind it
-  // all, the big wheel turns and the mother tree stands. In party mode: beams and lasers, a little fog, confetti,
-  // balloons, flame jets and confetti cannons on the drops, fireworks. The stage stays up all the time (the screen
-  // and the lights rest between parties).
+  // The rave, in the middle of the farm round the mud arena: a 29 x 28 m dance field of packed earth that lights up
+  // panel by panel on the beat, in front of a low, open stage to the north: a DJ booth, a low LED screen with the
+  // NEVET sign, a goal-post truss with a flown speaker hang either side and moving heads, and two big speaker stacks
+  // on the ground. Two light towers at the back of the field (by the sound desk under its stretched sail) have
+  // lasers and sky searchlights, and flags and festoons line the sides. When the party starts, the arena folds up
+  // into a fire tower in the middle of the field (see "the folding arena"). Minimal on purpose, so everyone on the
+  // floor can be seen from anywhere; the big wheel turns in the meadow beside the stage. In party mode: lasers, a
+  // little fog, confetti, balloons, flame jets and confetti cannons on the drops, fireworks. The stage stays up all
+  // the time (the screen and the lights rest between parties).
   var PARTY = { c: PARTY_C, hx: STAGE_HX, hz: STAGE_HZ, half: Math.max(STAGE_HX, STAGE_HZ),
                 tiles: null, bulbs: null, beams: [], ball: null, confetti: null, notes: [], lasers: [], spots: [], fog: [],
                 balloons: [], speakers: [], decks: [], leds: null, neon: null, group: null, fixed: null, screen: null,
@@ -1318,13 +1356,41 @@
   var DJ_SPOT = V(PARTY.c.x, 0, STAGE_N - 1.9);
   var STAGE = { w: 9.0, wallZ: DJ_SPOT.z - 1.5, wallW: 12.4, wallH: 2.2, wallY: 0.75, booth: DJ_SPOT.z + 0.95,
                 trussX: 7.6, trussH: 7.2, stackX: 10.6, stackZ: STAGE_N - 1.1,
-                towerX: 5, towerZ: PARTY_C.z + STAGE_HZ + 2.2, towerH: 8.6 };      // (the light towers flank the sound desk)
+                towerX: 5, towerZ: PARTY_C.z + STAGE_HZ + 2.2, towerH: 8.6, fohX: -8.5 };   // (the light towers flank the sound desk, west of the path to the park)
   STAGE.trussZ = STAGE.wallZ + 0.15;
-  // the crowd fills the floor from the front, row by row (rows of up to 11): the more dancers, the more of the field
+  // the crowd fills the floor from the front, row by row (rows of up to 11, the middle first), round the fire tower:
+  // the more dancers, the more of the field
+  var TOWER_R = 2.7, TOWER_CLEAR = TOWER_R + 2.0;        // the folded arena's fire tower in the middle of the field, and room round it
   var CROWD_N = Math.max(1, (D.heroes || []).length - 1);
   function crowdShape(n) { var cols = Math.max(2, Math.min(11, Math.ceil(Math.sqrt(n * 1.7)))); return { cols: cols, rows: Math.max(1, Math.ceil(n / cols)) }; }
   var CROWD_SP = { x: 3.4, z: 3.1 }, CROWD_Z = STAGE_N + 2.9;               // room to dance, and the front row a few steps from the stage
-  var CROWD_C = V(PARTY_C.x, 0, Math.min(PARTY_C.z, CROWD_Z + (crowdShape(CROWD_N).rows - 1) * CROWD_SP.z / 2 + 0.6));   // the crowd's middle
+  var CROWD_SLOTS = {};
+  function crowdSlots(n) {
+    if (CROWD_SLOTS[n]) return CROWD_SLOTS[n];
+    var cols = crowdShape(n).cols, spX = Math.min(CROWD_SP.x, (STAGE_HX * 2 - 2.4) / Math.max(1, cols - 1)), spZ = CROWD_SP.z, out = [];
+    for (var pass = 0; pass < 4 && out.length < n; pass++, spX *= 0.88, spZ *= 0.85) {   // (closer together if the field is full)
+      out = [];
+      for (var j = 0; out.length < n; j++) {
+        var z = CROWD_Z + j * spZ;
+        if (z > PARTY_C.z + STAGE_HZ - 1.2) break;
+        var stagger = (j % 2 ? 0.125 : -0.125) * spX, fan = 1 + j * 0.03, row = [];
+        for (var i = 0; i < cols; i++) {
+          var x = PARTY_C.x + (i - (cols - 1) / 2) * spX * fan + stagger;
+          if (Math.abs(x - PARTY_C.x) > STAGE_HX - 0.8 || Math.hypot(x - FIRE.x, z - FIRE.z) < TOWER_CLEAR) continue;
+          row.push(V(x, 0, z));
+        }
+        row.sort(function (a, b) { return Math.abs(a.x - PARTY_C.x) - Math.abs(b.x - PARTY_C.x); });   // a short row stands in the middle
+        while (row.length && out.length < n) out.push(row.shift());
+      }
+    }
+    CROWD_SLOTS[n] = out;
+    return out;
+  }
+  var CROWD_C = (function () {                          // the crowd's middle
+    var sl = crowdSlots(CROWD_N), c = V(0, 0, 0);
+    sl.forEach(function (p) { c.add(p); });
+    return sl.length ? c.divideScalar(sl.length) : V(PARTY_C.x, 0, CROWD_Z + 4);
+  })();
   var WHEEL_FX = { rot: null, cabins: [], bulbs: null, n: 0 };
   var LED_FS = [
     'uniform float uTime; uniform float uKick; uniform float uMode; uniform float uLevel; uniform vec2 uGrid; uniform float uAspect; varying vec2 vUv;',
@@ -1494,7 +1560,7 @@
     }
     var towerTops = [];
     [-1, 1].forEach(function (sd, t) {
-      var x = c.x + sd * S.towerX, z = S.towerZ, H = S.towerH, w2 = 0.75;
+      var x = c.x + S.fohX + sd * S.towerX, z = S.towerZ, H = S.towerH, w2 = 0.75;
       var legs = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
       legs.forEach(function (k) { statics.add(rod(V(x + k[0] * w2, 0, z + k[1] * w2), V(x + k[0] * w2, H, z + k[1] * w2), 0.05, SC)); });
       for (var lv = 1.8; lv < H; lv += 1.8) for (var e = 0; e < 4; e++) {
@@ -1515,8 +1581,7 @@
     });
     searchlight(c.x - S.trussX - 1.4, 0.3, S.trussZ - 1.2, 2);       // and two more behind the stage
     searchlight(c.x + S.trussX + 1.4, 0.3, S.trussZ - 1.2, 3);
-    // festoon bulbs: along the sides and the back of the field on flag poles, and two cables from the truss to the
-    // towers that cross over the middle of the field (the mirror ball hangs there)
+    // festoon bulbs along the sides and the back of the field, on flag poles
     var bulbPos = [], wires = [];                       // (all the cables in one draw)
     function string(a, b2, sag, count) {
       for (var k = 0; k <= count; k++) {
@@ -1546,30 +1611,13 @@
       fl.userData = { ph: k * 1.3, y: fl.rotation.y };
       fx.add(fl); PARTY.flags.push(fl);
     });
-    var tl = towerTops[0], tr = towerTops[1];
-    var trussL = V(c.x - S.trussX, top + 0.2, S.trussZ), trussR = V(c.x + S.trussX, top + 0.2, S.trussZ);
-    string(trussL, tr, 0.8, 40); string(trussR, tl, 0.8, 40);
-    var cross = S.trussX / (S.trussX + S.towerX);              // where the two cables cross (they're mirror images)
-    var crossY = trussL.y + (tr.y - trussL.y) * cross - Math.sin(cross * PI) * 0.8, crossZ = S.trussZ + (tr.z - S.trussZ) * cross;
-    fx.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(wires), new THREE.LineBasicMaterial({ color: 0x2a2a30 })));
     var bulbs = new THREE.InstancedMesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }), bulbPos.length);
     bulbPos.forEach(function (p, k) { m.makeTranslation(p.x, p.y, p.z); bulbs.setMatrixAt(k, m); bulbs.setColorAt(k, col.setHSL(k * 0.13 % 1, 0.6, 0.7)); });
     PARTY.bulbs = bulbs;
     fx.add(bulbs);
-    var ballY = crossY - 0.8;
-    var ball = mesh(new THREE.IcosahedronGeometry(0.7, 1), mat('#c9ced6', { flatShading: true, emissive: new THREE.Color('#334'), emissiveIntensity: 0.5 }), [c.x, ballY, crossZ]);
-    fx.add(ball); PARTY.ball = ball;
-    fx.add(cyl(0.012, 0.012, 0.5, '#888', [c.x, ballY + 0.75, crossZ], 4));
-    ['#ff4fa3', '#3fd9ff', '#ffe14d', '#7dff6a', '#b06bff', '#ff8a3d'].forEach(function (hex, k) {
-      var beam = mesh(new THREE.ConeGeometry(1.8, ballY, 16, 1, true), new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-      beam.geometry.translate(0, -ballY / 2, 0);
-      beam.position.set(c.x, ballY, crossZ);
-      beam.userData.k = k;
-      g.add(beam); PARTY.beams.push(beam);
-    });
     // the sound desk at the back of the field, under a stretched sail
     (function () {
-      var x = c.x, z = c.z + hz + 3.4, pts = [[-2.3, -1.7, 3.6], [2.3, -1.7, 2.5], [2.3, 1.7, 3.6], [-2.3, 1.7, 2.5]];
+      var x = c.x + S.fohX, z = c.z + hz + 3.4, pts = [[-2.3, -1.7, 3.6], [2.3, -1.7, 2.5], [2.3, 1.7, 3.6], [-2.3, 1.7, 2.5]];
       pts.forEach(function (q) { statics.add(cyl(0.05, 0.06, q[2], '#8a5f3a', [x + q[0], q[2] / 2, z + q[1]], 6)); });
       var sg = new THREE.BufferGeometry(), N2 = 8, pos = [], idx = [];
       for (var a3 = 0; a3 <= N2; a3++) for (var b3 = 0; b3 <= N2; b3++) {       // a hypar: the sail's two high corners and two low ones
@@ -1700,18 +1748,17 @@
     WHEEL_FX.hub = hub;
   })();
 
-  // ---------------------------------------------------------------- the play park, outside the gate
+  // ---------------------------------------------------------------- the play park, south of the dance field
   // A football pitch with goals and a scoreboard, swings, a slide, a seesaw, a trampoline, a sandbox with a
-  // sandcastle, two kites and a low border (a hedge, an adobe wall, a picket fence or logs, by setting).
-  // (The sparring arena is in the yard, around the campfire: see "the arena".)
+  // sandcastle and two kites, between the rows of hedges and trees. (The mud arena is in the middle of the farm.)
   var PLAY_OBST = [];
-  var FB = { c: V(-10.5, 0, 25.5), hx: 7, hz: 4.2, mouth: 1.15, ball: null, v: V(0, 0, 0), score: [0, 0], resetAt: 0, idle: 0,
+  var FB = { c: V(-10.5, 0, 25.5 + PDZ), hx: 7, hz: 4.2, mouth: 1.15, ball: null, v: V(0, 0, 0), score: [0, 0], resetAt: 0, idle: 0,
              kits: ['#e8473c', '#2f7be0'], names: ['Tomatoes', 'Blueberries'], board: null, banner: null, bannerAt: -9 };
-  var SWING = { x: 8, z: 20.3, pivot: 2.45, seatY: 0.58, seats: [] };
-  var SLIDE = { x: 14.6, top: 19.6, bottom: 24.4, h: 2.0, ladder: V(14.6, 0, 18.75), busyBy: null, busyUntil: 0 };
-  var SEESAW = { c: V(8, 0, 27.2), half: 1.85, plank: null, angle: 0.3, seats: [] };
-  var TRAMP = { c: V(14.6, 0, 29.4), r: 1.55, y: 0.62, mat: null, seats: [] };
-  var SANDBOX = { c: V(5.2, 0, 31.6), castle: null, built: 0.25, seats: [] };
+  var SWING = { x: 8, z: 20.3 + PDZ, pivot: 2.45, seatY: 0.58, seats: [] };
+  var SLIDE = { x: 14.6, top: 19.6 + PDZ, bottom: 24.4 + PDZ, h: 2.0, ladder: V(14.6, 0, 18.75 + PDZ), busyBy: null, busyUntil: 0 };
+  var SEESAW = { c: V(8, 0, 27.2 + PDZ), half: 1.85, plank: null, angle: 0.3, seats: [] };
+  var TRAMP = { c: V(14.6, 0, 29.4 + PDZ), r: 1.55, y: 0.62, mat: null, seats: [] };
+  var SANDBOX = { c: V(5.2, 0, 31.6 + PDZ), castle: null, built: 0.25, seats: [] };
   var KITES = [], CHEER_SPOTS = [];
   (function () {
     var lineMat = mat('#ffffff');
@@ -1837,7 +1884,7 @@
     [[-1.75, 0], [1.75, 0], [0, 1.75]].forEach(function (o) { SANDBOX.seats.push({ kind: 'sandbox', user: null, pos: V(SANDBOX.c.x + o[0], 0, SANDBOX.c.z + o[1]) }); });
     PLAY_OBST.push(['r', SANDBOX.c.x, SANDBOX.c.z, 1.38, 1.38]);
     // two kites high over the park
-    [[17.8, 33.2, '#ff5ea8', 0], [-18.4, 32.8, '#ffd84d', 2.3]].forEach(function (k) {
+    [[17.8, 33.2 + PDZ, '#ff5ea8', 0], [-18.4, 32.8 + PDZ, '#ffd84d', 2.3]].forEach(function (k) {
       var kite = group(), sh = new THREE.Shape();
       sh.moveTo(0, 0.9); sh.lineTo(0.6, 0); sh.lineTo(0, -1.1); sh.lineTo(-0.6, 0); sh.lineTo(0, 0.9);
       kite.add(mesh(new THREE.ShapeGeometry(sh), mat(k[2], { side: THREE.DoubleSide })));
@@ -1850,46 +1897,22 @@
       statics.add(cyl(0.04, 0.04, 0.5, '#7a5233', [k[0], 0.25, k[1]], 5));
       KITES.push({ kite: kite, str: str, stake: stake, ph: k[3] });
     });
-    // a sign by the gate, and the park's border
-    var sign = group([2.9, 0, 17.4], -0.3);
+    // a sign at the park's way in
+    var sign = group([2.9, 0, PLAY.minZ + 1.4], -0.3);
     sign.add(cyl(0.07, 0.07, 1.9, '#8a5f3a', [0, 0.95, 0], 6));
     var sp = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.55), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(textCanvas('⚽ Play park', { px: 40, bg: '#f3e6c8', color: '#5a3d22', radius: 10, stroke: '#8a5f3a' })), side: THREE.DoubleSide }));
     sp.position.set(0, 1.75, 0.08); sign.add(sp);
     statics.add(sign);
-    PLAY_OBST.push(['c', 2.9, 17.4, 0.15]);
-    var edges = [[-HEDGE_X, 16.2, -HEDGE_X, LAND.maxZ - 0.25], [HEDGE_X, LAND.maxZ - 0.25, HEDGE_X, 16.2]];   // (the outer fence closes the south side)
-    edges.forEach(function (e) {
-      var len2 = Math.hypot(e[2] - e[0], e[3] - e[1]), n = Math.round(len2 / 2.2), angE = Math.atan2(e[2] - e[0], e[3] - e[1]);
-      for (var i = 0; i < n; i++) {
-        var t0 = (i + 0.5) / n, x = e[0] + (e[2] - e[0]) * t0, z = e[1] + (e[3] - e[1]) * t0, seg = len2 / n;
-        var style = WD.borderStyle || 'hedge', px = x - Math.sin(angE) * seg / 2, pz = z - Math.cos(angE) * seg / 2;
-        if (style === 'hedge') statics.add(rot(box(0.6, 0.62, seg - 0.25, WD.border, [x, 0.31, z]), 0, angE));
-        else if (style === 'adobe') statics.add(rot(box(0.38, 0.55, seg - 0.05, WD.border, [x, 0.27, z]), 0, angE));
-        else if (style === 'logs') { var lgE = rot(cyl(0.16, 0.18, seg, WD.border, [x, 0.3, z], 7), PI / 2, angE, 0); lgE.rotation.order = 'YXZ'; statics.add(lgE); statics.add(cyl(0.08, 0.08, 0.7, '#5a3d22', [px, 0.35, pz], 6)); }
-        else if (style === 'bamboo') {
-          for (var bm = 0; bm < 6; bm++) { var tb = (i + bm / 6) / n; statics.add(cyl(0.05, 0.05, 0.9 + (bm % 3) * 0.12, bm % 2 ? WD.border : '#86a83e', [e[0] + (e[2] - e[0]) * tb, 0.48, e[1] + (e[3] - e[1]) * tb], 5)); }
-          statics.add(rot(box(0.06, 0.06, seg, '#b59b5e', [x, 0.62, z]), 0, angE));
-        } else if (style === 'posts') {
-          statics.add(cyl(0.09, 0.1, 0.9, WD.border, [px, 0.45, pz], 6));
-          statics.add(rot(box(0.035, 0.035, seg, '#d8c8a8', [x, 0.7, z]), 0, angE)); statics.add(rot(box(0.035, 0.035, seg, '#d8c8a8', [x, 0.4, z]), 0, angE));
-        } else if (style === 'railing') {
-          statics.add(cyl(0.04, 0.04, 1.0, WD.border, [px, 0.5, pz], 6));
-          statics.add(rot(box(0.05, 0.05, seg, WD.border, [x, 0.95, z]), 0, angE)); statics.add(rot(box(0.03, 0.03, seg, WD.border, [x, 0.5, z]), 0, angE));
-        } else {
-          for (var pk = 0; pk < 5; pk++) { var tt = (i + pk / 5) / n; statics.add(box(0.1, 0.75, 0.05, WD.border, [e[0] + (e[2] - e[0]) * tt, 0.37, e[1] + (e[3] - e[1]) * tt])); }
-          statics.add(rot(box(0.05, 0.08, seg, WD.border, [x, 0.5, z]), 0, angE));
-        }
-      }
-    });
+    PLAY_OBST.push(['c', 2.9, PLAY.minZ + 1.4, 0.15]);
   })();
 
   // ---------------------------------------------------------------- the mud arena: build
-  // A gladiators' mud arena around the campfire's fire pit in the campfire field, as big as the farm's crowd needs: a
-  // mud floor, a low sandstone wall with four gates (the west one at the end of the path from the yard), marble
-  // columns with torches, an arch over each gate (the north one carries the board), banners and shields, and eight
-  // braziers round the outside that shoot flames on the big moments. At the Campfire dance everyone dances round it
-  // while three at a time wrestle in the mud: the station's tournament (games.py, /api/games/now?mode=campfire), the
-  // same for everyone watching, every grab and throw kept as stats. Gladiators' tents stand behind it.
+  // A gladiators' mud arena around the fire pit in the middle of the farm, as big as the farm's crowd needs: a mud
+  // floor, a low sandstone wall with four gates, marble columns with torches, an arch over each gate (the north one
+  // carries the board), banners and shields, and eight braziers round the outside that shoot flames on the big
+  // moments. At the Campfire dance everyone dances round it while three at a time wrestle in the mud: the station's
+  // tournament (games.py, /api/games/now?mode=campfire), the same for everyone watching, every grab and throw kept as
+  // stats. Gladiators' tents stand in the east meadow. It's built from parts that fold (see "the folding arena").
   var RING = { c: V(FIRE.x, 0, FIRE.z), wall: ARENA_W, inner: 1.75 * FIRE_K, fight: ARENA_W - 0.7, h: 0, phase: 'idle', fighters: [], bout: null,
                colors: ['#e8473c', '#2f7be0', '#f2b33d'], floor: null, board: null, banner: null, bannerAt: -9, bannerY: 5.4, pops: [],
                torches: [], braziers: [], evI: 0, pending: [], points: {}, styleId: 'mud', ready: false, ceremony: false, nextJet: 0, nextWork: 0 };
@@ -1925,79 +1948,146 @@
     RING_TEX[id] = t;
     return t;
   }
+  // ---------------------------------------------------------------- the folding arena
+  // The arena folds itself up for the party, like a Transformer, and opens again for the mud pit. FOLD.t runs from 0
+  // (open: the mud pit) to 1 (folded: a fire tower in the middle of the dance field), and every part follows it with
+  // its own delay: the gate arches, the torch columns and the braziers screw down into the ground, the eight wall
+  // sections unlock, swing upright one after another and slide in to lock round the middle, a column rises from the
+  // fire pit and lifts the campfire to the top of the tower, and the dance floor's panels flip over the mud from the
+  // rim in. Back to the mud pit, the same in reverse.
+  var FOLD = { t: 0, want: 0, dur: 5.2, sectors: [], sinkers: [], pedestal: null, top: 5.6, fireY: 0, fireK: 1, tiles: [],
+               locked: [], fader: null, faderSpheres: null, settled: -1 };
   (function () {
     var c = RING.c, W = RING.wall, stone = '#d4bb8f', cap = '#b59a6c', marble = '#efe6d2', bronze = '#8c5a2b';
+    var root = group(), parts = new Set();
+    scene.add(root); FOLD.root = root;
     RING.floor = new THREE.MeshToonMaterial({ color: 0xffffff, map: ringFloorTex('mud') });
     var fl = new THREE.Mesh(new THREE.CircleGeometry(W - 0.05, 96), RING.floor);
-    fl.rotation.x = -PI / 2; fl.position.set(c.x, 0.016, c.z); scene.add(fl);
+    fl.rotation.x = -PI / 2; fl.position.set(c.x, 0.06, c.z); scene.add(fl);       // (just above the dance field's base)
     function inGate(a) { return ARENA_GATES.some(function (gA) { return Math.abs(((a - gA + PI * 3) % TAU) - PI) < GATE_HALF; }); }
+    function wrap(a) { return ((a + PI * 3) % TAU) - PI; }
+    // the wall: eight sections, two between each pair of gates
+    var gates = ARENA_GATES.slice().sort(function (p, q) { return p - q; });
+    gates.forEach(function (gA, gi) {
+      var from = gA + GATE_HALF, to = (gi < gates.length - 1 ? gates[gi + 1] : gates[0] + TAU) - GATE_HALF, mid = (from + to) / 2;
+      [[from, mid], [mid, to]].forEach(function (span) {
+        var as = (span[0] + span[1]) / 2, sg = group();
+        sg.rotation.order = 'YXZ';
+        sg.userData = { a: as, half: (span[1] - span[0]) / 2, len: W * (span[1] - span[0]) };
+        root.add(sg); parts.add(sg); FOLD.sectors.push(sg);
+      });
+    });
+    function sectorOf(a) {
+      for (var i = 0; i < FOLD.sectors.length; i++) { var u = FOLD.sectors[i].userData; if (Math.abs(wrap(a - u.a)) <= u.half + 1e-6) return FOLD.sectors[i]; }
+      return null;
+    }
+    function onSector(sg, a, r, y, obj) {               // a piece of wall at angle a, radius r, height y, in its section's own frame
+      var d = wrap(a - sg.userData.a);
+      obj.position.set(r * Math.cos(d) - W, y - 0.48, r * Math.sin(d)); obj.rotation.y = -d;
+      sg.add(obj);
+    }
     var N = Math.round(TAU * W / 0.68);                 // the wall, in sandstone blocks with a darker cap
     for (var i = 0; i < N; i++) {
       var a = (i + 0.5) / N * TAU;
       if (inGate(a)) continue;
-      var len = TAU * W / N + 0.03, x = c.x + Math.cos(a) * W, z = c.z + Math.sin(a) * W;
-      var blk = box(0.46, 0.86, len, i % 3 ? stone : '#cbb086', [x, 0.43, z]); blk.rotation.y = -a; statics.add(blk);
-      var cp = box(0.58, 0.11, len + 0.02, cap, [x, 0.91, z]); cp.rotation.y = -a; statics.add(cp);
+      var sg = sectorOf(a);
+      if (!sg) continue;
+      var len = TAU * W / N + 0.03;
+      onSector(sg, a, W, 0.43, box(0.46, 0.86, len, i % 3 ? stone : '#cbb086'));
+      onSector(sg, a, W, 0.91, box(0.58, 0.11, len + 0.02, cap));
     }
     var NO = Math.round(TAU * W / 0.3);
-    for (var o = 0; o < NO; o++) {                      // heroes walk round the wall (and in through the gates)
+    for (var o = 0; o < NO; o++) {                      // heroes walk round the wall (and in through the gates) while it's open
       var ao = o / NO * TAU;
-      if (!inGate(ao)) ARENA_OBST.push([c.x + Math.cos(ao) * W, c.z + Math.sin(ao) * W, 0.32]);
+      if (!inGate(ao)) ARENA_OBST.push([c.x + Math.cos(ao) * W, c.z + Math.sin(ao) * W, 0.32, 'open']);
     }
-    function column(a, torch) {
-      var x = c.x + Math.cos(a) * (W + 0.05), z = c.z + Math.sin(a) * (W + 0.05), col = group([x, 0, z]);
+    for (var si = 0; si < 16; si++) {                   // round shields on the wall
+      var sa = (si + 0.5) * PI / 8 + (si % 2 ? 0.1 : -0.1), ssg = sectorOf(sa);
+      if (inGate(sa) || !ssg) continue;
+      var sh = group();
+      var disc = cyl(0.3, 0.3, 0.05, RING.colors[si % 3], [0, 0, 0], 16); disc.rotation.z = PI / 2; sh.add(disc);
+      sh.add(sphere(0.09, '#d9c27a', [0.03, 0, 0]));
+      onSector(ssg, sa, W + 0.26, 0.52, sh);
+    }
+    FOLD.sectors.forEach(function (sg) { outline(sg); });
+    // the parts that screw down into the ground: torch columns, gate arches, braziers
+    function sinker(g, depth, delay, twist, flames) {
+      root.add(g); parts.add(g);
+      FOLD.sinkers.push({ g: g, depth: depth, delay: delay, twist: twist, flames: flames || [], y0: g.position.y });
+      return g;
+    }
+    function column(a, torch, into) {
+      var x = c.x + Math.cos(a) * (W + 0.05), z = c.z + Math.sin(a) * (W + 0.05), col = group(into ? [x - into.position.x, 0, z - into.position.z] : [x, 0, z]);
       col.add(box(0.7, 0.3, 0.7, cap, [0, 0.15, 0]));
       col.add(cyl(0.25, 0.29, 2.9, marble, [0, 1.75, 0], 14));
-      for (var f = 0; f < 8; f++) { var fa = f / 8 * TAU; col.add(cyl(0.035, 0.035, 2.8, '#ddd2bb', [Math.cos(fa) * 0.26, 1.75, Math.sin(fa) * 0.26], 4)); }   // fluting
+      for (var f = 0; f < 8; f++) { var fa = f / 8 * TAU; col.add(cyl(0.035, 0.035, 2.8, marble, [Math.cos(fa) * 0.26, 1.75, Math.sin(fa) * 0.26], 4)); }   // fluting
       col.add(box(0.76, 0.22, 0.76, cap, [0, 3.3, 0]));
+      var flames = [];
       if (torch) {
         col.add(cyl(0.36, 0.2, 0.28, bronze, [0, 3.55, 0], 12));
         var tf = flameBoard(0.9, 1.3, 1.25, a * 7.3);   // the same shader flames as the campfire
         tf.position.set(x, 3.6, z); tf.userData.off = null; scene.add(tf); RING.torches.push(tf);
+        flames.push({ f: tf, y: 3.6 });
       }
-      statics.add(outline(col));
-      ARENA_OBST.push([x, z, 0.42]);
-      return V(x, 0, z);
+      outline(col);
+      if (into) into.add(col);
+      ARENA_OBST.push([x, z, 0.42, 'open']);
+      return { p: V(x, 0, z), g: col, flames: flames };
     }
-    ARENA_GATES.forEach(function (gA) {                // an arch over each gate, with columns either side
-      var north = gA === -PI / 2;
-      var l = column(gA - GATE_HALF - 0.05, north), r = column(gA + GATE_HALF + 0.05, north);
-      var mid = l.clone().add(r).multiplyScalar(0.5), span = l.distanceTo(r) + 0.8;
-      var lintel = box(span, 0.4, 0.6, cap, [mid.x, 3.62, mid.z]); lintel.rotation.y = -gA + PI / 2; statics.add(outline(lintel));
+    ARENA_GATES.forEach(function (gA, k) {             // an arch over each gate, with columns either side
+      var north = gA === -PI / 2, arch = group([c.x + Math.cos(gA) * W, 0, c.z + Math.sin(gA) * W]);
+      var l = column(gA - GATE_HALF - 0.05, north, arch), r = column(gA + GATE_HALF + 0.05, north, arch);
+      var mid = l.p.clone().add(r.p).multiplyScalar(0.5), span = l.p.distanceTo(r.p) + 0.8, ax = arch.position.x, az = arch.position.z;
+      var lintel = box(span, 0.4, 0.6, cap, [mid.x - ax, 3.62, mid.z - az]); lintel.rotation.y = -gA + PI / 2; arch.add(outline(lintel));
       if (gA === PI / 2 || gA === PI) {                 // the south and west gates: the arena's name, readable from both sides
         var nameTex = new THREE.CanvasTexture(textCanvas('NEVET ARENA', { px: 44, bg: '#3a2a1a', color: '#ffd84d', radius: 6 }));
-        [0.32, -0.32].forEach(function (off, k) {
+        [0.32, -0.32].forEach(function (off, kk) {
           var nm = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 0.54), new THREE.MeshBasicMaterial({ map: nameTex }));
-          nm.position.set(mid.x + Math.cos(gA) * off, 3.62, mid.z + Math.sin(gA) * off); nm.rotation.y = -gA + PI / 2 + (k ? PI : 0); statics.add(nm);
+          nm.position.set(mid.x - ax + Math.cos(gA) * off, 3.62, mid.z - az + Math.sin(gA) * off); nm.rotation.y = -gA + PI / 2 + (kk ? PI : 0); arch.add(nm);
         });
       }
+      if (north) {                                      // the board over the north gate (seen across the arena from the usual view)
+        var cv = document.createElement('canvas'); cv.width = 512; cv.height = 220;
+        RING.board = { canvas: cv, tex: new THREE.CanvasTexture(cv) };
+        [0, PI].forEach(function (flip) {
+          var face2 = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 1.42), new THREE.MeshBasicMaterial({ map: RING.board.tex }));
+          face2.position.set(Math.cos(gA) * (flip ? -0.3 : 0.3), 4.55, Math.sin(gA) * (flip ? -0.3 : 0.3));
+          face2.rotation.y = -gA + PI / 2 + flip; arch.add(face2);
+        });
+        arch.add(box(3.55, 1.6, 0.56, '#22262b', [0, 4.55, 0]));
+      }
+      sinker(arch, north ? 5.6 : 4.2, 0.02 + k * 0.035, false, l.flames.concat(r.flames));
     });
     for (var ci = 0; ci < 8; ci++) {                    // columns with torches between the gates, and banners hanging outside
-      var ca = (ci + 0.5) * PI / 4, p = column(ca, true);
+      var ca = (ci + 0.5) * PI / 4, cl = column(ca, true);
       var ban = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 1.6), new THREE.MeshToonMaterial({ color: new THREE.Color(ci % 2 ? '#b8202a' : '#d9a21b'), side: THREE.DoubleSide }));
-      ban.position.set(p.x + Math.cos(ca) * 0.34, 2.2, p.z + Math.sin(ca) * 0.34); ban.rotation.y = -ca + PI / 2; statics.add(ban);
-    }
-    for (var si = 0; si < 16; si++) {                   // round shields on the wall
-      var sa = (si + 0.5) * PI / 8 + (si % 2 ? 0.1 : -0.1);
-      if (inGate(sa)) continue;
-      var sh = group([c.x + Math.cos(sa) * (W + 0.26), 0.52, c.z + Math.sin(sa) * (W + 0.26)]);
-      var disc = cyl(0.3, 0.3, 0.05, RING.colors[si % 3], [0, 0, 0], 16); disc.rotation.z = PI / 2; sh.add(disc);
-      sh.add(sphere(0.09, '#d9c27a', [0.03, 0, 0]));
-      sh.rotation.y = -sa; statics.add(sh);
+      ban.position.set(Math.cos(ca) * 0.34, 2.2, Math.sin(ca) * 0.34); ban.rotation.y = -ca + PI / 2; cl.g.add(ban);
+      sinker(cl.g, 3.75, 0.05 + ci * 0.022, true, cl.flames);
     }
     for (var bi = 0; bi < 8; bi++) {                    // braziers round the outside: a small fire always, a flame jet on the big moments
       var ba = (bi + 0.5) * PI / 4, bx2 = c.x + Math.cos(ba) * (W + 3.4), bz2 = c.z + Math.sin(ba) * (W + 3.4), br = group([bx2, 0, bz2]);
       br.add(cyl(0.34, 0.46, 1.05, '#9a8a72', [0, 0.52, 0], 10));
       br.add(cyl(0.6, 0.3, 0.38, bronze, [0, 1.22, 0], 14));
-      statics.add(outline(br));
+      outline(br);
       var bf = flameBoard(0.85, 1.05, 1.1, ba * 5.1);
       bf.position.set(bx2, 1.3, bz2); bf.userData.off = null; scene.add(bf); RING.torches.push(bf);
       RING.braziers.push(makeJet(bx2, bz2, 1.3, 5.4));
-      ARENA_OBST.push([bx2, bz2, 0.62]);
+      ARENA_OBST.push([bx2, bz2, 0.62, 'open']);
+      sinker(br, 1.75, 0.0 + bi * 0.02, true, [{ f: bf, y: 1.3 }]);
     }
-    // gladiators' tents behind the arena, striped, with flags
-    [[-7, -19.5, '#e8473c'], [0.5, -20.8, '#2f7be0'], [8, -19.5, '#f2b33d']].forEach(function (t, k) {
-      var tx = c.x + t[0], tz = c.z + t[1], tg = group([tx, 0, tz], k * 0.7);
+    // the column that lifts the campfire to the top of the tower (hidden in the fire pit while the arena is open)
+    var ped = group();
+    ped.add(cyl(1.15, 1.35, FOLD.top, bronze, [0, -FOLD.top / 2 - 0.3, 0], 18));
+    for (var rb = 0; rb < 6; rb++) ped.add(cyl(1.42, 1.42, 0.16, '#6a4422', [0, -0.9 - rb * 0.92, 0], 18));        // bands round it
+    ped.add(cyl(2.05, 1.25, 0.42, '#7a4a24', [0, -0.21, 0], 22));                                              // the fire bowl
+    ped.add(cyl(2.12, 2.12, 0.1, '#c08a3e', [0, -0.02, 0], 22));
+    ped.position.set(c.x, -0.4, c.z);
+    root.add(ped); parts.add(ped); FOLD.pedestal = ped;
+    outline(ped);
+    if (NevetHero.merge) NevetHero.merge(root, function (o) { return parts.has(o); });
+    // gladiators' tents in the east meadow, striped, with flags, facing the arena
+    [[25.5, -6.5, '#e8473c'], [27.2, 0, '#2f7be0'], [25.5, 6.5, '#f2b33d']].forEach(function (t, k) {
+      var tx = t[0], tz = c.z + t[1], tg = group([tx, 0, tz], -PI / 2 + t[1] * 0.04);
       var stripes = [mat(t[2], { side: THREE.DoubleSide }), mat('#f4efe4', { side: THREE.DoubleSide })];
       for (var st = 0; st < 10; st++) tg.add(mesh(new THREE.CylinderGeometry(1.9, 1.9, 1.5, 2, 1, true, st / 10 * TAU, TAU / 10), stripes[st % 2], [0, 0.75, 0]));
       tg.add(cone(2.15, 1.9, t[2], [0, 2.45, 0], 10));
@@ -2007,16 +2097,6 @@
       statics.add(tg);
       ARENA_OBST.push([tx, tz, 2.0]);
     });
-    // the board over the north gate (seen across the arena from the usual view): the bout, the fighters and their points
-    var cv = document.createElement('canvas'); cv.width = 512; cv.height = 220;
-    RING.board = { canvas: cv, tex: new THREE.CanvasTexture(cv) };
-    var sA = -PI / 2, bx = c.x + Math.cos(sA) * (W + 0.05), bz = c.z + Math.sin(sA) * (W + 0.05);
-    [0, PI].forEach(function (flip) {
-      var face2 = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 1.42), new THREE.MeshBasicMaterial({ map: RING.board.tex }));
-      face2.position.set(bx + Math.cos(sA) * (flip ? -0.3 : 0.3), 4.55, bz + Math.sin(sA) * (flip ? -0.3 : 0.3));
-      face2.rotation.y = -sA + PI / 2 + flip; scene.add(face2);
-    });
-    statics.add(box(3.55, 1.6, 0.56, '#22262b', [bx, 4.55, bz]));
     // the banner over the arena (ROUND 1 · BOUT 2!, ... WINS!) and the comic pops (SPLAT!)
     RING.banner = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, opacity: 0, depthTest: false }));
     RING.banner.renderOrder = 22; RING.banner.visible = false; scene.add(RING.banner);
@@ -2107,10 +2187,57 @@
     }
   })();
 
+  // Wild rabbits: the farm is open, so the neighbours drop by. They hop about the meadows and the farm's edges, and
+  // scamper off when a hero comes close.
+  var rabbits = [];
+  (function () {
+    var homes = [[-53, -24, -17, LAND.maxZ - 2], [24, 53, -17, LAND.maxZ - 2]];
+    for (var i = 0; i < 7; i++) {
+      var hm = homes[i % 2], fur = ['#f4efe6', '#b08a62', '#8f7a66'][i % 3], rb = group([rr(hm[0], hm[1]), 0, rr(hm[2], hm[3])]);
+      var body = group(); rb.add(body);
+      body.add(sphere(0.2, fur, [0, 0.2, -0.02], [0.9, 0.85, 1.2], 9));
+      body.add(sphere(0.13, fur, [0, 0.37, 0.18], null, 9));
+      [-1, 1].forEach(function (sd) {
+        body.add(rot(sphere(0.045, fur, [sd * 0.05, 0.57, 0.14], [1, 3.4, 0.7], 6), -0.3, 0, sd * 0.2));
+        body.add(sphere(0.022, '#1f2522', [sd * 0.075, 0.41, 0.27], null, 6));
+      });
+      body.add(sphere(0.07, '#ffffff', [0, 0.25, -0.25], null, 6));
+      outline(body, 1.05);
+      if (NevetHero.merge) NevetHero.merge(rb, function () { return false; });
+      rb.userData = { home: hm, target: rb.position.clone(), next: 0, ph: rr(0, TAU), body: body, fast: false };
+      rabbits.push(rb); scene.add(rb);
+      scene.add(rb.userData.shadow = blobShadow(0.22));
+    }
+  })();
+  function stepRabbits(now, dt) {
+    rabbits.forEach(function (rb) {
+      var u = rb.userData, hm = u.home, p = rb.position, near = null, nd = 10;
+      heroes.forEach(function (h) { var d = h.root.position.distanceToSquared(p); if (d < nd) { nd = d; near = h; } });
+      if (near && now > (u.fled || 0)) {               // a hero: off we go
+        var away = V(p.x - near.root.position.x, 0, p.z - near.root.position.z).normalize().multiplyScalar(rr(4, 7));
+        u.target.set(Math.max(hm[0], Math.min(hm[1], p.x + away.x)), 0, Math.max(hm[2], Math.min(hm[3], p.z + away.z)));
+        u.fled = now + 1.2; u.next = now + rr(2, 4); u.fast = true;
+      } else if (now > u.next) {                       // a little way, to nibble somewhere else
+        for (var tries = 0; tries < 6; tries++) {
+          var tx = Math.max(hm[0], Math.min(hm[1], p.x + rr(-5, 5))), tz = Math.max(hm[2], Math.min(hm[3], p.z + rr(-5, 5)));
+          if (walkable(tx, tz)) { u.target.set(tx, 0, tz); break; }
+        }
+        u.next = now + rr(2.5, 7); u.fast = false;
+      }
+      tmp.subVectors(u.target, p); tmp.y = 0;
+      var d = tmp.length(), moving = d > 0.12;
+      if (moving) { p.addScaledVector(tmp, Math.min(1, (u.fast ? 3.4 : 1.1) * dt / d)); rb.rotation.y = Math.atan2(tmp.x, tmp.z); }
+      var hop = moving ? Math.abs(Math.sin(now * (u.fast ? 9 : 6) + u.ph)) : 0;
+      p.y = hillH(p.x, p.z) + hop * (u.fast ? 0.35 : 0.2);
+      u.body.rotation.x = moving ? -0.25 * hop : Math.sin(now * 3 + u.ph) * 0.04;        // (sniffing)
+      u.shadow.position.set(p.x, hillH(p.x, p.z) + 0.03, p.z);
+    });
+  }
+
   ANIMALS.push({ kind: 'chickens', pos: V(-10.6, 0, -3.9), name: 'Chickens', r: 1.9 });
   ANIMALS.push({ kind: 'ducks', pos: V(POND.x, 0, POND.z), name: 'Ducks', r: 4.25, arc: [PI * 0.75, PI * 1.6] });   // stand on the west and north shore
 
-  // a signpost in the middle of the yard, in a ring of flowers: the campfire field east, the party field west
+  // a signpost in the middle of the yard, in a ring of flowers: the mud arena and the rave south, the meadows east and west
   var SIGNPOST = V(0, 0, 1.4);
   (function () {
     var g = group([SIGNPOST.x, 0, SIGNPOST.z]);
@@ -2120,13 +2247,13 @@
     g.add(cyl(0.9, 0.9, 0.18, '#5b3d27', [0, 0.1, 0], 20));
     statics.add(outline(g));
     for (var f = 0; f < 14; f++) { var fa = f / 14 * TAU; statics.add(sphere(0.12, WD.petals[f % WD.petals.length], [SIGNPOST.x + Math.cos(fa) * 0.62, 0.3, SIGNPOST.z + Math.sin(fa) * 0.62], [1, 0.7, 1], 8)); }
-    [['Campfire arena  →', '←  Campfire arena', 1, 2.45], ['←  Party field', 'Party field  →', -1, 1.85]].forEach(function (b) {
+    [['🔥 Mud arena & rave', '🔥 Mud arena & rave', 0, 2.45], ['Tents & meadow  →', '←  Tents & meadow', 1, 1.85], ['←  Mother tree', 'Mother tree  →', -1, 1.85]].forEach(function (b) {
       var o = { px: 40, bg: '#f3e6c8', color: '#5a3d22', radius: 10, stroke: '#8a5f3a' }, cv = textCanvas(b[0], o), w = 0.48 * cv.width / cv.height;
       var tex = [new THREE.CanvasTexture(cv), new THREE.CanvasTexture(textCanvas(b[1], o))];     // (seen from the north, the arrow points the other way)
       b.splice(0, 2);
       [0, PI].forEach(function (flip) {
         var bd = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.48), new THREE.MeshBasicMaterial({ map: tex[flip ? 1 : 0] }));
-        bd.position.set(SIGNPOST.x + b[0] * (w / 2 + 0.05), b[1], SIGNPOST.z + (flip ? -0.07 : 0.07)); bd.rotation.y = flip;
+        bd.position.set(SIGNPOST.x + b[0] * (w / 2 + 0.05), b[1], SIGNPOST.z + (flip ? -0.07 : 0.07) * (b[0] ? 1 : 1.4)); bd.rotation.y = flip;
         statics.add(bd);
       });
     });
@@ -2145,14 +2272,14 @@
       l.position.x = -0.12; r.position.x = 0.12;
       var lw = group(), rw = group(); lw.add(l); rw.add(r);
       b.add(lw); b.add(rw);
-      var bc = i % 2 === 0 ? V(rr(-14, 16), 0, rr(-14, 12)) : V((i % 4 === 1 ? 1 : -1) * rr(24, 50), 0, rr(-17, 32));    // the yard and the two fields
+      var bc = i % 2 === 0 ? V(rr(-14, 16), 0, rr(-14, 12)) : V((i % 4 === 1 ? 1 : -1) * rr(24, 50), 0, rr(-17, LAND.maxZ - 4));    // the yard and the meadows
       b.userData = { lw: lw, rw: rw, c: bc, r: rr(1.2, 3), h: rr(0.8, 1.8), sp: rr(0.4, 0.9), ph: rr(0, TAU) };
       butterflies.push(b);
       scene.add(b);
     }
   })();
   var fireflyGeo = new THREE.BufferGeometry(), fireflyPos = new Float32Array(150 * 3), fireflySeeds = [];
-  for (var fi = 0; fi < 150; fi++) fireflySeeds.push(fi < 60 ? [rr(-18, 18), rr(0.5, 2.8), rr(-18, 14), rr(0, TAU)] : [(fi % 2 ? 1 : -1) * rr(22, 53), rr(0.5, 3.2), rr(-18, 33), rr(0, TAU)]);
+  for (var fi = 0; fi < 150; fi++) fireflySeeds.push(fi < 60 ? [rr(-18, 18), rr(0.5, 2.8), rr(-18, 14), rr(0, TAU)] : [(fi % 2 ? 1 : -1) * rr(22, 53), rr(0.5, 3.2), rr(-18, LAND.maxZ - 3), rr(0, TAU)]);
   fireflyGeo.setAttribute('position', new THREE.BufferAttribute(fireflyPos, 3));
   var fireflies = new THREE.Points(fireflyGeo, new THREE.PointsMaterial({ color: 0xe8ff7a, size: 0.16, transparent: true, opacity: 0, depthWrite: false }));
   fireflies.frustumCulled = false;
@@ -2184,6 +2311,8 @@
       return _fto.addScaledVector(_fseg, -t).length() < sp[1];
     });
   }
+  FOLD.faderSpheres = [];
+  fader(FOLD.root, FOLD.faderSpheres);                 // (the folded arena's tower)
   function stepFaders(dt) {
     FADERS.forEach(function (f) {
       var want = inTheWay(f) ? 0.16 : 1;
@@ -2432,15 +2561,8 @@
     return d;
   }
   var partyNav = false;                                // party mode: the arches over the dance floor count
-  function fenceBlocked(x, z) {                        // the outer fence, the yard's fence along the play park (only the gate is open) and the park's hedges
-    if (x < LAND.minX + 0.6 || x > LAND.maxX - 0.6 || z < LAND.minZ + 0.6 || z > LAND.maxZ - 0.6) return true;
-    var ax = Math.abs(x);
-    if (Math.abs(z - FARM.maxZ) < 0.5 && ax < HEDGE_X + 0.45) return ax > 1.35;
-    if (z > FARM.maxZ) {
-      if (Math.abs(ax - HEDGE_X) < 0.72) return true;
-      if (ax < HEDGE_X && z > PLAY.maxZ - 0.4) return true;
-    }
-    return false;
+  function fenceBlocked(x, z) {                        // the edge of the farm (no fence: heroes just stay on the farm)
+    return x < LAND.minX + 0.6 || x > LAND.maxX - 0.6 || z < LAND.minZ + 0.6 || z > LAND.maxZ - 0.6;
   }
   function obstHit(o, x, z, pad) {
     if (x < o.x0 - pad || x > o.x1 + pad || z < o.z0 - pad || z > o.z1 + pad) return false;
@@ -2456,7 +2578,7 @@
     if (fenceBlocked(x, z)) return true;
     for (var i = 0; i < OBST.length; i++) {
       var o = OBST[i];
-      if (o.party && !partyNav) continue;
+      if (o.party && !partyNav || o.open && partyNav) continue;
       if (obstHit(o, x, z, pad)) return true;
     }
     return false;
@@ -2472,11 +2594,11 @@
       var i0 = Math.max(0, Math.floor((o.x0 - HERO_R - NAV.x0) / NAV.cell)), i1 = Math.min(NAV.w - 1, Math.floor((o.x1 + HERO_R - NAV.x0) / NAV.cell));
       var j0 = Math.max(0, Math.floor((o.z0 - HERO_R - NAV.z0) / NAV.cell)), j1 = Math.min(NAV.h - 1, Math.floor((o.z1 + HERO_R - NAV.z0) / NAV.cell));
       for (var jj = j0; jj <= j1; jj++) for (var ii = i0; ii <= i1; ii++) {
-        var kk = jj * NAV.w + ii;
-        if (navParty[kk] && (o.party || navBase[kk])) continue;
+        var kk = jj * NAV.w + ii, inBase = !o.party && !navBase[kk], inParty = !o.open && !navParty[kk];   // (party: the arena is folded)
+        if (!inBase && !inParty) continue;
         if (!obstHit(o, NAV.x0 + (ii + 0.5) * NAV.cell, NAV.z0 + (jj + 0.5) * NAV.cell, HERO_R)) continue;
-        navParty[kk] = 1;
-        if (!o.party) navBase[kk] = 1;
+        if (inParty) navParty[kk] = 1;
+        if (inBase) navBase[kk] = 1;
       }
     });
   }
@@ -2615,7 +2737,10 @@
     obstacleCircle(PUMP.x, PUMP.z + 0.3, 0.55);
     obstacleCircle(FIRE.x, FIRE.z, 1.0 * FIRE_K);
     obstacleCircle(SIGNPOST.x, SIGNPOST.z, 1.05);              // the signpost's flower ring
-    ARENA_OBST.forEach(function (o) { obstacleCircle(o[0], o[1], o[2]); });     // the arena's wall and columns
+    ARENA_OBST.forEach(function (o) { obstacleCircle(o[0], o[1], o[2]).open = o[3] === 'open'; });     // the arena's wall, columns and braziers (while it's open)
+    obstacleCircle(FIRE.x, FIRE.z, TOWER_R + 0.4).party = true;                // the fire tower, when it's folded for the party
+    DIVIDE_OBST.forEach(function (o) { obstacleRect(o[0], o[1], o[2], o[3]); });   // the hedges between the areas
+    [-1.9, 1.9].forEach(function (x) { obstacleCircle(x, FARM.maxZ, 0.3); });    // the arch's posts
     obstacleRect(-15.5, -9.5, 3.2, 3.7);                     // barn
     obstacleRect(-15, 5.5, 1.75, 2.45);                      // greenhouse
     obstacleCircle(13.5, -17.5, 1.9);                        // windmill
@@ -2709,7 +2834,7 @@
   }
   var gateQueue = (D.heroes || []).map(function (info, i) {
     return { i: i, id: info.id, name: info.name, level: info.level, appearance: info.appearance || {}, powers: info.powers || null,
-             pos: V(0, 0, FARM.maxZ + 3 + i * 0.01), facing: PI, path: [], onArrive: null, act: null, actEnd: 0,
+             pos: V(0, 0, FARM.maxZ + 1.7 + i * 0.01), facing: PI, path: [], onArrive: null, act: null, actEnd: 0,
              actStart: 0, carry: null, watered: 0, emoteAt: 0, speedK: rr(0.9, 1.1), phase: rr(0, TAU) };
   });
   var arrivals = gateQueue.slice();
@@ -2724,8 +2849,7 @@
     scene.add(h.label);
     h.shadow = blobShadow(0.55);
     scene.add(h.shadow);
-    if (current === 'play') assign(h, now);           // already in the play park: no need to go in through the gate first
-    else walkTo(h, [V(0, 0, FARM.maxZ - 1.2)], function () { assign(h, clockNow()); });
+    assign(h, now);                                    // (they come in under the arch, in the middle of the farm, and go straight to it)
   }
 
   var simNow = 0;
@@ -2925,7 +3049,7 @@
       }
     },
     play: {
-      name: 'Play park', tool: 'none', night: 0, centre: V(1.5, 0.6, 25.8), view: 1.2,
+      name: 'Play park', tool: 'none', night: 0, centre: V(1.5, 0.6, 25.8 + PDZ), view: 1.2,
       stat: function () {
         var fb = PST.football.users.length, rest = heroes.filter(function (h) { return h.play && h.play.st !== PST.football; }).length;
         var ring = RING.bout ? 'Arena: ' + ringStyle().name + ' · ' : '';
@@ -2950,7 +3074,7 @@
       }
     },
     party: {
-      name: 'Party!', tool: null, night: 0, centre: V(PARTY.c.x, 1.2, CROWD_C.z - 1.6), view: 1.75 + 0.06 * Math.max(0, crowdShape(CROWD_N).rows - 4),
+      name: 'Party!', tool: null, night: 0, centre: V(PARTY.c.x, 2.2, (STAGE_N + FIRE.z) / 2 + 1), view: 1.9 + 0.05 * Math.max(0, crowdShape(CROWD_N).rows - 4),
       stat: function () {
         var who = heroes.filter(function (h) { return h.act === 'party' || h.act === 'form' || h.act === 'formReady'; }).length;
         if (acid.playing) return dance.cur.name + ' · ' + who + ' dancing to the 303 & 909 · ' + BPM + ' BPM';
@@ -2967,13 +3091,8 @@
   function floorSlot(h, kk) {                         // a crowd facing the stage, from the front row back, room round each dancer
     var dancers = heroes.filter(function (o) { return o !== heroes[0]; }), n = Math.max(1, dancers.length, CROWD_N);   // (heroes arrive one by one: lay out for everyone)
     var k = kk !== undefined ? kk : h.floorK !== undefined ? h.floorK : Math.max(0, dancers.indexOf(h));
-    var sh = crowdShape(n), cols = sh.cols, rows = Math.max(1, Math.min(sh.rows, Math.floor((PARTY.hz * 2 - 4) / 1.9) + 1));
-    var spX = Math.min(CROWD_SP.x, (PARTY.hx * 2 - 2.4) / Math.max(1, cols - 1)), spZ = Math.min(CROWD_SP.z, (PARTY.hz * 2 - 4) / Math.max(1, rows - 1));
-    var per = cols * rows, i = k % cols, j = Math.floor(k / cols) % rows, extra = Math.floor(k / per) * 0.8;
-    var inRow = Math.min(cols, n - Math.floor(k / cols) * cols);                 // (a short last row stands in the middle)
-    var stagger = rows > 1 && j % 2 ? spX * 0.25 : -spX * 0.25 * (rows > 1 ? 1 : 0);   // rows offset like a crowd, not a grid
-    var fan = 1 + j * 0.04;                                                      // and a little wider to the back
-    return V(PARTY.c.x + (i - (Math.min(cols, inRow) - 1) / 2) * spX * fan + stagger * 0.5 + extra, 0, CROWD_Z + j * spZ + extra * 0.5);
+    var sl = crowdSlots(n), p = sl[k % sl.length], extra = Math.floor(k / sl.length) * 0.8;
+    return V(p.x + extra, 0, p.z + extra * 0.5);
   }
   var ORDER = ['harvest', 'water', 'plant', 'animals', 'play', 'campfire', 'party'];
   var EVENT = D.event && ACTS[D.event.act] ? D.event : null;      // an event on the farm right now (events.py): the heroes join in
@@ -3046,7 +3165,7 @@
   // along the touchline.
   var PST = { football: { users: [] }, slide: { users: [] }, swing: { slots: SWING.seats }, seesaw: { slots: SEESAW.seats },
               tramp: { slots: TRAMP.seats }, sandbox: { slots: SANDBOX.seats }, cheer: { users: [] }, ring: { users: [] }, watch: { users: [] } };
-  var SLIDE_WAIT = [V(13.5, 0, 17.4), V(15.7, 0, 17.4), V(12.6, 0, 18.4), V(16.6, 0, 18.4)];
+  var SLIDE_WAIT = [V(13.5, 0, 17.4 + PDZ), V(15.7, 0, 17.4 + PDZ), V(12.6, 0, 18.4 + PDZ), V(16.6, 0, 18.4 + PDZ)];
   function playLeave(h) {
     var pl = h.play;
     if (!pl) return;
@@ -4218,16 +4337,16 @@
   }
   // formation dances: where each dancer belongs (k of n) right now
   var form = { on: false, moving: false, kind: null, order: [], t0: 0, t1: 0, theta: 0 }, partyBeat = -1;
-  var CONGA_A = Math.min(PARTY.hx - 0.45, 9.5), CONGA_B = Math.min(PARTY.hz - 0.45, CROWD_C.z - STAGE_N - 1.2, 7.5);   // an oval round the crowd
+  var CONGA_A = Math.min(PARTY.hx - 0.6, 10.5), CONGA_B = Math.min(PARTY.hz - 0.6, 9.5);   // an oval round the fire tower
   var CONGA_LEN = PI * (3 * (CONGA_A + CONGA_B) - Math.sqrt((3 * CONGA_A + CONGA_B) * (CONGA_A + 3 * CONGA_B)));
   var CONGA_R = CONGA_LEN / TAU;                      // arc length per radian, on average
   function congaPoint(s) {
     var a = s / CONGA_R;
-    return V(PARTY.c.x + Math.cos(a) * CONGA_A, 0, CROWD_C.z + 0.2 + Math.sin(a) * CONGA_B);
+    return V(FIRE.x + Math.cos(a) * CONGA_A, 0, FIRE.z + Math.sin(a) * CONGA_B);
   }
   function congaGap(n) { return Math.min(1.7, CONGA_LEN / Math.max(1, n)); }
-  var RING_C = V(PARTY.c.x, 0, Math.max(CROWD_C.z + 0.4, STAGE_N + 1.4 + Math.max(2.6, CROWD_N * 1.75 / TAU)));   // rings where the crowd is (clear of the stage)
-  function ringR(n) { return Math.min(Math.min(PARTY.hx, PARTY.hz) - 0.5, Math.max(2.6, n * 1.75 / TAU)); }
+  var RING_C = V(FIRE.x, 0, FIRE.z);                   // the Hora and Mayim Mayim go round the fire tower
+  function ringR(n) { return Math.min(Math.min(PARTY.hx, PARTY.hz) - 0.8, Math.max(TOWER_CLEAR + 0.6, n * 1.75 / TAU)); }
   function formSlot(kind, k, n, now) {
     if (kind === 'conga') return congaPoint(form.theta - k * congaGap(n));
     if (kind === 'debka') {                            // lines of up to 7 facing the DJ, drifting side to side together
@@ -4238,7 +4357,7 @@
     var r = ringR(n), a = form.theta + k / n * TAU;
     if (kind === 'mayim' && form.moving) {             // into the middle on beats 8-15 of every 16
       var m = ((now - form.t1) * BPM / beatDiv(BPM) / 60) % 16;
-      var inner = Math.max(0.55, Math.min(1, n * 0.95 / TAU / r)), f = m < 8 ? 0 : m < 12 ? (m - 8) / 4 : 1 - (m - 12) / 4;
+      var inner = Math.max((TOWER_R + 1.1) / r, Math.min(1, n * 0.95 / TAU / r)), f = m < 8 ? 0 : m < 12 ? (m - 8) / 4 : 1 - (m - 12) / 4;
       r *= 1 - (1 - inner) * f;                        // (never so tight that dancers overlap)
     }
     return V(RING_C.x + Math.cos(a) * r, 0, RING_C.z + Math.sin(a) * r);
@@ -4251,7 +4370,7 @@
       for (var r0 = 0; r0 < line.length; r0 += per) rows.push(line.slice(r0, r0 + per).sort(function (a, b) { return a.root.position.x - b.root.position.x; }));
       line = [].concat.apply([], rows);
     } else {                                           // in the order they stand around the floor, so nobody crosses
-      var cc = kind === 'conga' ? V(PARTY.c.x, 0, CROWD_C.z + 0.2) : RING_C;
+      var cc = RING_C;
       line.forEach(function (h) { h.ang = Math.atan2(h.root.position.z - cc.z, h.root.position.x - cc.x); });
       line.sort(function (a, b) { return kind === 'conga' ? b.ang - a.ang : a.ang - b.ang; });
     }
@@ -4304,6 +4423,81 @@
     obj.quaternion.setFromUnitVectors(axis, tmpDir.divideScalar(len || 1));
     return len;
   }
+  // ---------------------------------------------------------------- the folding arena: moving
+  function seg(t, a, b) { return t <= a ? 0 : t >= b ? 1 : (t - a) / (b - a); }
+  function easeIO(x) { return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; }
+  var _tm = new THREE.Matrix4(), _tq = new THREE.Quaternion(), _ts = new THREE.Vector3(1, 1, 1), _tp = new THREE.Vector3(), _tx = V(1, 0, 0);
+  function foldTiles() {                               // which dance-floor panels cover the mud pit, and when each flips over
+    if (FOLD.tileK) return FOLD.tileK;
+    var ra = RING.wall + 0.75;
+    FOLD.tileK = PARTY.tilePos.map(function (tp, i) {
+      var r = Math.hypot(tp[0] - FIRE.x, tp[1] - FIRE.z);
+      if (r >= ra) return null;
+      var a = 0.56 + 0.3 * (1 - r / ra);               // from the rim in
+      return { a: a, b: a + 0.12, core: r < TOWER_R + 0.3, dir: i % 2 ? 1 : -1 };
+    });
+    return FOLD.tileK;
+  }
+  function placeTiles(kick) {                          // the dance floor: lit panels pop up on the kick; over the mud pit they flip in and out
+    var K = foldTiles(), lit = PARTY.lit, T = FOLD.t;
+    for (var t = 0; t < PARTY.tilePos.length; t++) {
+      var tp = PARTY.tilePos[t], f = K[t], lift = kick && lit && lit[t] ? kick * 0.05 : 0;
+      if (!f) _tm.makeTranslation(tp[0], 0.05 + lift, tp[1]);
+      else {
+        var u = f.core ? 0 : easeIO(seg(T, f.a, f.b));
+        if (u < 0.002) _tm.makeScale(0, 0, 0);
+        else { _tq.setFromAxisAngle(_tx, (1 - u) * PI * f.dir); _tm.compose(_tp.set(tp[0], -0.32 + 0.37 * u + lift * u, tp[1]), _tq, _ts); }
+      }
+      PARTY.tiles.setMatrixAt(t, _tm);
+    }
+    PARTY.tiles.instanceMatrix.needsUpdate = true;
+  }
+  function stepFold(now, dt) {
+    FOLD.want = current === 'party' ? 1 : 0;
+    var prev = FOLD.t;
+    if (FOLD.t !== FOLD.want) FOLD.t = FOLD.want > FOLD.t ? Math.min(1, FOLD.t + dt / FOLD.dur) : Math.max(0, FOLD.t - dt / FOLD.dur);
+    if (FOLD.t === prev && FOLD.settled === FOLD.t) return;          // (still: nothing to move)
+    var live = FOLD.settled !== -1 || FOLD.t !== prev;               // (not the first frame: sparks and dust)
+    FOLD.settled = FOLD.t === prev ? FOLD.t : -2;
+    applyFold(prev, live && FOLD.t !== prev);
+    if (!PARTY.group.visible) placeTiles(0);
+  }
+  function applyFold(prevT, live) {
+    var T = FOLD.t, c = RING.c, W = RING.wall;
+    FOLD.sinkers.forEach(function (sk) {               // the arches, torch columns and braziers screw down into the ground
+      var u = easeIO(seg(T, sk.delay, sk.delay + 0.2));
+      sk.g.position.y = sk.y0 - sk.depth * u;
+      if (sk.twist) sk.g.rotation.y = u * PI * 0.75;
+      else sk.g.rotation.z = Math.sin(u * PI * 5) * 0.02 * (1 - u);     // (the arches shudder as they go)
+      sk.g.visible = u < 0.995;
+      sk.flames.forEach(function (fl) { fl.f.position.y = fl.y - sk.depth * u; fl.f.userData.sunk = u > 0.2; });
+    });
+    FOLD.sectors.forEach(function (sg, k) {           // the wall sections: unlock, swing upright, slide in, lock
+      var u0 = 0.2 + k * 0.035, sNow = seg(T, u0, u0 + 0.5), sWas = seg(prevT, u0, u0 + 0.5), ud = sg.userData;
+      var a1 = easeIO(seg(sNow, 0, 0.18)), b1 = easeIO(seg(sNow, 0.18, 0.52)), c1 = easeIO(seg(sNow, 0.52, 0.86)), d1 = seg(sNow, 0.86, 1);
+      var phi = -PI / 2 * b1, y0 = 0.48 + 0.3 * a1, standY = ud.len / 2 + 0.32;
+      var y = y0 + (standY - y0) * Math.sin(-phi) - 0.06 * Math.sin(d1 * PI);
+      var r = W - 0.8 * b1 - (W - 0.8 - TOWER_R) * c1 - 0.2 * Math.sin(d1 * PI);
+      sg.position.set(c.x + Math.cos(ud.a) * r, y, c.z + Math.sin(ud.a) * r);
+      sg.rotation.set(phi, -ud.a, -0.14 * Math.sin(a1 * PI) * (1 - b1));
+      if (live) {
+        var pos = V(c.x + Math.cos(ud.a) * r, 0, c.z + Math.sin(ud.a) * r), out = V(Math.cos(ud.a), 0, Math.sin(ud.a));
+        if (sWas < 0.9 && sNow >= 0.9) for (var sp = 0; sp < 10; sp++)          // locked: sparks
+          emit(pos.clone().setY(rr(0.6, ud.len)), out.clone().multiplyScalar(rr(1, 3)).add(V(rr(-1.5, 1.5), rr(1, 4), rr(-1.5, 1.5))), SPARK_MAT, rr(0.4, 0.8));
+        if (sWas > 0.03 && sNow <= 0.03) for (var dp = 0; dp < 8; dp++)        // back down on the ground: a puff of dirt
+          emit(pos.clone().setY(0.2), V(rr(-1.5, 1.5), rr(1, 2.5), rr(-1.5, 1.5)), DIRT_MAT, rr(0.4, 0.7));
+      }
+    });
+    var pu = easeIO(seg(T, 0.42, 0.88));              // the column lifts the campfire to the top
+    FOLD.fireY = FOLD.top * pu;
+    FOLD.fireK = 1 - 0.2 * pu;
+    FOLD.pedestal.position.y = pu > 0 ? FOLD.fireY - 0.02 : -0.4;
+    FOLD.pedestal.visible = pu > 0.001;
+    FIREFX.rig.position.y = 0.05 + FOLD.fireY;
+    FIREFX.rig.scale.setScalar(FOLD.fireK);
+    FOLD.faderSpheres.length = 0;                      // folded, the tower may stand between you and the dancers
+    if (T > 0.5) FOLD.faderSpheres.push([V(c.x, 1.6, c.z), TOWER_R + 0.6], [V(c.x, 4.6, c.z), TOWER_R + 0.6]);
+  }
   function stepStage(now, dt, n) {                     // the big wheel turns all day; the stage rests between parties
     var party = PARTY.group.visible, col = PARTY.tmpC || (PARTY.tmpC = new THREE.Color());
     var spin = now * (calm ? 0.05 : 0.11);
@@ -4330,9 +4524,7 @@
         PARTY.resting = true;
         for (var t = 0; t < PARTY.tilePos.length; t++) PARTY.tiles.setColorAt(t, PARTY.restCol[t]);
         PARTY.tiles.instanceColor.needsUpdate = true;
-        var mtx = new THREE.Matrix4();
-        PARTY.tilePos.forEach(function (tp, i) { mtx.makeTranslation(tp[0], 0.05, tp[1]); PARTY.tiles.setMatrixAt(i, mtx); });
-        PARTY.tiles.instanceMatrix.needsUpdate = true;
+        placeTiles(0);
         for (var l = 0; l < PARTY.leds.count; l++) PARTY.leds.setColorAt(l, col.setHSL(l / PARTY.leds.count, 1, 0.3));
         PARTY.leds.instanceColor.needsUpdate = true;
         for (var q = 0; q < PARTY.bulbs.count; q++) PARTY.bulbs.setColorAt(q, col.setHSL(q * 0.13 % 1, 0.6, 0.7));
@@ -4392,13 +4584,7 @@
       }
       if (beat % 4 === 0 && !calm && R() < 0.2) launchWork(V(c.x + rr(-12, 12), 0.5, S.wallZ - 2.2), rr(11, 17), null, now, 0, V(c.x + rr(-8, 8), 0, CROWD_C.z - rr(-2, 4)));
     }
-    var mtx = PARTY.tmpM || (PARTY.tmpM = new THREE.Matrix4());
-    for (var t = 0; t < PARTY.tilePos.length; t++) {
-      var tp = PARTY.tilePos[t];
-      mtx.makeTranslation(tp[0], 0.05 + (PARTY.lit && PARTY.lit[t] ? kick * 0.05 : 0), tp[1]);
-      PARTY.tiles.setMatrixAt(t, mtx);
-    }
-    PARTY.tiles.instanceMatrix.needsUpdate = true;
+    placeTiles(kick);
     PARTY.edge.color.setHSL((now * 0.15 + kick * 0.1) % 1, 1, 0.55 + kick * 0.2);
     // the LED wall: a new picture every 16 beats, pulsing on the kick
     var scr = PARTY.screen.material.uniforms;
@@ -4444,7 +4630,6 @@
     var bulbCount = PARTY.bulbs.count;
     for (var k = 0; k < bulbCount; k++) { col.setHSL((k * 0.13 + now * 0.25) % 1, 0.9, 0.45 + 0.25 * Math.max(0, Math.sin(now * 6 + k))); PARTY.bulbs.setColorAt(k, col); }
     PARTY.bulbs.instanceColor.needsUpdate = true;
-    PARTY.ball.rotation.y = now * 1.2;
     PARTY.beams.forEach(function (bm) {
       var a = now * 0.9 + bm.userData.k * TAU / PARTY.beams.length;
       bm.rotation.set(Math.sin(a * 1.3) * 0.6, 0, Math.cos(a) * 0.6);
@@ -4650,7 +4835,7 @@
     cloudMat.opacity = 0.95 * (1 - n * 0.75);
     cloudMat.color.setRGB(1 - n * 0.55, 1 - n * 0.5, 1 - n * 0.35);
     // the campfire: lit for the Campfire dance (and for the party in dark mode); it flares up and dies down smoothly
-    var fireOn = current === 'campfire' || (current === 'party' && FARM_DARK) ? 1 : 0;
+    var fireOn = current === 'campfire' || current === 'party' ? 1 : 0;   // (at the party it burns on top of the folded arena)
     FIREFX.level += (fireOn - FIREFX.level) * Math.min(1, dt * 1.4);
     var lv = FIREFX.level, lit = lv > 0.02, camQ = camera.quaternion;
     var flick = 1 + Math.sin(now * 11) * 0.07 + Math.sin(now * 23.7) * 0.05 + Math.sin(now * 5.3) * 0.06;
@@ -4659,15 +4844,18 @@
     flames.forEach(function (f) {
       f.visible = lit;
       f.material.uniforms.uLevel.value = lv * flick;
-      f.position.set(FIRE.x + f.userData.off.x, f.userData.off.y, FIRE.z + f.userData.off.z);
+      f.position.set(FIRE.x + f.userData.off.x * FOLD.fireK, f.userData.off.y + FOLD.fireY, FIRE.z + f.userData.off.z * FOLD.fireK);
+      f.scale.setScalar(1 + 0.6 * FOLD.fireY / FOLD.top);           // (a beacon on top of the tower)
       f.quaternion.copy(camQ);                          // always facing you
     });
     var torchOn = current === 'campfire' || n > 0.3;
-    RING.torches.forEach(function (f) { f.visible = torchOn; f.material.uniforms.uLevel.value = flick; f.quaternion.copy(camQ); });
+    RING.torches.forEach(function (f) { f.visible = torchOn && !f.userData.sunk; f.material.uniforms.uLevel.value = flick; f.quaternion.copy(camQ); });
     FIREFX.glow.visible = FIREFX.ground.visible = lit;
     FIREFX.glow.material.opacity = lv * (0.12 + 0.28 * n) * flick;
+    FIREFX.glow.position.y = 1.3 * FIRE_K + FOLD.fireY;
+    if (FOLD.fireY > 0.5) FIREFX.glow.material.opacity = Math.max(FIREFX.glow.material.opacity, lv * 0.32 * flick);
     FIREFX.glow.scale.setScalar((4.2 + Math.sin(now * 2.7) * 0.3) * FIRE_K);
-    FIREFX.ground.material.opacity = lv * (0.08 + 0.3 * n) * flick;
+    FIREFX.ground.material.opacity = lv * (0.08 + 0.3 * n) * flick * (1 - 0.6 * FOLD.fireY / FOLD.top);
     FIREFX.coals.forEach(function (c) {
       var p2 = c.userData.ph;
       c.material.color.setHSL(0.025 + 0.02 * Math.sin(now * 2.3 + p2), 1, 0.12 + lv * (0.32 + 0.1 * Math.sin(now * 4.1 + p2)));
@@ -4675,12 +4863,12 @@
     FIREFX.smoke.forEach(function (sm) {
       var k = (now * 0.11 + sm.userData.ph) % 1;
       sm.visible = lit;
-      sm.position.set(FIRE.x + (sm.userData.dx * k * 2.5 + k * 1.2) * FIRE_K, (2.6 + k * 6.5) * FIRE_K, FIRE.z + sm.userData.dz * k * 2.5 * FIRE_K);
+      sm.position.set(FIRE.x + (sm.userData.dx * k * 2.5 + k * 1.2) * FIRE_K, (2.6 + k * 6.5) * FIRE_K + FOLD.fireY, FIRE.z + sm.userData.dz * k * 2.5 * FIRE_K);
       sm.scale.setScalar((1.0 + k * 4.0) * FIRE_K);
       sm.material.opacity = lv * 0.45 * Math.sin(k * PI) * (1 - n * 0.4);
     });
     fireLight.intensity = lv * (0.35 + 0.75 * n) * flick;   // warm, not blinding (the toon colours clip easily)
-    fireLight.position.set(FIRE.x, 3.4, FIRE.z);
+    fireLight.position.set(FIRE.x, 3.4 + FOLD.fireY, FIRE.z);
     fireLight.distance = 34;
     embers.material.opacity = lv;
     embers.visible = lit;
@@ -4688,7 +4876,7 @@
       var ep = embers.geometry.attributes.position;
       embers.userData.seeds.forEach(function (s, i) {
         var k = (now * s[2] + s[0]) % 1, sw = s[1] + k * 4 + Math.sin(now * 1.3 + i) * 0.4, rad = (0.15 + k * (0.6 + s[3])) * FIRE_K;
-        ep.setXYZ(i, FIRE.x + Math.cos(sw) * rad, 0.5 + k * (3.2 + s[3] * 3.5) * 1.5, FIRE.z + Math.sin(sw) * rad);
+        ep.setXYZ(i, FIRE.x + Math.cos(sw) * rad, 0.5 + k * (3.2 + s[3] * 3.5) * 1.5 + FOLD.fireY, FIRE.z + Math.sin(sw) * rad);
       });
       ep.needsUpdate = true;
     }
@@ -4704,7 +4892,7 @@
     }
     if (BARN_WINDOW) BARN_WINDOW.material = n > 0.4 ? mat('#f7d77a') : mat('#3c2a1e');
     stepJets(now, camQ); stepWorks(now, n); stepCannons(now);
-    stepStage(now, dt, n); stepBloom(now, dt, n); stepFaders(dt);
+    stepFold(now, dt); stepStage(now, dt, n); stepBloom(now, dt, n); stepFaders(dt);
     // things that move
     if (sails) sails.rotation.z = -now * 0.6;
     WORLD_ANIM.forEach(function (f) { f(now, dt, n); });
@@ -4743,6 +4931,7 @@
       u.head.rotation.x = Math.abs(pk) * 0.9;
       u.shadow.position.set(c.position.x, 0.03, c.position.z);
     });
+    stepRabbits(now, dt);
     WORMS.forEach(function (w) { w.rotation.z = Math.sin(now * 3 + w.userData.wiggle) * 0.4; w.position.y = 0.9 + Math.abs(Math.sin(now * 1.5 + w.userData.wiggle)) * 0.05; });
     if (!calm) mapWorms.forEach(function (w) { w.rotation.y = Math.sin(now * 1.3 + w.userData.ph) * 0.6; w.scale.set(1 + Math.sin(now * 4 + w.userData.ph) * 0.12, 1, 1); });
     mapBees.forEach(function (b) { var u = b.userData, a = now * 2.2 + u.ph; b.position.set(u.c.x + Math.cos(a) * u.r, u.c.y + Math.sin(a * 1.7) * 0.25, u.c.z + Math.sin(a) * u.r); b.rotation.y = -a; });
@@ -4977,6 +5166,7 @@
     plants: plants,
     blocked: function (x, z, pad) { return blockedAt(x, z, pad); },
     party: function () { return { dance: dance.cur.id, name: dance.cur.name, form: form.on ? form.kind : null, moving: form.moving }; },
+    debugFold: function () { return FOLD; },
     floorSlots: function () { return heroes.slice(1).map(function (h, k) { var v = floorSlot(h, k); return [+v.x.toFixed(2), +v.z.toFixed(2)]; }); },
     ring: function () {
       return { phase: RING.phase, bout: RING.bout && RING.bout.id, style: ringStyle().id, winner: RING.winner && RING.winner.name, points: RING.points,

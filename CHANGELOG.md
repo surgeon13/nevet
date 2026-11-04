@@ -1,5 +1,32 @@
 # Changelog
 
+## An open farm with the mud pit at its heart, and an arena that transforms
+
+- **The mud arena is the centre of the farm.** It stands in the middle,
+  with the rave's dance field round it and the stage on its north side.
+  The farmyard is to the north, the play park moved to the south, and the
+  old campfire and party fields are open meadows: the gladiators' tents to
+  the east, the big wheel (now beside the stage) and the mother tree to the
+  west.
+- **No fences.** The outer fence and the yard's fence are gone: the farm is
+  open to everyone. The areas are divided by nature, with low hedges dotted
+  with flowers and rows of trees in the farm's setting, and gaps for the
+  paths. The way from the yard is a wooden arch with roses and the farm's
+  name. Wild rabbits hop about the meadows and scamper off when a hero
+  comes near.
+- **The arena folds up for the party, like a Transformer.** The arches,
+  torch columns and braziers screw down into the ground, the eight wall
+  sections unlock, swing upright one after another and lock together (with
+  sparks) into a tower in the middle of the dance field, a column lifts the
+  campfire to its top so it burns above the dancers, and the floor's panels
+  flip over the mud from the rim in. Back to the Campfire (or any other
+  activity) and it all unfolds into the mud pit again.
+- **Dancing round the fire.** At the party the crowd fills in round the
+  tower facing the stage, and the Hora, Mayim Mayim and the Conga go round
+  the fire. The mirror ball made way for the fire.
+- New paths: through the arch, along behind the stage, down both sides of
+  the dance field, on to the play park, and out to the meadows.
+
 ## The party is an open-air rave
 
 - **A much bigger dance field.** The party floor grew from 17 x 15 m to
