@@ -11,6 +11,11 @@
     {% if join_ev %}<p class="auth-sub">Pick a hero name and a password, and you'll go straight to <b>{{ join_ev.kind_info.emoji }} {{ join_ev.title }}</b> to say you're coming.</p>
     {% else %}<p class="auth-sub">Pick a hero name and a password. You'll choose your hero's look next.</p>{% endif %}
   {% endif %}
+  {% if card %}
+    <p class="invite-banner">🪪 Joining with your hero card: <b>{{ card.name }}</b>, level {{ card.passport.level }} at {{ card.home.name }}. Your look comes too.</p>
+  {% elif not current_user %}
+    <p class="auth-sub" style="margin-top: -4px;">Already a hero on another Nevet farm? <a href="{{ url_for('cards_import') }}">Bring your hero card</a>.</p>
+  {% endif %}
   {% if inviter %}
     <p class="invite-banner">🌱 <b>{{ inviter.name }}</b> invited you to the farm. You'll grow on their branch of our mother tree.</p>
     {% if not need_code %}<input type="hidden" name="invite" value="{{ inviter_code }}">{% endif %}

@@ -56,8 +56,12 @@ nevet/                      <- this repo, cloned wherever you like
 │   ├── app.py
 │   ├── game_stats.py          importable helper for logging game stats
 │   ├── logging_config.py      rotating file logging setup
+│   ├── digest.py              the weekly garden digest
+│   ├── cards.py, ed25519.py   signed hero cards between Nevet sites (plain-Python Ed25519)
 │   ├── templates/
 │   └── static/
+├── tests/                    pytest: every page, the code, actions, the 3D farm (headless)
+├── .github/workflows/        check.yml: runs the tests on every push; moves "stable" when main passes
 ├── systemd/                  unit file templates (__USER__/__HOME__/__REPO_DIR__
 │                              placeholders, rendered by install.sh)
 ├── config/
@@ -84,6 +88,23 @@ The split is deliberate: code lives in the repo and is versioned;
 captured media, logs, counters, and the stats database are runtime
 state and never committed (`.gitignore` excludes `camera_captures/`,
 `logs/`, `*.db`, `*.log`, and `.env`).
+
+## Tests and the stable branch
+
+`tests/` holds a pytest suite that builds a throwaway farm in a temporary folder (`tests/conftest.py`: heroes,
+plants, a worm bin with weighed work, an event going on now, tags, a group) and checks:
+
+- every page opens without a server error as a visitor, a member and an admin (new routes are picked up by
+  themselves; a route with a new kind of URL part needs an example value in `tests/test_pages.py`);
+- every Python file compiles, every template parses, every script is valid JavaScript and shell;
+- the main actions (logging with weights and XP, quick logs from tags, CSRF, events, the digest, hero cards);
+- the 3D farm runs every activity in headless Chromium (Playwright) without a JavaScript error, and the arena
+  folds for the party and opens again.
+
+GitHub runs them on every push (`.github/workflows/check.yml`, Python 3.11 like Raspberry Pi OS). When `main`
+passes, the workflow fast-forwards the `stable` branch to that commit. `scripts/auto_update.sh` follows `stable`
+(or `main` until `stable` exists, or whatever `NEVET_UPDATE_BRANCH` says), so the Pi only ever moves to tested
+commits, and its own health check and rollback still guard the restart.
 
 ## Why systemd instead of a loop script
 

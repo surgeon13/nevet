@@ -1,5 +1,32 @@
 # Changelog
 
+## A safety check, the weekly digest, events on the farm, hero cards
+
+- **A safety check before the Pi updates.** Tests for every page (as a
+  visitor, a member and an admin), the code, the main actions and the 3D
+  farm in a headless browser (`tests/`, `python3 -m pytest -q`) run on
+  GitHub on every push (`.github/workflows/check.yml`). When main passes,
+  that commit becomes the `stable` branch, and the Pi's auto-update follows
+  `stable`, so a broken push never reaches the farm.
+- **The week on the farm** (📰 This week, next to the leaderboards): jobs,
+  helpers and kilograms harvested, fed to the worms and given away against
+  the week before, who helped and their XP, what got done, highlights,
+  what needs a hand and what's coming up. Copy it for a chat, share or
+  print it. Weeks run Sunday to Saturday.
+- **Events drive the 3D farm.** An event can have a line-up
+  (`21:00 DJ Dana`, one a line): the event page marks what's on now, and
+  while the event is on the stage's screen shows now and next, with the
+  event's name on the neon sign. Heroes who checked in come first in the
+  farm's crowd. The event's numbers add the garden work done while it was
+  on: jobs, helpers, kilograms and XP.
+- **Hero cards.** Take your hero to another Nevet farm: a card signed by
+  this farm (Ed25519, in plain Python), as a file, a QR code or text. The
+  other farm checks it, then someone new can join with it, a member can add
+  it to their hero, or an admin can add a visiting hero. The hero page
+  shows "Also a hero at ..."; XP and powers never travel. The farm's name
+  for cards is on the Account page, its key at `/api/site`.
+- `docs/TODO.md`: things parked for later (splitting the 3D farm file).
+
 ## An open farm with the mud pit at its heart, and an arena that transforms
 
 - **The mud arena is the centre of the farm.** It stands in the middle,

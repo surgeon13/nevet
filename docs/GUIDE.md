@@ -63,6 +63,11 @@ farm's mother tree, and your hero page shows who you invited.
 Played Nevet before under a name like `M`? Sign up with that same name and
 you get your old hero back, with all its plants and history.
 
+**Already a hero on another Nevet farm?** Bring your **hero card**: on the
+sign-up page tap "Bring your hero card", choose the card file (or paste its
+text, or scan its QR code on Android). The farm checks the card is genuine,
+and you join with your name and look. See [Hero cards](#hero-cards-take-your-hero-to-another-farm).
+
 **Forgot your password?** Ask the person who looks after Nevet (the
 admin). They can set a new one for you. You can change it yourself any
 time on the **Account** page, from your hero page. If a password is typed
@@ -420,8 +425,15 @@ nights.
   busiest moment, a chart of people over time, and downloads for
   spreadsheets.
 
-While an event is on, the 3D farm joins in with the event's name and
-activity.
+**While an event is on, it drives the 3D farm:** the farm switches to the
+event's activity (the party for a party), with its name on top and on the
+stage's neon sign, and the heroes who checked in come first in the crowd.
+Give the event a **line-up** (one a line, with the time it starts:
+`21:00 DJ Dana`, `22:30 Acid live set`) and the stage's screen shows who's
+on now and who's next, by the clock; the event page shows the line-up too,
+with "on now" marked. Afterwards the event's numbers include the **garden
+work** done while it was on: jobs, helpers, kilograms harvested and fed to
+the worms, and the XP earned.
 
 ## Tags: tap a sticker to log
 
@@ -511,6 +523,47 @@ a link straight to your branch.
 on their hero page ("Who invited you?"). An admin can set it or change it
 for anyone. The tree can't go round in a circle: nobody can be invited
 by someone they invited.
+
+## The week on the farm: the weekly digest
+
+**This week** (next to Leaderboards on the dashboard) is the farm's weekly
+digest, for everyone, visitors too. Weeks run Sunday to Saturday:
+
+- the jobs done and helpers, kilograms harvested, fed to the worms and
+  given away, and the new plants and bins, each against the week before;
+- **who helped**, with their jobs, days, kilograms and the XP they earned;
+- **what got done**, by kind of job;
+- **highlights**: the biggest harvest, the busiest day, the most
+  looked-after plant, newcomers and new plants;
+- this week's events, and for the current week **what needs a hand**
+  (plants not watered for 3 days) and what's **coming up** next week.
+
+**Copy for a chat** gives a short text version to paste into the family or
+group chat; **Share** (on phones) and **Print** too. "Week before" goes back
+in time.
+
+## Hero cards: take your hero to another farm
+
+Every Nevet farm can sign **hero cards**. On your hero page, tap
+**🪪 Hero card**: a card with your hero, your level and a passport of what
+you've done (jobs, plants, kilograms harvested and fed to the worms,
+events). Download it (a small `.nevetcard.json` file), show its QR code, or
+copy it as text.
+
+On another Nevet farm, open **Bring a hero card** (on its sign-up page, or
+`/cards/import`). It checks the card's signature, so it knows the card
+wasn't changed and which farm made it (by its key's fingerprint), and then:
+
+- **someone new joins with it**: their name and look come along;
+- **a member adds it to their hero** there (and can take the card's look);
+- **an admin adds a visiting hero** without a login, who can claim it later
+  by signing up with that name.
+
+The hero page then shows **🌍 Also a hero at …** with the passport. A card
+never brings XP or powers: those only grow from garden work on each farm.
+The admin sets the farm's name for cards on the **Account** page, which
+also shows the farm's key fingerprint to tell other farms. Each farm keeps
+its own data; a shared place for farms to find each other comes later.
 
 ## XP, levels and leaderboards
 

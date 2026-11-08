@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Nevet — Bring a hero card{% endblock %}
+{% block content %}
+<h2>🪪 Bring a hero card</h2>
+<p class="muted">Already a hero on another Nevet farm? Bring your hero card: {{ here.name }} checks it's genuine, and your
+  name and look come along. What you did there shows on your hero page here; XP and powers here only grow from garden
+  work on this farm.</p>
+{% if error %}<p class="hero-error" role="alert">{{ error }}</p>{% endif %}
+
+{% if info %}
+<section class="panel ci-preview">
+  <div class="ci-hero" data-appearance='{{ info.appearance | tojson }}'><span class="ci-avatar"><span class="hero-initial">{{ info.name[:1] | upper }}</span></span>
+    <div>
+      <h3>{{ info.name }}</h3>
+      <p class="muted">Level {{ info.passport.level }}{% if info.passport.rank %} · {{ info.passport.rank }}{% endif %} at <b>{{ info.home.name }}</b>
+        · {{ info.passport.actions }} jobs{% if info.passport.harvest_kg %} · {{ '%g' | format(info.passport.harvest_kg) }} kg harvested{% endif %}
+        {%- if info.passport.worm_kg %} · {{ '%g' | format(info.passport.worm_kg) }} kg to the worms{% endif %}</p>
+      <p class="ci-check">✅ Genuine: signed by {{ info.home.name }} (key <code>{{ info.home.fingerprint }}</code>{% if info.home.this_site %}, this farm{% elif info.home.known %}, a farm we know{% else %}, a farm new to us{% endif %}).
+        {%- if info.issued %} Made {{ info.issued[:10] }}.{% endif %}</p>
+    </div>
+  </div>
+  <form method="post" class="ci-actions">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="card" value="{{ text }}">
+    {% if not me %}
+      <button class="btn btn-primary" name="how" value="join">🌱 Join {{ here.name }} as {{ info.name }}</button>
+    {% else %}
+      <label class="check-row"><input type="checkbox" name="look" checked> <span>Use the card's look for my hero</span></label>
+      <button class="btn btn-primary" name="how" value="mine">Add it to my hero ({{ me.name }})</button>
+      {% if me.is_admin %}<button class="btn btn-ghost" name="how" value="visitor">Add {{ info.name }} as a visiting hero</button>{% endif %}
+    {% endif %}
+  </form>
+  {% if me and me.is_admin %}<p class="muted" style="margin: 8px 0 0;">A visiting hero has no password: they can claim it later by signing up with the name {{ info.name }}.</p>{% endif %}
+</section>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="panel ci-form">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <label class="hero-field"><span class="hero-field-label">The card file</span>
+    <input type="file" name="file" accept=".json,application/json"></label>
+  <label class="hero-field"><span class="hero-field-label">…or its text</span>
+    <textarea name="card" rows="3" placeholder="NEVETCARD1:…">{{ '' if info else text }}</textarea></label>
+  <div class="ci-buttons">
+    <button type="submit" class="btn btn-primary">Check the card</button>
+    <button type="button" class="btn btn-ghost" id="ci-scan" hidden>📷 Scan its QR code</button>
+  </div>
+  <video id="ci-video" playsinline muted hidden></video>
+</form>
+<script>
+(function () {
+  var btn = document.getElementById('ci-scan'), video = document.getElementById('ci-video'), area = document.querySelector('textarea[name=card]');
+  if (!('BarcodeDetector' in window) || !navigator.mediaDevices) return;          // (phones with it: Android Chrome)
+  btn.hidden = false;
+  btn.addEventListener('click', function () {
+    var det = new BarcodeDetector({ formats: ['qr_code'] });
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(function (stream) {
+      video.srcObject = stream; video.hidden = false; video.play();
+      (function look() {
+        det.detect(video).then(function (codes) {
+          var hit = codes.find(function (c) { return c.rawValue.indexOf('NEVETCARD1:') === 0; });
+          if (hit) { stream.getTracks().forEach(function (t) { t.stop(); }); video.hidden = true; area.value = hit.rawValue; area.form.submit(); }
+          else requestAnimationFrame(look);
+        }).catch(function () { requestAnimationFrame(look); });
+      })();
+    }).catch(function () { btn.textContent = 'No camera'; });
+  });
+})();
+</script>
+<script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/nevet3d.js') }}"></script>
+<script src="{{ url_for('static', filename='js/hero3d.js') }}"></script>
+<script>
+(function () {
+  var el = document.querySelector('.ci-hero[data-appearance]');
+  if (!el || !window.NevetHero) return;
+  try { var img = new Image(); img.alt = ''; img.src = NevetHero.faceIcon(JSON.parse(el.dataset.appearance), {{ catalog | tojson }}, 72);
+        var av = el.querySelector('.ci-avatar'); av.innerHTML = ''; av.appendChild(img); } catch (e) {}
+})();
+</script>
+{% endblock %}

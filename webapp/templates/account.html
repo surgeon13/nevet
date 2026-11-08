@@ -51,6 +51,16 @@
     <label class="hero-field-row"><input type="checkbox" name="guest_photos"{% if guest_photos %} checked{% endif %}> Guests can see the camera's photos and videos</label>
     <button type="submit" name="action" value="viewers" class="btn btn-ghost">Save</button>
   </form>
+  <form method="post" class="auth-section">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <h3>🪪 This farm on hero cards</h3>
+    <p class="auth-sub">Players can take their hero to other Nevet farms with a hero card, signed by this farm's key, and bring
+      cards from other farms (<a href="{{ url_for('cards_import') }}">Bring a hero card</a>). Other farms see this name and the
+      key's fingerprint <code>{{ site.fingerprint }}</code> (tell them, so they know it's really you).</p>
+    <label class="hero-field"><span class="hero-field-label">This farm's name</span>
+      <input type="text" name="site_name" maxlength="60" value="{{ site.name }}" placeholder="e.g. Nevet Farm Jerusalem"></label>
+    <button type="submit" name="action" value="site_name" class="btn btn-ghost">Save</button>
+  </form>
   {% endif %}
   {% if invite_log %}
   <div class="auth-section">

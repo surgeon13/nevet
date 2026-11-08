@@ -51,12 +51,19 @@ in one go.
   on a TV.
 - 🎈 **Events** for parties, festivals and work days: the next ones on the
   dashboard with one-tap "Going", a QR code and printable poster to invite
-  people, volunteer jobs, a map of the site, check-ins and photos.
+  people, volunteer jobs, a map of the site, check-ins and photos. While
+  one is on it drives the 3D farm, with its line-up on the stage.
 - 🏷️ **Tags**: stickers and QR labels on plants. Tap one with a phone and
   the job is logged.
 - 👀 **Look around first**: visitors without an account get the brain,
   the 3D farm, the story and the leaderboards as guests, with private
   things (notes, family, photos unless allowed) hidden and a Join button.
+- 📰 **The week on the farm**: a weekly digest of what got done, who
+  helped and how many kilograms were harvested and fed to the worms, to
+  copy into the family chat.
+- 🪪 **Hero cards**: take your hero to another Nevet farm with a signed
+  card (a file or a QR code); the other farm checks it and you join with
+  your name and look.
 - 🏆 **Leaderboards**: heroes ranked by XP from real garden work (this
   week, 30 days, all time), a podium, rank titles from 🌱 Seedling to
   👑 Legend of Nevet, and top fives for the most active, the steadiest,

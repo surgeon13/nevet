@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Nevet — {{ hero.name }}'s hero card{% endblock %}
+{% block content %}
+<p style="margin: 0 0 10px;"><a href="{{ url_for('grower_page', grower_id=hero.id) }}" class="muted" style="text-decoration:none;">← {{ hero.name }}</a></p>
+<h2>🪪 {{ hero.name }}'s hero card</h2>
+<p class="muted">Take your hero to another Nevet farm. The card is signed by this farm, so the other farm can tell it's
+  genuine and wasn't changed. There you can join with it, or add it to your hero there: your name and look come along,
+  and your passport shows what you've done here. Powers and XP never travel: they only grow from garden work on each farm.</p>
+
+<div class="hc-wrap">
+  <article class="hc-card" data-appearance='{{ hero.appearance | tojson }}'>
+    <div class="hc-top"><span class="hc-site">🌱 {{ card.home.name }}</span><span class="hc-kind">HERO CARD</span></div>
+    <div class="hc-avatar"><span class="hero-initial">{{ hero.name[:1] | upper }}</span></div>
+    <h3 class="hc-name">{{ hero.name }}</h3>
+    <p class="hc-rank">{{ hero.class.name if hero.class else '' }} · Level {{ card.passport.level }} · {{ card.passport.rank }}</p>
+    <dl class="hc-stats">
+      <div><dt>XP</dt><dd>{{ card.passport.xp }}</dd></div>
+      <div><dt>Jobs</dt><dd>{{ card.passport.actions }}</dd></div>
+      <div><dt>Plants</dt><dd>{{ card.passport.plants }}</dd></div>
+      <div><dt>Harvested</dt><dd>{{ '%g' | format(card.passport.harvest_kg) }} kg</dd></div>
+      <div><dt>To the worms</dt><dd>{{ '%g' | format(card.passport.worm_kg) }} kg</dd></div>
+      <div><dt>Events</dt><dd>{{ card.passport.events }}</dd></div>
+    </dl>
+    <p class="hc-foot">Since {{ card.hero.joined or '–' }} · signed by key <code>{{ me.fingerprint }}</code></p>
+  </article>
+
+  <section class="panel hc-share">
+    <h3 class="panel-title">Take it with you</h3>
+    <a class="btn btn-primary" href="{{ url_for('hero_card_file', grower_id=hero.id) }}" download>⬇️ Download the card</a>
+    <p class="muted">A small file ({{ hero.name }}.nevetcard.json). On the other farm, open <b>Bring a hero card</b>
+      (on its sign-up page, or <code>/cards/import</code>) and choose the file.</p>
+    <div class="hc-qr">{{ qr_svg | safe }}</div>
+    <p class="muted">Or scan this code on the other farm's <b>Bring a hero card</b> page, or copy the card as text:</p>
+    <button type="button" class="btn btn-ghost btn-small" id="hc-copy">📋 Copy the card as text</button> <span class="muted" id="hc-copied" role="status"></span>
+    <textarea id="hc-text" hidden readonly>{{ text }}</textarea>
+    <p class="muted hc-note">The card has your hero's name, look and the numbers above, nothing else (no password, no notes, no family).
+      Anyone with it can show your hero on their farm, so share it with the farms you visit.</p>
+  </section>
+</div>
+
+<script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/nevet3d.js') }}"></script>
+<script src="{{ url_for('static', filename='js/hero3d.js') }}"></script>
+<script>
+(function () {
+  var t = document.getElementById('hc-text').value, note = document.getElementById('hc-copied');
+  document.getElementById('hc-copy').addEventListener('click', function () {
+    function done() { note.textContent = 'Copied'; setTimeout(function () { note.textContent = ''; }, 2500); }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done);
+  });
+  if (!window.NevetHero || !NevetHero.supported()) return;
+  var el = document.querySelector('.hc-card[data-appearance]');
+  try {
+    var img = new Image(); img.alt = '';
+    img.src = NevetHero.snapshot(JSON.parse(el.dataset.appearance), {{ catalog | tojson }}, 260, 300);
+    var av = el.querySelector('.hc-avatar'); av.innerHTML = ''; av.appendChild(img);
+  } catch (e) { /* keep the letter */ }
+})();
+</script>
+{% endblock %}

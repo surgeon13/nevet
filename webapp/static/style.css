@@ -908,3 +908,36 @@ th[aria-sort="ascending"] .pw-sort.on::after { content: " ▴"; }
   .hub-tabs, .dg-nav, .dg-share, header, nav, .fab { display: none !important; }
   .dg-tile, .panel { break-inside: avoid; }
 }
+
+/* ---- hero cards ---- */
+.hc-wrap { display: grid; grid-template-columns: minmax(260px, 360px) 1fr; gap: 16px; align-items: start; margin-top: 12px; }
+@media (max-width: 720px) { .hc-wrap { grid-template-columns: 1fr; } }
+.hc-card { border-radius: 22px; padding: 16px; color: #f7f3e8; text-align: center;
+  background: radial-gradient(circle at 30% 0%, #6fbf73 0%, #2f6e4a 45%, #1c3b2c 100%); box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
+.hc-top { display: flex; justify-content: space-between; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.06em; opacity: 0.9; }
+.hc-avatar { width: 150px; height: 170px; margin: 8px auto 0; display: flex; align-items: center; justify-content: center; }
+.hc-avatar img { width: 100%; height: 100%; object-fit: contain; }
+.hc-avatar .hero-initial { font-size: 3rem; }
+.hc-name { margin: 4px 0 0; font-size: 1.6rem; }
+.hc-rank { margin: 2px 0 10px; opacity: 0.85; }
+.hc-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; }
+.hc-stats div { background: rgba(255,255,255,0.1); border-radius: 12px; padding: 6px 4px; }
+.hc-stats dt { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.8; }
+.hc-stats dd { margin: 2px 0 0; font-weight: 800; }
+.hc-foot { margin: 10px 0 0; font-size: 0.72rem; opacity: 0.8; }
+.hc-foot code { color: inherit; }
+.hc-share { margin: 0; }
+.hc-qr svg { width: 220px; height: 220px; display: block; margin: 12px 0 6px; background: #fff; border-radius: 10px; }
+.hc-note { font-size: 0.82rem; }
+.ci-preview { margin: 12px 0; }
+.ci-hero { display: flex; gap: 14px; align-items: center; }
+.ci-hero h3 { margin: 0; }
+.ci-avatar { width: 72px; height: 72px; border-radius: 50%; overflow: hidden; flex: none; display: inline-flex; align-items: center; justify-content: center; background: rgba(127,127,127,0.12); }
+.ci-avatar img { width: 100%; height: 100%; }
+.ci-check { margin: 6px 0 0; font-size: 0.88rem; }
+.ci-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.ci-form { margin-top: 12px; }
+.ci-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+#ci-video { width: 100%; max-width: 360px; border-radius: 12px; margin-top: 10px; }
+.passports { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.passports li { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; background: rgba(127,127,127,0.08); }

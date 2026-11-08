@@ -376,6 +376,14 @@ def get_conn():
             conn.execute(f"ALTER TABLE events ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0")
     if "lineup" not in ev_cols:                       # the event's line-up (added later): "21:00 DJ Dana" a line
         conn.execute("ALTER TABLE events ADD COLUMN lineup TEXT")
+    # Hero cards from other Nevet sites (cards.py): kept with a hero here, shown as "Also a hero at ..."
+    conn.execute("""CREATE TABLE IF NOT EXISTS hero_cards (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        grower_id INTEGER NOT NULL REFERENCES growers(id) ON DELETE CASCADE,
+        home_key TEXT NOT NULL, home_fp TEXT, home_name TEXT, home_url TEXT,
+        remote_id TEXT, remote_name TEXT, card TEXT NOT NULL, issued TEXT,
+        imported_at TEXT NOT NULL, imported_by INTEGER)""")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_hero_cards_grower ON hero_cards(grower_id)")
     # Who invited whom (added later, see invites.py): each player's own invite code, the hero who
     # invited them and how, and the invite log.
     if "invited_by" not in cols:

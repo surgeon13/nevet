@@ -34,6 +34,7 @@ import timeline
 import today
 import traffic
 import digest
+import cards
 
 BASE_DIR = Path(os.environ.get("CAMERA_BASE_DIR", str(Path.home() / "camera_captures")))
 PHOTO_DIR = BASE_DIR / "photos"
@@ -64,7 +65,8 @@ traffic_counter = traffic.TrafficCounter(farm_db.get_conn).install(app)
 
 # Pages anyone can open without logging in. Visitors without an account can also look around a set of pages
 # as viewers (viewers.ENDPOINTS: the brain, the farm, the story, leaderboards...), but can't change anything.
-PUBLIC_ENDPOINTS = {"login", "register", "join", "invite_link", "event_join", "healthz", "static", "api_add_stats", "api_map_geojson", "api_tag_scan"}
+PUBLIC_ENDPOINTS = {"login", "register", "join", "invite_link", "event_join", "healthz", "static", "api_add_stats", "api_map_geojson", "api_tag_scan",
+                    "cards_import", "api_site"}
 CSRF_EXEMPT = {"api_add_stats", "api_tag_scan"}        # their own API key (or the Pi itself)
 
 LOG_FILES = {
@@ -551,6 +553,7 @@ def grower_page(grower_id):
         powers=pw, powers_k=games.LEVEL_POWER, skills=games.SKILLS, game_stats=games.hero_stats(grower_id), glory=games.glory(games.hero_stats(grower_id)),
         matches=games.recent_matches(6, grower_id), styles=games.ARENA_STYLES,
         invites=invites.summary(grower_id), mine=_my_invite(grower_id) if g.user["id"] == grower_id and not g.viewer else None,
+        passports=cards.passports(grower_id),
         inviter_candidates=[] if g.viewer else _inviter_candidates(grower_id),
     )
 
@@ -1004,9 +1007,16 @@ def register():
                 gid, claimed = existing["id"], True
             else:
                 hero_class, look = heroes.default_appearance(name)
+                carried = _session_card() if not g.user else None       # joining with a hero card from another site: their look comes too
+                if carried:
+                    hero_class, look = carried[1]["class"], heroes.normalize(carried[1]["appearance"], name, carried[1]["class"])
                 gid = farm_db.create_hero(name, hero_class, json.dumps(look),
                                           password_hash=auth.hash_password(password), is_admin=first_account)
                 claimed = False
+                if carried:
+                    cards.attach(gid, carried[0], carried[1], gid)
+                    session.pop("card", None)
+                    logger.info("%s joined with a hero card from %s (%s)", name, carried[1]["home"]["name"], carried[1]["home"]["fingerprint"])
         if not error:                                    # who invited them: the player adding them, an invite link or code, or "who invited you?"
             if g.user:
                 inv_id, via = g.user["id"], "added"
@@ -1034,8 +1044,100 @@ def register():
             return redirect(url_for("grower_customize", grower_id=gid, welcome=1))
     join_ev = events.get(session["join_event"]) if session.get("join_event") and not g.user else None
     pickable = [] if g.user or inviter or first_account else [r["name"] for r in farm_db.list_growers() if r["password_hash"]]
-    return render_template("register.html", error=error, name=name, first_account=first_account, need_code=need_code, join_ev=join_ev,
+    carried = _session_card() if not g.user else None
+    return render_template("register.html", error=error, name=name or (carried[1]["name"] if carried else ""), first_account=first_account,
+                           need_code=need_code, join_ev=join_ev, card=carried[1] if carried else None,
                            inviter=inviter, inviter_code=inviter["invite_code"] if inviter else "", pickable=pickable)
+
+
+def _session_card():
+    """A hero card someone chose to join with (cards_import), checked again: (card, info) or None."""
+    card, err = cards.parse(session.get("card"))
+    if err:
+        return None
+    info, err = cards.check(card)
+    return None if err else (card, info)
+
+
+# ---------------------------------------------------------------------
+# Hero cards (cards.py): take your hero to another Nevet site
+# ---------------------------------------------------------------------
+
+@app.route("/api/site")
+def api_site():
+    """This site's name and public key, for other Nevet sites."""
+    return jsonify(cards.site(_tag_base()))
+
+
+@app.route("/growers/<int:grower_id>/card")
+def hero_card(grower_id):
+    row = farm_db.get_grower(grower_id)
+    if not row or row["deleted_at"]:
+        abort(404)
+    if g.viewer or not can_edit_hero(grower_id):
+        return render_template("message.html", title="Not your hero",
+                               message=f"Only {row['name']} (or an admin) can make {row['name']}'s hero card."), 403
+    card = cards.make(grower_id, _tag_base())
+    text = cards.to_text(card)
+    return render_template("hero_card.html", hero=hero_view(row, farm_db.grower_counts(grower_id)), card=card, text=text,
+                           qr_svg=qr.svg(qr.encode(text, ecl="L"), quiet=2, scale=3, title="QR code with the hero card"),
+                           me=cards.site(_tag_base()), catalog=heroes.catalog())
+
+
+@app.route("/growers/<int:grower_id>/card.json")
+def hero_card_file(grower_id):
+    row = farm_db.get_grower(grower_id)
+    if not row or row["deleted_at"]:
+        abort(404)
+    if g.viewer or not can_edit_hero(grower_id):
+        abort(403)
+    body = json.dumps(cards.make(grower_id, _tag_base()), indent=1, ensure_ascii=False)
+    safe = re.sub(r"[^A-Za-z0-9_-]+", "-", row["name"]).strip("-") or "hero"
+    return app.response_class(body, mimetype="application/json",
+                              headers={"Content-Disposition": f'attachment; filename="{safe}.nevetcard.json"'})
+
+
+@app.route("/cards/import", methods=["GET", "POST"])
+def cards_import():
+    """Bring a hero card from another site: check it, then join with it, add it to your hero, or (admins) add a visiting hero."""
+    me = None if (not g.user or g.viewer) else g.user
+    text = (request.form.get("card") or "").strip()
+    if request.method == "POST" and request.files.get("file") and not text:
+        text = request.files["file"].read(cards.MAX_BYTES + 1).decode("utf-8", "replace")
+    info, error, card = None, None, None
+    if request.method == "POST":
+        card, error = cards.parse(text)
+        if not error:
+            info, error = cards.check(card)
+        how = request.form.get("how")
+        if info and how == "join" and not me:
+            session["card"] = cards.to_text(card)
+            return redirect(url_for("register"))
+        if info and how == "mine" and me:
+            cards.attach(me["id"], card, info, me["id"])
+            if request.form.get("look") == "on":
+                row = farm_db.get_grower(me["id"])
+                farm_db.update_hero(me["id"], row["name"], info["class"], json.dumps(heroes.normalize(info["appearance"], row["name"], info["class"])))
+            logger.info("%s added a hero card from %s", me["name"], info["home"]["name"])
+            return redirect(url_for("grower_page", grower_id=me["id"]) + "#cards")
+        if info and how == "visitor" and me and me["is_admin"]:
+            if farm_db.find_grower_by_name(info["name"], include_deleted=True):
+                error = f"There's already a hero called “{info['name']}” here, so the visitor can't be added with that name."
+            else:
+                gid = farm_db.create_hero(info["name"], info["class"], json.dumps(info["appearance"]))
+                cards.attach(gid, card, info, me["id"])
+                logger.info("%s added visiting hero %s from %s", me["name"], info["name"], info["home"]["name"])
+                return redirect(url_for("grower_page", grower_id=gid, created=1))
+    return render_template("card_import.html", info=info, error=error, text=cards.to_text(card) if info else text,
+                           me=me, catalog=heroes.catalog(), here=cards.site(_tag_base()))
+
+
+@app.route("/growers/<int:grower_id>/cards/<int:card_id>/delete", methods=["POST"])
+def hero_card_remove(grower_id, card_id):
+    if not can_edit_hero(grower_id):
+        abort(403)
+    cards.remove(card_id, grower_id)
+    return redirect(url_for("grower_page", grower_id=grower_id) + "#cards")
 
 
 @app.route("/i/<code>")
@@ -1089,6 +1191,11 @@ def account():
         viewers.save(request.form.get("guest_view"), request.form.get("guest_photos") == "on")
         logger.info("%s set visitors to %s (photos %s)", g.user["name"], viewers.mode(), "on" if viewers.photos() else "off")
         message = "Saved who can look around without an account."
+    elif request.method == "POST" and request.form.get("action") == "site_name":
+        if not g.user["is_admin"]:
+            abort(403)
+        cards.set_site_name(request.form.get("site_name"))
+        message = "Saved this farm's name for hero cards."
     elif request.method == "POST" and request.form.get("action") == "new_my_code":
         invites.code_for(g.user["id"], renew=True)
         logger.info("%s made a new personal invite code", g.user["name"])
@@ -1113,7 +1220,8 @@ def account():
     return render_template("account.html", message=message, error=error, invite=invite, mine=_my_invite(g.user["id"]),
                            invite_log=invites.recent(20) if g.user["is_admin"] else None,
                            guest_view=viewers.mode(), guest_photos=viewers.photos(), guest_modes=viewers.MODES,
-                           here=netaccess.where(request.remote_addr), secure=request.is_secure)
+                           here=netaccess.where(request.remote_addr), secure=request.is_secure,
+                           site=cards.site(_tag_base()) if g.user["is_admin"] else None)
 
 
 def _my_invite(grower_id):

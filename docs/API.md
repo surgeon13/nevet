@@ -6,11 +6,11 @@ The web app runs on port 8000. All routes are relative to
 ## Pages (browser routes)
 
 Every page needs a logged-in player except `/login`, `/register`,
-`/join`, `/e/<id>`, `/healthz` and `POST /api/stats` (API key). All POST forms carry a
+`/join`, `/e/<id>`, `/cards/import`, `/api/site`, `/healthz` and `POST /api/stats` (API key). All POST forms carry a
 `_csrf` token. Visitors without an account can also open these pages as
 viewers, GET only (`webapp/viewers.py`, when the admin allows guests): `/`,
 `/farm` (with `/api/farm/live`, `/api/games/now` and `/extras/...`), `/time`,
-`/leaderboards` (`/stats`), `/powers`, `/growers`, `/growers/<id>`,
+`/leaderboards` (`/stats`), `/digest`, `/powers`, `/growers`, `/growers/<id>`,
 `/activity`, `/assets`, `/assets/<id>`, `/events` and `/t/<code>`, plus
 `/gallery` and `/media/...` if guests may see photos. A viewer's POST gets
 a redirect to `/login?why=join` (or `403` with a JSON error under `/api/`);
@@ -98,6 +98,17 @@ curl -X POST http://<pi-ip>:8000/api/stats \
 Each call inserts a new row into the `stats_log` SQLite table — it's a
 log, not an upsert, so `/stats` always shows the single latest row as
 "current" and the rest as history.
+
+### `GET /api/site`
+
+This Nevet site for other sites (public, no login): `{"name", "url", "key", "fingerprint", "nevet_cards": 1}`.
+`key` is the site's Ed25519 public key (base64url) that signs its hero cards (`webapp/cards.py`,
+`webapp/ed25519.py`); `fingerprint` is the first 16 hex digits of its SHA-256, in groups of four.
+
+A hero card (`<name>.nevetcard.json`, or as text: `NEVETCARD1:` + base64url(zlib(JSON))):
+`{"nevet_card": 1, "id", "hero": {"name", "class", "appearance", "joined"}, "home": {"name", "url", "key"},
+"passport": {"level", "xp", "rank", "actions", "plants", "harvest_kg", "worm_kg", "events"}, "issued", "sig"}`.
+`sig` is the Ed25519 signature (base64url) of the card without `sig`, as JSON with sorted keys and no spaces.
 
 ### `GET /api/logs`
 

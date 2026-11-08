@@ -58,6 +58,7 @@
       {% endif %}
       {% if can_edit %}
         <a class="btn btn-primary" href="{{ url_for('grower_customize', grower_id=hero.id) }}">Customize</a>
+        {% if not viewer %}<a class="btn btn-ghost" href="{{ url_for('hero_card', grower_id=hero.id) }}">🪪 Hero card</a>{% endif %}
       {% endif %}
       {% if is_me %}
         <a class="btn btn-primary" href="{{ url_for('log_action') }}">{{ ui.icon('plus', 16) }} Log an action</a>
@@ -155,6 +156,20 @@
 
 {% if mine %}
 <section class="panel panel-wide">{% include "_invite_card.html" %}</section>
+{% endif %}
+
+{% if passports %}
+<section class="panel panel-wide" id="cards">
+  <h3 class="panel-title">🌍 Also a hero at <span class="muted">· from their hero cards, checked</span></h3>
+  <ul class="passports">
+    {% for p in passports %}
+    <li><span><b>{{ p.home }}</b>{% if p.name != grower.name %} as {{ p.name }}{% endif %} · level {{ p.level }}{% if p.rank %} {{ p.rank }}{% endif %}
+      <small class="muted">· {{ p.actions or 0 }} jobs{% if p.harvest_kg %} · {{ '%g' | format(p.harvest_kg) }} kg harvested{% endif %}{% if p.worm_kg %} · {{ '%g' | format(p.worm_kg) }} kg to the worms{% endif %}{% if p.events %} · {{ p.events }} events{% endif %} · card from {{ p.issued }}</small></span>
+      {% if can_edit and not viewer %}<form method="post" action="{{ url_for('hero_card_remove', grower_id=grower.id, card_id=p.id) }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-small" title="Remove this card">✕</button></form>{% endif %}</li>
+    {% endfor %}
+  </ul>
+</section>
 {% endif %}
 
 {% if not viewer %}
