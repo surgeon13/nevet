@@ -33,6 +33,7 @@ import plants
 import timeline
 import today
 import traffic
+import digest
 
 BASE_DIR = Path(os.environ.get("CAMERA_BASE_DIR", str(Path.home() / "camera_captures")))
 PHOTO_DIR = BASE_DIR / "photos"
@@ -1169,6 +1170,18 @@ def stats():
                            names={g["id"]: g["name"] for g in farm_db.list_growers()})
 
 
+@app.route("/digest")
+@app.route("/digest/<day>")
+def digest_page(day=None):
+    """The weekly garden digest (digest.py): this week, or the week with that day in it."""
+    d = digest.week(digest.parse_day(day))
+    for h in d["helpers"]:
+        h["appearance"] = heroes.hero_for_row(h.pop("row"))[1]
+    link = url_for("digest_page", day=d["start"].isoformat(), _external=True)
+    return render_template("digest.html", d=d, share=digest.text(d, link), link=link, catalog=heroes.catalog(),
+                           when=lambda e: events.when_text(e["start"], None))
+
+
 @app.route("/powers")
 def powers_page():
     """How heroes' fighting powers work: real garden work, exponential levels, the fractal rhythm and the Mandelbrot set."""
@@ -1501,7 +1514,7 @@ def event_page(event_id):
         everyone=[r for r in farm_db.list_growers() if r["id"] not in checked_ids],
         notes=events.notes(event_id), photos=events.photos(ev), feedback=fb,
         my_feedback=next((f for f in fb if f["grower_id"] == me), None),
-        summary=events.summary(ev), arrivals=events.arrivals(ev),
+        summary=events.summary(ev), arrivals=events.arrivals(ev), lineup=events.lineup(ev), on_now=events.now_next(ev)[0],
         map_count=len(garden_map.list_features(event_id)),
         acts=dict(events.FARM_ACTS),
         link=_event_link(ev), qr_svg=_event_qr(ev, scale=5),
@@ -1520,7 +1533,8 @@ def event_edit(event_id):
         return redirect(url_for("event_page", event_id=event_id))
     form = {"title": ev["title"], "kind": ev["kind"], "date": ev["start"].strftime("%Y-%m-%d"), "time": ev["start"].strftime("%H:%M"),
             "end_date": ev["ends_at"][:10] if ev["ends_at"] else "", "end_time": ev["ends_at"][11:16] if ev["ends_at"] else "",
-            "place": ev["place"] or "", "description": ev["description"] or "", "capacity": ev["capacity"] or "", "farm_act": ev["farm_act"]}
+            "place": ev["place"] or "", "description": ev["description"] or "", "capacity": ev["capacity"] or "", "farm_act": ev["farm_act"],
+            "lineup": ev.get("lineup") or ""}
     return render_template("event_form.html", ev=ev, form=form, error=None, kinds=events.KINDS, acts=events.FARM_ACTS)
 
 
@@ -1950,6 +1964,9 @@ def farm_page():
     # players who log in come first, most recently active first; the current player always joins
     rows = sorted(rows, key=lambda r: r["last_login"] or "", reverse=True)            # most recent first...
     rows = sorted(rows, key=lambda r: (r["id"] != g.user["id"], not r["password_hash"]))  # ...within each group (stable)
+    live = next(iter(events.happening()), None)       # an event on now: the people who checked in come first
+    here = {c["grower_id"] for c in events.checkins(live["id"])} if live else set()
+    rows = sorted(rows, key=lambda r: (r["id"] != g.user["id"], r["id"] not in here))
     playing = set(games.participants())              # heroes in the current matches always come along
     keep = [r for r in rows if r["id"] in playing]
     rows = keep + [r for r in rows if r["id"] not in playing] if len(rows) > FARM_MAX_HEROES else rows
@@ -1978,8 +1995,11 @@ def farm_page():
         "start": request.args.get("act") if request.args.get("act") in FARM_ACTS else None,
         "world": farm_world(),                    # the land around the farm (see FARM_WORLDS)
         "community": invites.community(),         # how far the farm has bloomed with its people (invites.py)
-        "event": (lambda e: {"id": e["id"], "title": e["title"], "emoji": e["kind_info"]["emoji"], "act": e["farm_act"] or e["kind_info"]["act"]}
-                  if e else None)(next(iter(events.happening()), None)),
+        "event": (lambda e: {"id": e["id"], "title": e["title"], "emoji": e["kind_info"]["emoji"], "act": e["farm_act"] or e["kind_info"]["act"],
+                             "ends": e["end"].isoformat(timespec="minutes"), "here": len(here) + max(0, e["walk_ins"]),
+                             "lineup": [{"at": s["at"].isoformat(timespec="minutes"), "end": s["end"].isoformat(timespec="minutes"),
+                                         "time": s["time"], "what": s["what"]} for s in events.lineup(e)]}
+                  if e else None)(live),
     }
     return render_template("farm.html", data=data)
 

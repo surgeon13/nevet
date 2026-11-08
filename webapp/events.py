@@ -16,6 +16,7 @@ Tables are created in farm_db.get_conn().
 import csv
 import io
 import json
+import re
 from datetime import datetime, timedelta
 
 import farm_db
@@ -39,6 +40,7 @@ FARM_ACTS = [("party", "Party"), ("campfire", "Campfire dance"), ("harvest", "Ha
 ANSWERS = {"going": "Going", "maybe": "Maybe", "no": "Can't come"}
 DEFAULT_HOURS = 3                      # an event without an end time lasts this long
 TITLE_MAX, PLACE_MAX, DESC_MAX, NOTE_MAX, BRING_MAX, TASK_MAX = 80, 120, 2000, 500, 80, 80
+LINEUP_MAX, LINEUP_LINE_MAX = 30, 80   # the line-up: up to 30 slots, "21:00 DJ Dana" a line
 
 
 def _now():
@@ -108,21 +110,68 @@ def clean(form):
     act = form.get("farm_act") or KIND[kind]["act"]
     if act not in dict(FARM_ACTS):
         act = KIND[kind]["act"]
+    lineup, err = clean_lineup(form.get("lineup"))
+    if err:
+        return {}, err
     return {"title": title, "kind": kind, "starts_at": start.isoformat(timespec="minutes"),
             "ends_at": end.isoformat(timespec="minutes") if end else None, "place": place,
-            "description": desc or None, "capacity": cap or None, "farm_act": act}, None
+            "description": desc or None, "capacity": cap or None, "farm_act": act, "lineup": lineup}, None
+
+
+_SLOT = re.compile(r"^\s*(\d{1,2})[:.](\d{2})\s*[-–—·:]?\s*(.+?)\s*$")
+
+
+def clean_lineup(text):
+    """The line-up as typed ("21:00 DJ Dana", one a line) -> tidy text, or an error."""
+    lines = [l for l in (text or "").splitlines() if l.strip()]
+    if len(lines) > LINEUP_MAX:
+        return None, f"The line-up can have at most {LINEUP_MAX} lines."
+    out = []
+    for line in lines:
+        m = _SLOT.match(line)
+        if not m or int(m.group(1)) > 23 or int(m.group(2)) > 59:
+            return None, f"Start each line of the line-up with a time, like “21:00 DJ Dana” (not “{line.strip()[:30]}”)."
+        out.append(f"{int(m.group(1)):02d}:{m.group(2)} {m.group(3)[:LINEUP_LINE_MAX]}")
+    return "\n".join(out) or None, None
+
+
+def lineup(ev):
+    """The line-up's slots in order, each with its start (a datetime: after midnight counts as the next day) and end
+    (the next slot's start, or the event's end)."""
+    slots, prev = [], None
+    for line in (ev.get("lineup") or "").splitlines():
+        m = _SLOT.match(line)
+        if not m:
+            continue
+        at = ev["start"].replace(hour=int(m.group(1)), minute=int(m.group(2)), second=0)
+        while at < (prev or ev["start"] - timedelta(hours=2)):
+            at += timedelta(days=1)
+        slots.append({"at": at, "time": f"{at:%H:%M}", "what": m.group(3)})
+        prev = at
+    for i, s in enumerate(slots):
+        s["end"] = slots[i + 1]["at"] if i + 1 < len(slots) else max(ev["end"], s["at"] + timedelta(minutes=30))
+    return slots
+
+
+def now_next(ev, now=None):
+    """(the slot on now, the next one) from the line-up; either can be None."""
+    now = now or datetime.now()
+    slots = lineup(ev)
+    cur = next((s for s in slots if s["at"] <= now < s["end"]), None)
+    nxt = next((s for s in slots if s["at"] > now), None)
+    return cur, nxt
 
 
 def create(fields, user_id):
-    cur = _run("INSERT INTO events (title, kind, starts_at, ends_at, place, description, capacity, farm_act, created_by, created_at) "
-               "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    cur = _run("INSERT INTO events (title, kind, starts_at, ends_at, place, description, capacity, farm_act, lineup, created_by, created_at) "
+               "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                (fields["title"], fields["kind"], fields["starts_at"], fields["ends_at"], fields["place"],
-                fields["description"], fields["capacity"], fields["farm_act"], user_id, _now()))
+                fields["description"], fields["capacity"], fields["farm_act"], fields.get("lineup"), user_id, _now()))
     return cur.lastrowid
 
 
 def update(event_id, fields):
-    keys = ("title", "kind", "starts_at", "ends_at", "place", "description", "capacity", "farm_act")
+    keys = ("title", "kind", "starts_at", "ends_at", "place", "description", "capacity", "farm_act", "lineup")
     _run(f"UPDATE events SET {', '.join(k + ' = ?' for k in keys)}, updated_at = ? WHERE id = ?",
          tuple(fields[k] for k in keys) + (_now(), event_id))
 
@@ -411,7 +460,19 @@ def summary(ev):
         "notes": len(notes(ev["id"])), "photos": len(photos(ev, 1000)),
         "mapped": len(feats), "mapped_m2": round(area, 1),
         "qr_scans": ev.get("qr_scans") or 0, "qr_joins": ev.get("qr_joins") or 0,
+        **garden_work(ev),
     }
+
+
+def garden_work(ev):
+    """The real garden work done while the event was on: jobs logged, helpers, kilograms, XP earned."""
+    a, b = ev["start"].isoformat(timespec="seconds"), ev["end"].isoformat(timespec="seconds")
+    kg = "SUM(CASE WHEN l.log_type = ? THEN " + farm_db.log_kg_sql("l") + " ELSE 0 END)"
+    r = _q("SELECT COUNT(*) AS n, COUNT(DISTINCT l.grower_id) AS helpers, " + kg + " AS picked, " + kg + " AS fed, " + kg + " AS given "
+           "FROM logs l WHERE l.timestamp >= ? AND l.timestamp < ?", ("harvest", "feeding", "delivery", a, b), one=True)
+    return {"work_jobs": r["n"], "work_helpers": r["helpers"], "work_picked_kg": round(r["picked"] or 0, 1),
+            "work_fed_kg": round(r["fed"] or 0, 1), "work_given_kg": round(r["given"] or 0, 1),
+            "work_xp": sum(farm_db.xp_by_grower(a, until=b).values())}
 
 
 def people_csv(ev):

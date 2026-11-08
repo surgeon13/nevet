@@ -374,6 +374,8 @@ def get_conn():
     for col in ("qr_scans", "qr_joins"):
         if col not in ev_cols:
             conn.execute(f"ALTER TABLE events ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0")
+    if "lineup" not in ev_cols:                       # the event's line-up (added later): "21:00 DJ Dana" a line
+        conn.execute("ALTER TABLE events ADD COLUMN lineup TEXT")
     # Who invited whom (added later, see invites.py): each player's own invite code, the hero who
     # invited them and how, and the invite log.
     if "invited_by" not in cols:
@@ -650,14 +652,18 @@ def hero_xp_sql(id_expr="growers.id"):
             " + %d * (SELECT COUNT(*) FROM assets xa WHERE xa.grower_id = " % heroes.XP_PLANT + id_expr + "))")
 
 
-def xp_by_grower(since="", conn=None):
-    """{grower_id: XP earned since a time (ISO text; "" = all time)}: logs from then on and plants added since."""
+def xp_by_grower(since="", conn=None, until=""):
+    """{grower_id: XP earned since a time (ISO text; "" = all time), and before `until` if given}: logs in that time
+    and plants added in it."""
     import heroes
     own = conn is None
     conn = conn or get_conn()
     out = {}
-    when_l, when_a = (" AND l.timestamp >= ?", " AND created_at >= ?") if since else ("", "")
-    args = (since,) if since else ()
+    when_l, when_a, args = "", "", ()
+    if since:
+        when_l, when_a, args = when_l + " AND l.timestamp >= ?", when_a + " AND created_at >= ?", args + (since,)
+    if until:
+        when_l, when_a, args = when_l + " AND l.timestamp < ?", when_a + " AND created_at < ?", args + (until,)
     for gid, xp in conn.execute("SELECT l.grower_id, SUM(" + log_xp_sql("l") + ") FROM logs l "
                                 "WHERE l.grower_id IS NOT NULL" + when_l + " GROUP BY l.grower_id", args):
         out[gid] = out.get(gid, 0) + (xp or 0)

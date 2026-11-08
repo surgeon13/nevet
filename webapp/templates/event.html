@@ -212,6 +212,9 @@
     <div class="kpi"><span class="kpi-label">Mapped</span><span class="kpi-value">{{ s.mapped }}</span><span class="kpi-sub">{{ '{:,.0f}'.format(s.mapped_m2) }} m² of areas</span></div>
     <div class="kpi"><span class="kpi-label">Log</span><span class="kpi-value">{{ s.notes }}</span><span class="kpi-sub">notes</span></div>
     <div class="kpi"><span class="kpi-label">Photos</span><span class="kpi-value">{{ s.photos }}</span><span class="kpi-sub">by the camera</span></div>
+    <div class="kpi"><span class="kpi-label">Garden work</span><span class="kpi-value">{{ s.work_jobs }}</span><span class="kpi-sub">job{{ 's' if s.work_jobs != 1 }} by {{ s.work_helpers }} hero{{ 'es' if s.work_helpers != 1 }}
+      {%- if s.work_picked_kg %} · {{ '%g' | format(s.work_picked_kg) }} kg harvested{% endif %}{% if s.work_fed_kg %} · {{ '%g' | format(s.work_fed_kg) }} kg to the worms{% endif %}{% if s.work_given_kg %} · {{ '%g' | format(s.work_given_kg) }} kg given away{% endif %}</span></div>
+    <div class="kpi"><span class="kpi-label">XP earned</span><span class="kpi-value">{{ s.work_xp }}</span><span class="kpi-sub">from real garden work while it was on</span></div>
     <div class="kpi"><span class="kpi-label">QR scans</span><span class="kpi-value">{{ s.qr_scans }}</span><span class="kpi-sub">{{ s.qr_joins }} new hero{{ 'es' if s.qr_joins != 1 }} joined</span></div>
   </div>
   {% if arrivals | length > 1 %}
@@ -252,6 +255,12 @@
       {% if ev.created_by_name %}<li>by {{ ev.created_by_name }}</li>{% endif %}
     </ul>
     {% if ev.description %}<p class="ev-desc">{{ ev.description }}</p>{% endif %}
+    {% if lineup %}
+    <ol class="ev-lineup" aria-label="Line-up">
+      {% for sl in lineup %}<li class="{{ 'on' if on_now and on_now.at == sl.at and ev.phase == 'now' }}"><time>{{ sl.time }}</time> {{ sl.what }}
+        {%- if on_now and on_now.at == sl.at and ev.phase == 'now' %} <span class="ev-live">on now</span>{% endif %}</li>{% endfor %}
+    </ol>
+    {% endif %}
   </div>
 </div>
 <div class="ev-actions">

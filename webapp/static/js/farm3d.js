@@ -1507,13 +1507,24 @@
     [-1, 0, 1].forEach(function (sd) { statics.add(box(0.24, S.wallY, 0.4, '#2b2b33', [c.x + sd * (S.wallW / 2 - 1.2), S.wallY / 2, S.wallZ - 0.1])); });
     PARTY.obst.push(['r', c.x, S.wallZ - 0.14, S.wallW / 2 + 0.2, 0.22]);
     var nc = document.createElement('canvas'); nc.width = 512; nc.height = 128;
-    var nctx = nc.getContext('2d');
-    nctx.font = 'italic 900 92px "Trebuchet MS", "Arial Black", sans-serif'; nctx.textAlign = 'center'; nctx.textBaseline = 'middle';
+    var nctx = nc.getContext('2d'), signText = D.event ? D.event.title.toUpperCase() : 'NEVET', fpx = 92;   // (an event on: its name)
+    do { nctx.font = 'italic 900 ' + fpx + 'px "Trebuchet MS", "Arial Black", sans-serif'; fpx -= 4; } while (fpx > 26 && nctx.measureText(signText).width > 480);
+    nctx.textAlign = 'center'; nctx.textBaseline = 'middle';
     nctx.shadowColor = '#ffffff'; nctx.shadowBlur = 18; nctx.lineWidth = 7; nctx.strokeStyle = '#ffffff';
-    nctx.strokeText('NEVET', 256, 66); nctx.fillStyle = '#ffffff'; nctx.fillText('NEVET', 256, 66);
+    nctx.strokeText(signText, 256, 66); nctx.fillStyle = '#ffffff'; nctx.fillText(signText, 256, 66);
     var neon = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 1.2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(nc), transparent: true, depthWrite: false, side: THREE.DoubleSide, color: 0x6a2a5a }));
     neon.position.set(c.x, S.wallY + S.wallH + 0.72, S.wallZ - 0.02);
     fx.add(neon); PARTY.neon = neon;
+    // the event's line-up across the top of the screen while it's on: who's playing now, and who's next
+    if (D.event && D.event.lineup && D.event.lineup.length) {
+      var lc = document.createElement('canvas'); lc.width = 1024; lc.height = 112;
+      var lu = new THREE.Mesh(new THREE.PlaneGeometry(S.wallW - 0.6, (S.wallW - 0.6) * 112 / 1024),
+        new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(lc), transparent: true, depthWrite: false }));
+      lu.position.set(c.x, S.wallY + S.wallH - 0.1 - (S.wallW - 0.6) * 56 / 1024, S.wallZ + 0.04);   // (along the top, above the DJ's head)
+      lu.visible = false;
+      fx.add(lu);
+      PARTY.lineup = { mesh: lu, canvas: lc, key: '', next: 0 };
+    }
     // a row of little lights along the front lip of the stage (they chase at the party)
     var ledN = 44, leds = new THREE.InstancedMesh(new THREE.BoxGeometry(S.w * 2 / ledN * 0.7, 0.07, 0.07), new THREE.MeshBasicMaterial({ color: 0xffffff }), ledN);
     for (var l = 0; l < ledN; l++) { m.makeTranslation(c.x - S.w + (l + 0.5) * S.w * 2 / ledN, 0.07, STAGE_N - 0.32); leds.setMatrixAt(l, m); leds.setColorAt(l, col.setHSL(l / ledN, 1, 0.3)); }
@@ -4498,8 +4509,43 @@
     FOLD.faderSpheres.length = 0;                      // folded, the tower may stand between you and the dancers
     if (T > 0.5) FOLD.faderSpheres.push([V(c.x, 1.6, c.z), TOWER_R + 0.6], [V(c.x, 4.6, c.z), TOWER_R + 0.6]);
   }
+  function drawLineup() {                             // the line-up board: now / next, by the real clock
+    var L = PARTY.lineup, t = Date.now(), slots = D.event.lineup, cur = null, nxt = null;
+    slots.forEach(function (sl) {
+      var a = new Date(sl.at).getTime(), b = new Date(sl.end).getTime();
+      if (a <= t && t < b) cur = sl;
+      else if (a > t && !nxt) nxt = sl;
+    });
+    var key = (cur ? cur.at : '-') + '|' + (nxt ? nxt.at : '-');
+    L.mesh.visible = !!(cur || nxt);
+    if (key === L.key) return;
+    L.key = key;
+    var g2 = L.canvas.getContext('2d'), W = L.canvas.width, H = L.canvas.height;
+    g2.clearRect(0, 0, W, H);
+    g2.fillStyle = 'rgba(8, 6, 16, 0.78)'; g2.beginPath(); g2.roundRect ? g2.roundRect(0, 8, W, H - 16, 18) : g2.rect(0, 8, W, H - 16); g2.fill();
+    g2.textBaseline = 'middle';
+    function fit(text, max, px, weight) { var p = px; do { g2.font = weight + ' ' + p + 'px system-ui, sans-serif'; p -= 2; } while (p > 16 && g2.measureText(text).width > max); return text; }
+    var x = 22;
+    if (cur) {
+      g2.fillStyle = '#ff2d8a'; g2.beginPath(); g2.roundRect ? g2.roundRect(x, 28, 118, 56, 12) : g2.rect(x, 28, 118, 56); g2.fill();
+      g2.fillStyle = '#fff'; g2.font = '900 30px system-ui, sans-serif'; g2.fillText('● NOW', x + 12, 57);
+      x += 136;
+      g2.fillStyle = '#ffffff'; g2.fillText(fit(cur.what, nxt ? 470 : 840, 44, '800'), x, 57);
+    }
+    if (nxt) {
+      var label = 'NEXT ' + nxt.time + ' · ', rx = cur ? 640 : 22;
+      g2.font = '700 26px system-ui, sans-serif'; g2.fillStyle = '#9fe6ff'; g2.fillText(label, rx, 57);
+      var lw = g2.measureText(label).width;
+      g2.fillStyle = '#e8f6ff'; g2.fillText(fit(nxt.what, W - rx - lw - 24, 30, '700'), rx + lw, 57);
+    }
+    L.mesh.material.map.needsUpdate = true;
+  }
   function stepStage(now, dt, n) {                     // the big wheel turns all day; the stage rests between parties
     var party = PARTY.group.visible, col = PARTY.tmpC || (PARTY.tmpC = new THREE.Color());
+    if (PARTY.lineup) {                                // (checked every few seconds, by the real clock)
+      if (!party) { PARTY.lineup.mesh.visible = false; PARTY.lineup.next = 0; }
+      else if (Date.now() > PARTY.lineup.next) { PARTY.lineup.next = Date.now() + 5000; drawLineup(); }
+    }
     var spin = now * (calm ? 0.05 : 0.11);
     WHEEL_FX.rot.rotation.z = spin;
     WHEEL_FX.cabins.forEach(function (cb) {

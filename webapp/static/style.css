@@ -872,3 +872,39 @@ th[aria-sort="ascending"] .pw-sort.on::after { content: " ▴"; }
 }
 @media (max-width: 379px) { .hub-tab-emoji { display: none; } }
 @media (max-width: 379px) { .hub-tab { padding: 7px 8px; } .hub-tabs { gap: 4px; } }
+
+/* ---- the weekly garden digest ---- */
+.dg-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.dg-head h2 { margin: 0; }
+.dg-when { margin: 4px 0 0; }
+.dg-nav { display: flex; gap: 6px; flex-wrap: wrap; }
+.dg-share { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 12px 0 14px; }
+.dg-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.dg-tile { background: var(--surface, rgba(255,255,255,0.04)); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px;
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto auto; column-gap: 10px; align-items: center; }
+.dg-emoji { grid-row: 1 / span 2; font-size: 1.7rem; }
+.dg-num { font-size: 1.5rem; line-height: 1.1; }
+.dg-label { color: var(--text-dim); font-size: 0.88rem; }
+.dg-delta { grid-column: 1 / -1; margin-top: 6px; font-size: 0.8rem; color: var(--text-dim); }
+.dg-delta.up { color: var(--accent); }
+.dg-delta.down { color: #e0896a; }
+.dg-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.dg-grid .panel { margin: 0; }
+.dg-helpers, .dg-jobs, .dg-list { list-style: none; margin: 0; padding: 0; }
+.dg-helpers li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.dg-helpers li:last-child { border-bottom: 0; }
+.dg-helpers .lb-hero { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; min-width: 0; flex: 1 1 auto; }
+.dg-helpers .lb-hero > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.dg-helpers small { display: block; white-space: normal; line-height: 1.3; }
+.dg-xp { flex: none; font-weight: 700; color: var(--accent-2); white-space: nowrap; }
+.dg-more summary { cursor: pointer; color: var(--text-dim); padding: 6px 0; }
+.dg-list a, .dg-helpers a b { color: var(--accent-2); }
+.dg-list a { text-decoration: none; font-weight: 600; }
+.dg-jobs li { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.dg-job-icon { display: inline-flex; width: 24px; justify-content: center; }
+.dg-list li { padding: 5px 0; line-height: 1.4; }
+.dg-help .btn { margin-top: 8px; }
+@media print {
+  .hub-tabs, .dg-nav, .dg-share, header, nav, .fab { display: none !important; }
+  .dg-tile, .panel { break-inside: avoid; }
+}

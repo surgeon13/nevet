@@ -13,7 +13,7 @@ SAMPLES = {
     "grower_id": lambda s: s["ids"]["Dana"], "asset_id": lambda s: s["plant"], "event_id": lambda s: s["event"],
     "group_id": lambda s: s["group"], "tag_id": lambda s: s["tag"]["id"], "rel_id": lambda s: 1, "task_id": lambda s: 1,
     "note_id": lambda s: 1, "fid": lambda s: 1, "name": lambda s: "acid", "filepath": lambda s: "index.html",
-    "fmt": lambda s: "csv", "what": lambda s: "x",
+    "fmt": lambda s: "csv", "what": lambda s: "x", "day": lambda s: "2026-11-01",
 }
 SKIP = {"static", "logout"}
 NO_ARGS_CODE = {"/i/<code>": lambda s: s["invite"], "/t/<code>": lambda s: s["tag"]["code"]}

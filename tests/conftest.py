@@ -64,7 +64,8 @@ def _seed():
     now = datetime.now()
     fields, err = events.clean({"title": "Full moon party", "kind": "party", "date": (now - timedelta(hours=1)).strftime("%Y-%m-%d"),
                                 "time": (now - timedelta(hours=1)).strftime("%H:%M"), "place": "The dance field",
-                                "end_date": (now + timedelta(hours=3)).strftime("%Y-%m-%d"), "end_time": (now + timedelta(hours=3)).strftime("%H:%M")})
+                                "end_date": (now + timedelta(hours=3)).strftime("%Y-%m-%d"), "end_time": (now + timedelta(hours=3)).strftime("%H:%M"),
+                                "lineup": f"{now - timedelta(minutes=30):%H:%M} DJ Dana\n{now + timedelta(minutes=60):%H:%M} Acid live set"})
     assert not err, err
     event_id = events.create(fields, ids["Michael"])
     events.set_rsvp(event_id, ids["Dana"], "going")

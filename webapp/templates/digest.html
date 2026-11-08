@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
+{% block title %}Nevet — The week on the farm{% endblock %}
+{% block content %}
+<div class="hub-tabs" style="margin-bottom: 14px;">
+  <a class="hub-tab" href="{{ url_for('hub') }}">Dashboard</a>
+  <a class="hub-tab" href="{{ url_for('time_page') }}">Time</a>
+  <a class="hub-tab" href="{{ url_for('stats') }}">🏆 Leaderboards</a>
+  <a class="hub-tab active" href="{{ url_for('digest_page') }}" aria-current="page">📰 This week</a>
+</div>
+
+<div class="dg-head">
+  <div>
+    <h2>📰 The week on the farm</h2>
+    <p class="muted dg-when">{{ d.label }}{% if d.current %} · so far{% endif %}</p>
+  </div>
+  <nav class="dg-nav" aria-label="Weeks">
+    <a class="btn btn-ghost btn-small" href="{{ url_for('digest_page', day=d.prev.isoformat()) }}">← Week before</a>
+    {% if d.next %}<a class="btn btn-ghost btn-small" href="{{ url_for('digest_page', day=d.next.isoformat()) }}">Next week →</a>
+    <a class="btn btn-ghost btn-small" href="{{ url_for('digest_page') }}">This week</a>{% endif %}
+  </nav>
+</div>
+
+<div class="dg-share">
+  <button type="button" class="btn btn-primary btn-small" id="dg-copy">📋 Copy for a chat</button>
+  <button type="button" class="btn btn-ghost btn-small" id="dg-sharebtn" hidden>📤 Share</button>
+  <button type="button" class="btn btn-ghost btn-small" onclick="window.print()">🖨️ Print</button>
+  <span class="muted" id="dg-copied" role="status"></span>
+  <textarea id="dg-text" hidden readonly>{{ share }}</textarea>
+</div>
+
+{% if d.empty %}
+<p class="lb-empty">A quiet week: nothing logged yet. <a href="{{ url_for('log_action') }}">Log an action</a> and it starts here.</p>
+{% else %}
+{% set n = d.numbers %}
+{% macro tile(key, emoji, label, kg=False) %}{% set x = n[key] %}{% if x.now or x.before or not kg %}
+  <div class="dg-tile">
+    <span class="dg-emoji" aria-hidden="true">{{ emoji }}</span>
+    <b class="dg-num">{{ ('%g' | format(x.now)) ~ (' kg' if kg else '') }}</b>
+    <span class="dg-label">{{ label }}</span>
+    <span class="dg-delta {{ 'up' if x.up else 'down' if x.down else '' }}">
+      {%- if x.up %}▲ {{ '%g' | format(x.diff) }}{% elif x.down %}▼ {{ '%g' | format(-x.diff) }}{% else %}={% endif %} <small>vs week before</small></span>
+  </div>{% endif %}
+{% endmacro %}
+<div class="dg-tiles">
+  {{ tile('actions', '✅', 'jobs done') }}
+  {{ tile('helpers', '🙌', 'helpers') }}
+  {{ tile('harvest_kg', '🧺', 'harvested', True) }}
+  {{ tile('worm_kg', '🪱', 'fed to the worms', True) }}
+  {{ tile('given_kg', '🎁', 'given away', True) }}
+  {{ tile('new_plants', '🌿', 'new plants & bins') }}
+</div>
+
+<div class="dg-grid">
+  {% if d.helpers %}
+  <section class="panel">
+    <h3 class="panel-title">🙌 Who helped</h3>
+    {% macro helper(h) %}
+      <li><a class="lb-hero" href="{{ url_for('grower_page', grower_id=h.id) }}"><span class="lb-face" data-face='{{ h.appearance | tojson }}'>{{ h.name[:1] | upper }}</span>
+        <span><b>{{ h.name }}</b><small class="muted">{{ h.actions }} job{{ 's' if h.actions != 1 }} on {{ h.days }} day{{ 's' if h.days != 1 }}
+          {%- if h.picked %} · {{ '%g' | format(h.picked) }} kg picked{% endif %}{% if h.fed %} · {{ '%g' | format(h.fed) }} kg to the worms{% endif %}</small></span></a>
+        <span class="dg-xp">+{{ h.xp }} XP</span></li>
+    {% endmacro %}
+    <ul class="dg-helpers">{% for h in d.helpers[:10] %}{{ helper(h) }}{% endfor %}</ul>
+    {% if d.helpers | length > 10 %}
+    <details class="dg-more"><summary>and {{ d.helpers | length - 10 }} more</summary>
+      <ul class="dg-helpers">{% for h in d.helpers[10:] %}{{ helper(h) }}{% endfor %}</ul></details>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if d.jobs %}
+  <section class="panel">
+    <h3 class="panel-title">🧑‍🌾 What got done</h3>
+    <ul class="dg-jobs">
+      {% for j in d.jobs %}<li><span class="dg-job-icon">{{ ui.icon(j.icon, 20) }}</span> {{ j.label }} <b>×{{ j.count }}</b>{% if j.kg %} <span class="muted">· {{ '%g' | format(j.kg) }} kg</span>{% endif %}</li>{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <section class="panel">
+    <h3 class="panel-title">✨ Highlights</h3>
+    <ul class="dg-list">
+      {% if d.biggest %}<li>🏆 Biggest harvest: <b>{{ '%g' | format(d.biggest.kg | round(1)) }} kg</b> of {{ d.biggest.plant or 'produce' }}{% if d.biggest.hero %} by {{ d.biggest.hero }}{% endif %}</li>{% endif %}
+      {% if d.busiest %}<li>📈 Busiest day: <b>{{ d.busiest.day.strftime('%A') }}</b>, {{ d.busiest.n }} job{{ 's' if d.busiest.n != 1 }}</li>{% endif %}
+      {% if d.loved %}<li>💚 Most looked-after: <a href="{{ url_for('asset_page', asset_id=d.loved.id) }}">{{ d.loved.name }}</a> ({{ d.loved.n }} times)</li>{% endif %}
+      {% if d.newcomers %}<li>👋 Welcome to {% for h in d.newcomers %}<a href="{{ url_for('grower_page', grower_id=h.id) }}">{{ h.name }}</a>{{ ', ' if not loop.last }}{% endfor %}!</li>{% endif %}
+      {% if d.planted %}<li>🌿 New: {% for p in d.planted[:10] %}<a href="{{ url_for('asset_page', asset_id=p.id) }}">{{ p.name }}</a>{% if p.hero %} <small class="muted">({{ p.hero }})</small>{% endif %}{{ ', ' if not loop.last }}{% endfor %}{% if d.planted | length > 10 %} and {{ d.planted | length - 10 }} more{% endif %}</li>{% endif %}
+    </ul>
+  </section>
+
+  {% if d.events %}
+  <section class="panel">
+    <h3 class="panel-title">📅 Events this week</h3>
+    <ul class="dg-list">
+      {% for e in d.events %}<li>{{ e.kind_info.emoji }} <a href="{{ url_for('event_page', event_id=e.id) }}">{{ e.title }}</a> <small class="muted">{{ when(e) }}{% if e.attended %} · {{ e.attended }} came{% endif %}</small></li>{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if d.thirsty or d.next_events %}
+<div class="dg-grid">
+  {% if d.thirsty %}
+  <section class="panel dg-help">
+    <h3 class="panel-title">💧 Needs a hand</h3>
+    <ul class="dg-list">
+      {% for p in d.thirsty %}<li><a href="{{ url_for('asset_page', asset_id=p.id) }}">{{ p.name }}</a> <small class="muted">· not watered for {{ p.days }} days</small></li>{% endfor %}
+    </ul>
+    {% if not is_viewer() %}<a class="btn btn-primary btn-small" href="{{ url_for('log_action', action='watering') }}">Log a watering</a>{% endif %}
+  </section>
+  {% endif %}
+  {% if d.next_events %}
+  <section class="panel">
+    <h3 class="panel-title">🗓️ Coming up next week</h3>
+    <ul class="dg-list">
+      {% for e in d.next_events %}<li>{{ e.kind_info.emoji }} <a href="{{ url_for('event_page', event_id=e.id) }}">{{ e.title }}</a> <small class="muted">{{ when(e) }}</small></li>{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</div>
+{% endif %}
+
+<script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/nevet3d.js') }}"></script>
+<script src="{{ url_for('static', filename='js/hero3d.js') }}"></script>
+<script>
+(function () {
+  var text = document.getElementById('dg-text').value, note = document.getElementById('dg-copied');
+  document.getElementById('dg-copy').addEventListener('click', function () {
+    function done() { note.textContent = 'Copied: paste it in your chat'; setTimeout(function () { note.textContent = ''; }, 3000); }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
+    function fallback() { var t = document.getElementById('dg-text'); t.hidden = false; t.select(); try { document.execCommand('copy'); done(); } catch (e) {} t.hidden = true; }
+  });
+  var sb = document.getElementById('dg-sharebtn');
+  if (navigator.share) { sb.hidden = false; sb.addEventListener('click', function () { navigator.share({ title: 'The week on the farm', text: text }).catch(function () {}); }); }
+  if (!window.NevetHero) return;
+  var CATALOG = {{ catalog | tojson }};
+  document.querySelectorAll('.lb-face[data-face]').forEach(function (el) {
+    try { var img = new Image(); img.alt = ''; img.src = NevetHero.faceIcon(JSON.parse(el.dataset.face), CATALOG, 40); el.textContent = ''; el.appendChild(img); } catch (e) {}
+  });
+})();
+</script>
+{% endblock %}

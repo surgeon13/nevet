@@ -37,6 +37,9 @@
     <label>About it <small>What's planned, what to bring, how to get there</small>
       <textarea name="description" rows="5" maxlength="2000">{{ form.description or '' }}</textarea>
     </label>
+    <label>Line-up <small>(optional) One a line, with the time it starts: shown on the 3D farm's stage while the event is on</small>
+      <textarea name="lineup" rows="4" maxlength="2600" placeholder="21:00 DJ Dana&#10;22:30 Acid live set&#10;00:15 Sunrise chill">{{ form.lineup or '' }}</textarea>
+    </label>
     <div class="ev-row">
       <label>How many people fit <small>(optional)</small><input type="number" name="capacity" min="0" max="100000" value="{{ form.capacity or '' }}" placeholder="e.g. 60"></label>
       <label>On the 3D farm meanwhile <small>What the heroes do</small>

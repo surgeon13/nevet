@@ -21,7 +21,7 @@ GUEST = {"id": 0, "name": "Guest", "is_admin": False, "guest": True}   # g.user 
 # Pages a viewer may open (GET only). The farm page's live updates and the games it shows come along.
 ENDPOINTS = {
     "hub", "farm_page", "api_farm_live", "api_games_now", "extra_file",
-    "time_page", "stats", "powers_page",
+    "time_page", "stats", "powers_page", "digest_page",
     "growers_page", "grower_page", "activity", "assets_page", "asset_page",
     "events_page", "tag_landing",
 }
