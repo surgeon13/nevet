@@ -3,7 +3,11 @@
 #
 # Every run (via nevet-update.timer, interval set by the second
 # install.sh argument, e.g. "sudo ./install.sh 5 15"):
-#   1. checks GitHub for a newer version (quietly does nothing if offline)
+#   1. checks GitHub for a newer version that passed the safety check
+#      (quietly does nothing if offline). It follows the "stable" branch,
+#      which GitHub's check (.github/workflows/check.yml) moves forward only
+#      after Nevet's tests pass, so a broken push never reaches the Pi.
+#      Before the first check has run (no "stable" yet) it follows main.
 #   2. if there is one, pulls it (fast-forward only, never merges)
 #   3. restarts the web app if web app files changed
 #   4. confirms the web app answers on /healthz; if it doesn't, rolls
@@ -19,6 +23,7 @@
 # Usage:
 #   ./scripts/auto_update.sh           check and update if needed
 #   ./scripts/auto_update.sh --check   only report whether an update exists
+#   NEVET_UPDATE_BRANCH=main ./scripts/auto_update.sh   follow main directly (skip the check)
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -26,7 +31,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/lib/log.sh"
 log_init "update"
 
-BRANCH="${NEVET_UPDATE_BRANCH:-main}"
+BRANCH="${NEVET_UPDATE_BRANCH:-}"
 REMOTE="origin"
 HEALTH_URL="${NEVET_HEALTH_URL:-http://127.0.0.1:8000/healthz}"
 STATE_DIR="$HOME/camera_captures/.update"
@@ -102,6 +107,18 @@ else
 fi
 
 # ---- 1. check GitHub ----
+if [ -z "$BRANCH" ]; then                      # follow "stable" (tested); main only until the first check has run
+    timeout 60 git ls-remote --exit-code --heads "$REMOTE" stable >/dev/null 2>&1
+    case $? in
+        0) BRANCH="stable" ;;
+        2) BRANCH="main"
+           state_changed "nostable" && log_msg "No tested 'stable' version on GitHub yet - following main until the first check passes" ;;
+        *) state_changed "offline" && log_msg "Offline or GitHub unreachable - will try again next run"
+           write_status "offline" "GitHub unreachable"
+           echo "Couldn't reach GitHub, will try again next run."
+           exit 0 ;;
+    esac
+fi
 if ! FETCH_OUT=$(timeout 90 git fetch --quiet "$REMOTE" "$BRANCH" 2>&1); then
     if echo "$FETCH_OUT" | grep -qiE "permission denied|insufficient permission|unable to (create|write)"; then
         say "FAIL can't write to $REPO_DIR/.git (some files are owned by root). Fix: sudo chown -R $(id -un):$(id -gn) $REPO_DIR"
@@ -121,8 +138,8 @@ SHORT_LATEST=$(git rev-parse --short "$LATEST")
 
 if [ "$LOCAL" = "$LATEST" ]; then
     state_changed "uptodate:$LOCAL" && log_msg "Up to date ($SHORT_LOCAL)"
-    write_status "up_to_date" "Running the latest version"
-    echo "Up to date ($SHORT_LOCAL)."
+    write_status "up_to_date" "Running the latest tested version"
+    echo "Up to date ($SHORT_LOCAL, following $BRANCH)."
     exit 0
 fi
 

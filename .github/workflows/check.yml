@@ -1,0 +1,44 @@
+# The safety check: runs Nevet's tests on every push. When main passes, the commit becomes "stable", and the
+# Pi's auto-update (scripts/auto_update.sh) only ever moves to "stable", so a broken push never reaches the farm.
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write          # to move the "stable" branch
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"      # the same as Raspberry Pi OS (bookworm)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install
+        run: |
+          pip install -r webapp/requirements.txt pytest playwright
+          python -m playwright install --with-deps chromium
+      - name: Test
+        env:
+          CI: "true"
+        run: python -m pytest -q
+      - name: Mark as stable (the Pi updates to this)
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          # fast-forward only: if a newer commit already passed, stable stays where it is
+          git push origin "${GITHUB_SHA}:refs/heads/stable" || echo "stable is already at a newer commit"

@@ -15,3 +15,5 @@ __pycache__/
 # OS / editor cruft
 .DS_Store
 *.swp
+
+.pytest_cache/

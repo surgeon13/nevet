@@ -112,8 +112,16 @@ numbers, e.g. `sudo ./install.sh 10 60`.
 
 ## Updates happen by themselves
 
-`scripts/auto_update.sh` keeps the Pi on the latest version from GitHub:
+`scripts/auto_update.sh` keeps the Pi on the latest **tested** version from GitHub:
 
+- **only versions that passed the safety check.** Every push to GitHub runs
+  Nevet's tests (`.github/workflows/check.yml`: every page as a visitor, a
+  member and an admin, the code, and the 3D farm in a headless browser).
+  When they pass, that commit becomes the `stable` branch, and the Pi only
+  follows `stable`, so a broken push never reaches the farm. (Until the
+  first check has run it follows `main`; to skip the check on purpose:
+  `NEVET_UPDATE_BRANCH=main ./scripts/auto_update.sh`.) If a check fails,
+  GitHub shows a red ✗ next to the commit and the Pi stays where it is.
 - does nothing when offline, and only fast-forwards (never merges)
 - restarts the web app only when web app files changed
 - if the web app doesn't come back healthy within a minute, it rolls
@@ -132,6 +140,16 @@ sudo systemctl start nevet-update     # same, via the service
 
 Everything it does is in `~/camera_captures/logs/update.log` and in the
 **Updates** panel on the Logs page.
+
+**Running the tests yourself** (on any computer with the repo):
+
+```bash
+pip install pytest                      # once
+python3 -m pytest -q                    # pages, code and actions (a few seconds)
+pip install playwright && playwright install chromium   # once, for the 3D farm test
+```
+
+The tests use a throwaway farm in a temporary folder, never your real data.
 
 **Companion repos.** Every update check also updates the repos listed in
 `config/extra_repos.conf` (right now the acid synth,
