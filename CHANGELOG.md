@@ -1,5 +1,19 @@
 # Changelog
 
+## Nevet on the Pi's own screen, by itself
+
+- **The Pi's little screen shows Nevet now, not a bare login prompt**:
+  what's happening on the farm, the QR code to join and every link to
+  open Nevet, labelled by where it works (internet, the garden's WiFi by
+  address and by name, Tailscale). On a small display like the Pi's
+  40 x 30 one it shows pages that take turns, each made to fit exactly,
+  and the screen never goes blank.
+- **It turns itself on.** No admin rights or reinstall needed: the
+  watchdog and the auto-update add a few lines to the login profile that
+  start it on tty1 only (never for SSH), and the first time they swap the
+  idle prompt for Nevet straight away. `nevet console on | off | status`;
+  Ctrl+C on the screen gives a normal shell, `exit` brings Nevet back.
+
 ## The mother tree, simple and clear
 
 - **The mother tree is a tree as in graph theory now.** Every hero is a

@@ -179,7 +179,7 @@ def render(width=None, height=None, seed=None):
     H = height or rows
     rnd = random.Random(seed if seed is not None else int(time.time() // 60))
     f = facts()
-    t = scr.join_target()
+    t = join_for_screen()
     out = []
     P = out.append
 
@@ -282,11 +282,207 @@ def render(width=None, height=None, seed=None):
     return "\n".join(out)
 
 
+# ---------------------------------------------------------------- a small screen (the Pi's own display, 40 x 30)
+# A screen too small for everything at once (narrower than 70 columns or lower than 40 rows, like the little display
+# on the Pi, which shows 40 x 30) shows pages that take turns: what's happening on the farm, the QR code with every
+# link to open Nevet, and "did you know?". Each page fits the screen exactly, so nothing scrolls away.
+SMALL_W, SMALL_H = 70, 40
+PAGE_SECONDS = {"farm": 20, "join": 30, "links": 15, "know": 15}
+_links_cache = {"at": 0, "links": [], "funnel": (None, None)}
+
+
+def all_links(max_age=120):
+    """[(where, url)] every way to open Nevet from here, best first: the internet address (NEVET_JOIN_URL or Tailscale
+    Funnel), the garden's WiFi (by address and by name), and Tailscale. Looked up every 2 minutes."""
+    if time.time() - _links_cache["at"] < max_age and _links_cache["links"]:
+        return _links_cache["links"]
+    env = {**scr.env_file(), **os.environ}
+    out, funnel = [], (None, None)
+    custom = env.get("NEVET_JOIN_URL", "").strip()
+    if custom:
+        out.append(("Internet", custom.rstrip("/") + "/"))
+    addrs = ns.addresses()
+    lan = [ip for ip, label in addrs if label != "Tailscale"]
+    tsips = [ip for ip, label in addrs if label == "Tailscale"]
+    if tsips or shutil.which("tailscale"):
+        try:
+            ts = ns.tailscale_info() or {}
+            if ts.get("state") == "Running":
+                funnel = ns.funnel_state()
+                if funnel[0] and funnel[1] and not custom:
+                    out.append(("Internet", funnel[1]))
+                tsips = tsips or ts.get("ips") or []
+        except Exception:                              # (no Tailscale, or it didn't answer: the other links still work)
+            pass
+    if lan:
+        out.append(("Garden WiFi", f"http://{lan[0]}:8000/"))
+        try:
+            import socket
+            host = socket.gethostname().split(".")[0]
+            if host and host != "localhost":
+                out.append(("Garden WiFi", f"http://{host}.local:8000/"))
+        except OSError:
+            pass
+    if tsips:
+        out.append(("Tailscale", f"http://{tsips[0]}:8000/"))
+    _links_cache.update(at=time.time(), links=out, funnel=funnel)
+    return out
+
+
+def join_for_screen():
+    """The QR code's link: like the big screen's (internet, else the garden's WiFi), else Tailscale's address."""
+    links = all_links()
+    t = scr.join_target(_links_cache["funnel"])
+    if not t.get("url"):
+        ts = [u for w, u in links if w == "Tailscale"]
+        if ts:
+            t = {"url": ts[0] + "join", "shown": ts[0].split("://", 1)[1] + "join", "where": "tailscale", "invite": None,
+                 "note": "Phones on the farm's Tailscale", "base": ts[0]}
+    return t
+
+
+def is_small(width=None, height=None):
+    cols, rows = shutil.get_terminal_size((100, 40))
+    return (width or cols) < SMALL_W or (height or rows) < SMALL_H
+
+
+def pages(width=None, height=None, seed=None):
+    """-> [(name, [lines])]: the shop window for a small screen, as pages that each fit it exactly."""
+    I = icons()
+    cols, rows = shutil.get_terminal_size((40, 30))
+    W, H = max(24, width or cols), max(14, height or rows)
+    rnd = random.Random(seed if seed is not None else int(time.time() // 60))
+    f, t, links = facts(), join_for_screen(), all_links()
+    plain = os.environ.get("TERM", "") == "linux" or not ns.UTF8
+    dot = "-" if plain else "·"
+
+    def wrapped(text, style=(), indent=0, first=""):
+        out = []
+        for k, part in enumerate(textwrap.wrap(text, max(10, W - 1 - indent - len(first))) or [""]):
+            line = (first if k == 0 else " " * len(first)) + part
+            out.append(" " * indent + (C.wrap(line, *style) if style else line))
+        return out
+
+    def centre(text, style=()):
+        text = ns.fit(text, W) if cells(text) > W else text
+        return " " * max(0, (W - cells(text)) // 2) + (C.wrap(text, *style) if style else text)
+
+    def title(sub):
+        word = scr.big("NEVET")
+        head = [centre(r, ("bold", "magenta" if i == 1 else "bgreen")) for i, r in enumerate(word)] if cells(word[0]) <= W and H >= 26 \
+            else [centre(f"{I['sprout']} N E V E T {I['sprout']}", ("bold", "bgreen"))]
+        return head + [centre(sub, ("bold",))]
+
+    # 1. what's happening on the farm right now
+    farm = title("a garden game for real gardens") + [""]
+    heads = headlines(f, I)
+    farm += wrapped(heads[rnd.randrange(len(heads))], ("bold", "byellow")) + [""]
+    farm.append(C.wrap("RIGHT NOW ON THE FARM", "bold", "bgreen"))
+    if f["heroes"]:
+        farm += wrapped(f"{f['heroes']} hero{'es' if f['heroes'] != 1 else ''}" + (f" {dot} {f['growing']} plants growing" if f["growing"] else "")
+                        + (f" {dot} {f['ripe']} ripe" if f["ripe"] else ""), first=f"{I['hero']} ")
+    else:
+        farm += wrapped("Nobody has joined yet: be the very first hero!", first=f"{I['hero']} ")
+    if f["week"]:
+        farm += wrapped(f"This week: {f['week']} things done" + (f", {f['kg_week']:g} kg picked" if f["kg_week"] else ""), first=f"{I['sprout']} ")
+    if f["champion"]:
+        farm += wrapped(f"Mud arena champion: {f['champion']}", ("byellow",), first=f"{I['fire']} ")
+    for ev in f["events"][:2]:
+        line = scr.event_line(ev)
+        if line:
+            farm += wrapped(line, ("cyan",), first=f"{I['party']} ")
+    news, seen = [], set()
+    for r in scr.numbers()["latest"]:
+        verb = (ns.ACTION_BY_ID.get(r["log_type"]) or {}).get("verb", (r["log_type"] or "").replace("_", " "))
+        if (r["who"], verb, r["asset"]) in seen:
+            continue
+        seen.add((r["who"], verb, r["asset"]))
+        news.append(wrapped(f"{r['who'] or 'Someone'} {verb} {(r['asset'] or 'the whole garden').lower()}, {ago(r['timestamp'])}", first=f"{I['clock']} "))
+    if news:
+        farm += ["", C.wrap("LATEST IN THE GARDEN", "bold", "bgreen")]
+        for n in news:
+            if len(farm) + len(n) > H - 2:
+                break
+            farm += n
+    # 2. scan to join, and every link
+    join = [centre(f"{I['sprout']} NEVET {dot} SCAN TO JOIN {I['sprout']}", ("bold", "bgreen"))]
+    qlines = []
+    if t.get("url"):
+        m = qr.encode(t["url"], ecl="L")
+        for quiet in (2, 1):
+            q = qr.text_lines(m, quiet=quiet)
+            if len(q[0]) <= W and len(q) <= H - 6:
+                qlines = q
+                break
+    C.codes.setdefault("black_on_white", "30;47" if os.environ.get("TERM", "") == "linux" else "30;107")
+    if qlines:
+        join += [centre(C.wrap(q, "black_on_white")) for q in qlines]
+        join.append(centre("Point your phone's camera at the square", ("bold",)))
+    else:
+        join += ["", centre("Ask a player to show you how to join!", ("bold",)), ""]
+    block, seen_url, last = [], set(), None          # every link, by where it works
+    for where, url in links:
+        if url in seen_url:
+            continue
+        seen_url.add(url)
+        if where != last:
+            block.append(C.wrap(f"{where}:", "bold", "bgreen" if where == "Internet" else "cyan" if where == "Garden WiFi" else "magenta"))
+            last = where
+        block.append(" " + ns.fit(url.rstrip("/"), W - 1))
+    if t.get("invite"):
+        block.append(C.wrap(f"Invite code: {t['invite']}", "bold", "byellow"))
+    if not links:
+        block += wrapped("No network yet: connect the Pi to the WiFi.", ("byellow",))
+    extra = []
+    if len(join) + len(block) <= H - 1:
+        join += block
+    else:                                             # a very small screen: the QR's own link here, all of them on a page of their own
+        if t.get("shown"):
+            join.append(centre(t["shown"], ("cyan",)))
+        extra = [("links", [centre(f"{I['phone']} OPEN NEVET", ("bold", "bgreen")), ""] + block)]
+    # 3. did you know?
+    know = title("did you know?") + [""]
+    for w in rnd.sample(WONDERS, len(WONDERS)):
+        part = wrapped(w, first=f"{I['spark']} ")
+        if len(know) + len(part) > H - 2:
+            break
+        know += part + [""]
+    out = [(name, [ns.fit(l, W) if cells(l) > W else l for l in lines][:H - 1]) for name, lines in [("farm", farm), ("join", join)] + extra + [("know", know)]]
+    if plain:                                         # (the Pi's text console has no "…" in its font)
+        out = [(name, [l.replace("…", ".") for l in lines]) for name, lines in out]
+    return out
+
+
+def run_pages(kiosk=False):
+    """The small screen: the pages take turns (the data is read again for every round)."""
+    try:
+        while True:
+            pg = pages()
+            for k, (name, lines) in enumerate(pg):
+                W, H = shutil.get_terminal_size((40, 30))
+                marks = " ".join(("[" + str(i + 1) + "]") if i == k else str(i + 1) for i in range(len(pg)))
+                foot = C.wrap(f" {marks}  {datetime.now():%H:%M}" + ("" if kiosk else "  Ctrl+C to stop"), "grey")
+                top = max(0, (H - 1 - len(lines)) // 3)             # (a little above the middle)
+                body = [""] * top + lines + [""] * max(0, H - 1 - len(lines) - top)
+                sys.stdout.write("\033[H\033[2J" + "\n".join(body) + "\n" + foot)
+                sys.stdout.flush()
+                time.sleep(PAGE_SECONDS.get(name, 15))
+    except KeyboardInterrupt:
+        print()
+    return 0
+
+
 def run(watch=None, kiosk=False):
     """Print it, or keep printing it every X minutes (watch: seconds, or None for the installer's X)."""
     if watch is False:
+        if is_small():
+            for name, lines in pages():
+                print("\n".join(lines) + "\n")
+            return 0
         print(render())
         return 0
+    if is_small():
+        return run_pages(kiosk)
     try:
         while True:
             screen = render()

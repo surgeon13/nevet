@@ -386,6 +386,46 @@ the printable posters) start with the address set on the Tags page, or
 `NEVET_JOIN_URL`. Printed posters only carry the invite code when an admin
 picks **Poster for new people**.
 
+## Nevet on the Pi's own screen (it's on by itself)
+
+The Pi's own little screen (tty1, where the Pi logs in by itself) shows
+Nevet instead of a bare prompt: what's happening on the farm, the QR code
+to join and **every link to open Nevet**, labelled by where it works:
+
+- **Internet**: `NEVET_JOIN_URL` from `.env`, or the Tailscale Funnel
+  address when Nevet is open to everyone (`nevet public on`);
+- **Garden WiFi**: the Pi's address on the home network, and its name
+  (`http://<pi-name>.local:8000`, for phones that know it);
+- **Tailscale**: the Pi's Tailscale address (your own devices, from
+  anywhere).
+
+On a small screen (narrower than 70 columns or lower than 40 rows, like
+the 40 x 30 display on the Pi) it shows pages that take turns, each made
+to fit exactly: **the farm right now** (a headline, heroes and plants,
+the week, the champion, events, the latest in the garden), **scan to
+join** (the QR code and the links) and **did you know?**. On a big screen
+it's the one-page shop window below. The screen never goes blank.
+
+It needs no admin rights and no `sudo ./install.sh`: the watchdog (every 2
+minutes) and the auto-update add a few lines to the end of the login
+profile (`~/.bash_profile`, `~/.bash_login` or `~/.profile`, whichever the
+login reads) that start `scripts/nevet_console.sh`, only on tty1, never for
+SSH or other terminals. The first time, it swaps the idle prompt on tty1
+for Nevet straight away. The Pi has to log in by itself on its screen
+(Raspberry Pi OS: `sudo raspi-config`, System Options, Boot / Auto Login,
+Console Autologin).
+
+```
+nevet console status    is it on? is it showing?
+nevet console off       give the screen back to the prompt (stays off, also after updates)
+nevet console on        Nevet on the screen again, now
+```
+
+On the Pi's screen, **Ctrl+C** gives you a normal shell; type `exit` and
+Nevet is back. If `nevet` isn't there yet, run it from the repo:
+`./scripts/console_hook.sh on`. When `nevet show on` or `nevet screen on`
+runs as a service on tty1, that takes the screen instead.
+
 ## The shop window: a print for people walking past
 
 `nevet show` prints a colourful look at the farm, made to make people who

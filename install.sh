@@ -141,8 +141,11 @@ fi
 rm -f "$TMP_SUDOERS"
 
 # ---- `nevet` command: coloured status summary in the terminal ----
-chmod +x "$REPO_DIR/scripts/nevet_status.py"
+chmod +x "$REPO_DIR/scripts/nevet_status.py" "$REPO_DIR/scripts/nevet_console.sh" "$REPO_DIR/scripts/console_hook.sh"
 ln -sf "$REPO_DIR/scripts/nevet_status.py" /usr/local/bin/nevet
+
+# ---- Nevet on the Pi's own screen (tty1): the login there shows the shop window (`nevet console off` stops it) ----
+CONSOLE_LINE=$(sudo -u "$REAL_USER" HOME="$REAL_HOME" "$REPO_DIR/scripts/console_hook.sh" on 2>&1 | tail -1)
 
 systemctl daemon-reload
 systemctl enable nevet-webapp.service
@@ -193,7 +196,9 @@ fi
 echo "   Tailscale               -> ${TS_LINE}"
 echo ""
 echo " Status in the terminal:  nevet     (live view: nevet -w, every ${INTERVAL_MIN/off/$UPDATE_MIN} min)"
-echo " For people walking past: nevet show  (on the Pi's display at every boot: nevet show on)"
+echo " On the Pi's own screen:  the farm's news, a QR code and the links (nevet console on | off | status)"
+echo "                          ${CONSOLE_LINE}"
+echo " For people walking past: nevet show  (on a big screen at every boot: nevet show on)"
 echo " Remote access check:     nevet ts    Network test: nevet net"
 echo "=============================================="
 echo ""

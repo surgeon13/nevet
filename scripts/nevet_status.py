@@ -1717,11 +1717,12 @@ def ts_check():
 
 def main():
     ap = argparse.ArgumentParser(prog="nevet", description="Nevet status for the terminal.")
-    ap.add_argument("command", nargs="?", default="status", choices=["status", "net", "ts", "tailscale", "public", "screen", "show", "tags"],
+    ap.add_argument("command", nargs="?", default="status", choices=["status", "net", "ts", "tailscale", "public", "screen", "show", "console", "tags"],
                     help="status (default), net (network test), ts (Tailscale / remote access check) "
                          "public (open Nevet to everyone with Tailscale Funnel: public on | off | status) "
                          "screen (welcome dashboard with a join QR code: screen [on | off | status]), "
                          "show (the shop window for passers-by: show [-w] [on | off | status]) "
+                         "console (the shop window on the Pi's own screen, from its login: console [on | off | status]) "
                          "or tags (NFC / RFID tags: tags [list | reader | check | export])")
     ap.add_argument("action", nargs="?", default=None,
                     help="public / screen / show: on, off or status; tags: list, reader, check or export")
@@ -1749,7 +1750,7 @@ def main():
     if a.command in ("ts", "tailscale"):
         ts_check()
         return
-    if a.command in ("public", "screen", "show") and a.action not in (None, "on", "off", "status"):
+    if a.command in ("public", "screen", "show", "console") and a.action not in (None, "on", "off", "status"):
         ap.error(f"{a.command}: use on, off or status")
     if a.command == "tags":
         if a.action not in (None, "list", "reader", "check", "export"):
@@ -1761,6 +1762,8 @@ def main():
         sys.exit(nevet_tags.main(a))
     if a.command == "public":
         sys.exit(public_access(a.action or "status"))
+    if a.command == "console":                         # the shop window on the Pi's own screen (scripts/console_hook.sh)
+        sys.exit(subprocess.call([str(REPO / "scripts" / "console_hook.sh"), a.action or "status"]))
     if a.command == "show":                            # the shop window for people walking past (scripts/nevet_show.py)
         sys.path.insert(0, str(REPO / "scripts"))
         import nevet_show

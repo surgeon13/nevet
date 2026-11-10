@@ -94,6 +94,10 @@ if ! flock -n 9; then
 fi
 
 cd "$REPO_DIR" || exit 1
+
+# ---- Nevet on the Pi's own screen (tty1): make sure the shop window is set up (scripts/console_hook.sh) ----
+[ "$MODE" = "check" ] || timeout 15 "$SCRIPT_DIR/console_hook.sh" auto 9>&- >/dev/null 2>&1 || true
+
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     say "FAIL $REPO_DIR is not a git clone - auto-update needs one (git clone https://github.com/surgeon13/nevet)"
     exit 1

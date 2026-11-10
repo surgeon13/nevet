@@ -39,6 +39,10 @@ DRY_RUN="${NEVET_WATCHDOG_DRY_RUN:-0}"
 
 mkdir -p "$STATE_DIR"
 
+# ---------- Nevet on the Pi's own screen (tty1): the shop window, no admin rights needed ----------
+# (scripts/console_hook.sh: makes sure the login there shows the farm's news, the QR code and the links)
+[ "$DRY_RUN" = "1" ] || timeout 15 "$SCRIPT_DIR/console_hook.sh" auto >/dev/null 2>&1 || true
+
 # ---------- small helpers ----------
 read_count() { local f="$STATE_DIR/$1"; [ -f "$f" ] && cat "$f" || echo 0; }
 write_count() { echo "$2" > "$STATE_DIR/$1"; }
