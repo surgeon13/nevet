@@ -49,10 +49,9 @@ def _gender(look):
 
 
 def _tree(public):
-    """The mother tree; for viewers (public) only who invited whom, without family connections."""
+    """The mother tree: who invited whom (the same for viewers: it has no family connections)."""
     import invites
-    t = invites.tree()
-    return {"nodes": t["nodes"], "links": []} if public else t
+    return invites.tree()
 
 
 def story(max_days=MAX_DAYS, public=False):

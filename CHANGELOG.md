@@ -1,5 +1,22 @@
 # Changelog
 
+## The mother tree, simple and clear
+
+- **The mother tree is a tree as in graph theory now.** Every hero is a
+  dot (their outfit colour, initial and name), every invite a line from
+  the hero who invited them, and the farm itself is the root. It's drawn
+  flat and tidy: the root on the left, a column for each generation, and
+  lines that never cross. On a phone it's an indented list, each hero
+  under the one who invited them.
+- It grows with the story: play it and each hero grows out of the friend
+  who invited them on the day they joined. New joins have a golden ring,
+  a NEW badge and a golden line. Drag to move, pinch or scroll to zoom,
+  ⤢ to see it all, and tap a hero to see who invited them, who they
+  invited, how many joined through them and their path from the root.
+- The 3D trunk, crowns and coloured connection ribbons are gone; family
+  and friend connections stay on the hero pages. The server cuts an
+  invite loop if the data ever has one, so it is always a tree.
+
 ## Bigger farming lands round the mud pit
 
 - **The farmyard is half as big again.** Everything in it, the beds or

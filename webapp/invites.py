@@ -9,8 +9,10 @@
   inviters set later and codes renewed.
 * community() is how far the farm has bloomed: the more heroes join, invite friends and connect, the more the 3D
   farm grows (taller plants, more flowers, the mother tree, a rainbow, birds, shooting stars, balloons, the aurora).
-* tree() is the mother tree for the farm story page (time.html, static/js/time3d.js): every hero on the
-  branch of the hero who invited them, at the height of the day they joined, with their connections.
+* tree() is the mother tree for the farm story page (time.html, static/js/time3d.js): a tree in the graph-theory
+  sense. Every hero is a node and every invite an edge from the hero who invited them; the farm itself is the
+  root, and heroes who came on their own hang straight from it. Each hero has one inviter at most and invites
+  can't go round in a loop (tree() cuts one if the data ever had it), so it is always a tree.
 """
 import json
 import math
@@ -18,7 +20,6 @@ import secrets
 from datetime import datetime
 
 import farm_db
-import relations
 
 ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"          # no 0/O, 1/I (like the farm's invite code)
 VIA = {
@@ -26,13 +27,6 @@ VIA = {
     "code": "their invite code",
     "added": "added by them",
     "set": "told us later",
-}
-KIND_GROUP = {                                        # how a connection is drawn on the tree
-    "spouse": "love", "partner": "love",
-    "parent": "family", "guardian": "family", "grandparent": "family", "aunt_uncle": "family",
-    "sibling": "family", "cousin": "family",
-    "friend": "friends", "neighbour": "friends", "housemate": "friends",
-    "mentor": "team", "coordinator": "team", "teammate": "team", "other": "team",
 }
 
 
@@ -187,41 +181,42 @@ def _colour(look, palette):
 
 
 def tree():
-    """The mother tree: every hero, who invited them, the day they joined, and the connections between them."""
+    """The mother tree: every hero (a node), who invited them (the edge up to their parent: `by`, None for heroes who
+    came on their own, the root's children), the day they joined, their generation (`gen`: 1 for the root's
+    children) and how many they invited (`kids`). Invites that would make a loop are cut, so it is always a tree."""
     try:
         import heroes
         palette = {o["id"]: o.get("color") for x in heroes.catalog()["looks"] if x.get("id") == "outfitColor" for o in x["options"]}
     except Exception:                                  # the tree still grows without the catalog
         palette = {}
     conn = farm_db.get_conn()
-    rows = conn.execute("""SELECT id, name, joined_at, invited_by, invited_via, appearance, is_admin FROM growers
+    rows = conn.execute("""SELECT id, name, joined_at, invited_by, invited_via, appearance FROM growers
                            WHERE deleted_at IS NULL ORDER BY joined_at, id""").fetchall()
-    ids = {r["id"] for r in rows}
-    nodes = []
-    for r in rows:
-        by = r["invited_by"] if r["invited_by"] in ids else None
-        nodes.append({"id": r["id"], "name": r["name"], "joined": (r["joined_at"] or "")[:10], "by": by,
-                      "via": VIA.get(r["invited_via"] or "", "") if by else "", "color": _colour(r["appearance"], palette)})
-    kids = {}
-    for n in nodes:
-        if n["by"]:
-            kids[n["by"]] = kids.get(n["by"], 0) + 1
-    for n in nodes:
-        n["kids"] = kids.get(n["id"], 0)
-    gender = {}
-    for r in rows:
-        try:
-            gender[r["id"]] = json.loads(r["appearance"] or "{}").get("gender")
-        except ValueError:
-            pass
-    links = []
-    for r in conn.execute("""SELECT a_id, b_id, kind, created_at FROM relationships WHERE status = 'accepted'"""):
-        if r["a_id"] in ids and r["b_id"] in ids:          # la: what A is to B (mother), lb: what B is to A (son)
-            links.append({"a": r["a_id"], "b": r["b_id"], "kind": r["kind"], "group": KIND_GROUP.get(r["kind"], "team"),
-                          "la": relations.label(r["kind"], gender.get(r["a_id"]), True).lower(),
-                          "lb": relations.label(r["kind"], gender.get(r["b_id"]), False).lower(), "date": (r["created_at"] or "")[:10]})
     conn.close()
-    return {"nodes": nodes, "links": links}
+    ids = {r["id"] for r in rows}
+    parent = {r["id"]: (r["invited_by"] if r["invited_by"] in ids and r["invited_by"] != r["id"] else None) for r in rows}
+    for start in parent:                               # cut any loop (A invited B invited A): its last edge goes
+        seen, x = set(), start
+        while x is not None and x not in seen:
+            seen.add(x)
+            if parent[x] in seen:
+                parent[x] = None
+                break
+            x = parent[x]
+    gen = {}
+
+    def depth(x):
+        if x not in gen:
+            gen[x] = 1 if parent[x] is None else depth(parent[x]) + 1
+        return gen[x]
+    kids = {}
+    for x, p in parent.items():
+        if p is not None:
+            kids[p] = kids.get(p, 0) + 1
+    nodes = [{"id": r["id"], "name": r["name"], "joined": (r["joined_at"] or "")[:10], "by": parent[r["id"]],
+              "via": VIA.get(r["invited_via"] or "", "") if parent[r["id"]] else "", "color": _colour(r["appearance"], palette),
+              "gen": depth(r["id"]), "kids": kids.get(r["id"], 0)} for r in rows]
+    return {"nodes": nodes, "generations": max(gen.values(), default=0)}
 
 
 # The farm blooms as the community grows: what each level brings to the 3D farm (static/js/farm3d.js)

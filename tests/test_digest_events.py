@@ -50,3 +50,30 @@ def test_live_event_on_the_farm(admin):
 def test_event_page_shows_lineup_and_work(admin):
     page = admin.get(f"/events/{SEED['event']}").get_data(as_text=True)
     assert "Acid live set" in page and "Garden work" in page
+
+
+def test_mother_tree_is_a_tree():
+    """The invite tree: nodes, an edge to each hero's inviter, generations, and never a loop (one is cut)."""
+    import farm_db
+    import invites
+    t = invites.tree()
+    by = {n["id"]: n["by"] for n in t["nodes"]}
+    dana = next(n for n in t["nodes"] if n["name"] == "Dana")
+    michael = next(n for n in t["nodes"] if n["name"] == "Michael")
+    assert dana["by"] == michael["id"] and dana["gen"] == michael["gen"] + 1 and michael["kids"] >= 1
+    assert t["generations"] >= 2 and "links" not in t                  # (no family connections on the tree)
+    conn = farm_db.get_conn()                                           # a loop sneaks into the data: Michael "invited by" Dana
+    conn.execute("UPDATE growers SET invited_by = ? WHERE id = ?", (dana["id"], michael["id"]))
+    conn.commit()
+    try:
+        by = {n["id"]: n["by"] for n in invites.tree()["nodes"]}
+        for start in by:                                                # every hero reaches the root
+            seen, x = set(), start
+            while x is not None:
+                assert x not in seen, "a loop on the mother tree"
+                seen.add(x)
+                x = by[x]
+    finally:
+        conn.execute("UPDATE growers SET invited_by = NULL WHERE id = ?", (michael["id"],))
+        conn.commit()
+        conn.close()

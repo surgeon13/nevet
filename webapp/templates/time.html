@@ -10,7 +10,7 @@
 </head>
 <body class="time-body">
 <div class="time-wrap" id="time-wrap">
-  <canvas id="time-canvas" aria-label="The farm's story as a vine through time, and the mother tree of who invited whom: drag or scroll to travel"></canvas>
+  <canvas id="time-canvas" aria-label="The farm's story as a vine through time: drag or scroll to travel"></canvas>
 
   <div class="time-top">
     <a class="time-btn" href="{{ url_for('hub') }}" aria-label="Back to the dashboard">
@@ -19,7 +19,7 @@
     <div class="time-title">
       <b id="time-name">Our farm story</b>
       <span id="time-sub" data-vine="{% if story.days %}{{ story.total_days }} day{{ 's' if story.total_days != 1 }} together since {{ story.first }}{% else %}waiting for its first chapter{% endif %}"
-            data-tree="{{ story.counts.heroes }} hero{{ 'es' if story.counts.heroes != 1 }} · {{ story.counts.invited }} invited by a friend · {{ story.counts.connections }} connection{{ 's' if story.counts.connections != 1 }}">{% if story.days %}{{ story.total_days }} day{{ 's' if story.total_days != 1 }} together since {{ story.first }}{% else %}waiting for its first chapter{% endif %}</span>
+            data-tree="{{ story.counts.heroes }} hero{{ 'es' if story.counts.heroes != 1 }} · {{ story.counts.invited }} invited by a friend · {{ story.tree.generations }} generation{{ 's' if story.tree.generations != 1 }}">{% if story.days %}{{ story.total_days }} day{{ 's' if story.total_days != 1 }} together since {{ story.first }}{% else %}waiting for its first chapter{% endif %}</span>
     </div>
     <button type="button" class="time-btn time-mode" id="time-mode" aria-pressed="false" aria-label="Show the mother tree" title="The mother tree: who invited whom">
       <span class="i-tree" aria-hidden="true">🌳</span><span class="i-vine" aria-hidden="true">🌸</span>
@@ -29,12 +29,11 @@
     </button>
   </div>
 
-  <div class="time-legend" id="time-legend" hidden aria-label="What the lines on the mother tree mean">
-    <span><i style="background:#3f9b58"></i>invited by</span>
-    <span><i style="background:#ff2d7a"></i>partners</span>
-    <span><i style="background:#c2185b"></i>family</span>
-    <span><i style="background:#ff8fb8"></i>friends</span>
-    <span><i style="background:#7fd6a8"></i>team</span>
+  <div class="time-legend" id="time-legend" hidden aria-label="How to read the mother tree">
+    <span><i class="l-root"></i>the farm: the root</span>
+    <span><i class="l-dot"></i>a hero</span>
+    <span><i style="background:#3f9b58"></i>invited</span>
+    <span><i class="l-new"></i>joined in the last 2 weeks</span>
   </div>
 
   <article class="time-card" id="time-card" aria-live="polite">

@@ -67,3 +67,22 @@ def test_guest_farm_and_tv_view(server):
             page.evaluate("NevetFarm.simulate(5)")
         assert not errors, errors
         browser.close()
+
+
+def test_mother_tree_page(server):
+    with playwright.sync_playwright() as p:
+        browser = p.chromium.launch(args=GL)
+        page = browser.new_page(viewport={"width": 1000, "height": 700})
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(server + "/time?view=tree")
+        page.wait_for_function("window.NevetTime && NevetTime.state().mode === 'tree'", timeout=60000)
+        page.wait_for_timeout(1500)
+        st = page.evaluate("NevetTime.state()")
+        assert st["grown"] == st["heroes"] and st["generations"] >= 2, st          # every hero on the tree
+        assert page.locator(".tt-node").count() == st["heroes"] + 1                  # and the farm, the root
+        page.locator(".tt-node:not(.root)").first.click()
+        page.wait_for_timeout(500)
+        assert page.evaluate("NevetTime.state().selected")
+        assert not errors, errors
+        browser.close()

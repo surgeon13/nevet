@@ -80,3 +80,31 @@ button.time-chip { border: 0; font: inherit; cursor: pointer; }
 .time-card li.tree.new::before { background: radial-gradient(circle, #fff6c9 15%, #ffc94d 55%, #e0a21b); box-shadow: 0 0 6px 2px rgba(255, 201, 77, 0.7); }
 .time-chip.spot { background: #fff; color: #7a4a00; box-shadow: 0 0 0 1.5px #e0a21b; }
 .time-chip.spot.on { background: linear-gradient(120deg, #ffd36b, #e0a21b); color: #fff; box-shadow: 0 2px 8px rgba(224, 162, 27, 0.45); }
+/* the mother tree as a graph: the farm (the root) on the left, a column for each generation, a line for each invite */
+.time-tree { position: absolute; inset: 0; touch-action: none; cursor: grab; }
+.time-tree[hidden] { display: none; }
+.time-tree:active { cursor: grabbing; }
+.time-tree-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.tt-edge { fill: none; stroke: #3f9b58; stroke-width: 2.6; stroke-linecap: round; }
+.tt-edge.is-new { stroke: #e0a21b; stroke-width: 3; }
+.tt-edge.is-path { stroke: var(--t-magenta); stroke-width: 3.6; }
+.tt-node { cursor: pointer; outline: none; }
+.tt-node .tt-dot { stroke: #fff; stroke-width: 3; filter: drop-shadow(0 1px 2px rgba(90, 24, 56, 0.35)); }
+.tt-node .tt-halo { fill: none; stroke: transparent; stroke-width: 3; }
+.tt-node.is-new .tt-halo { stroke: #e0a21b; fill: rgba(255, 214, 107, 0.35); }
+.tt-node.is-sel .tt-halo, .tt-node:focus-visible .tt-halo { stroke: var(--t-magenta); fill: rgba(255, 143, 184, 0.3); }
+.tt-ini { font: 800 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #fff; pointer-events: none; }
+.tt-node.root .tt-ini { font-size: 19px; }
+.tt-name { font: 700 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #5a1838;
+  paint-order: stroke; stroke: rgba(255, 250, 252, 0.95); stroke-width: 4px; stroke-linejoin: round; }
+.tt-node.root .tt-name { font: italic 700 17px Georgia, "Times New Roman", serif; fill: var(--t-forest); }
+.tt-node.is-sel .tt-name { fill: var(--t-magenta); }
+.tt-new { display: none; pointer-events: none; }
+.tt-node.is-new .tt-new { display: inline; }
+.tt-new rect { fill: #e0a21b; }
+.tt-new text { font: 800 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #fff; letter-spacing: 0.04em; }
+.tt-fit { position: absolute; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); font-size: 20px; }
+.tt-fit[hidden] { display: none; }
+.time-legend .l-dot { width: 12px; height: 12px; border-radius: 50%; background: #ec407a; box-shadow: 0 0 0 2px #fff; }
+.time-legend .l-root { width: 12px; height: 12px; border-radius: 50%; background: #2e9e5b; box-shadow: 0 0 0 2px #fff; }
+.time-legend .l-new { width: 12px; height: 12px; border-radius: 50%; background: #ec407a; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #e0a21b; }

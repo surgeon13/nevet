@@ -75,8 +75,9 @@ in one go.
   fractal rhythm (how steadily you show up) that also sets your fighting
   style on the Mandelbrot set. Every goal, throw and win is recorded.
 - 💚 **Family and groups**, connected only when both people say yes.
-- 🌳 **Invite friends** with your own link or QR code. A mother tree shows
-  who invited whom, and the 3D farm **blooms** as the community grows:
+- 🌳 **Invite friends** with your own link or QR code. The mother tree
+  (a tree as in graph theory: heroes are the nodes, invites the lines, the
+  farm the root) shows who invited whom, and the 3D farm **blooms** as the community grows:
   taller plants, flowers, a rainbow, balloons and the northern lights.
 - 📖 **Our farm story**: the garden's whole history as two vines growing
   together.

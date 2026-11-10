@@ -283,13 +283,17 @@ A Flask app served by waitress on port 8000:
   in the session and logs an `opened` row in `invite_events`. Sign-up
   takes the farm's code or any player's code, records `growers.invited_by`
   and `invited_via` (link, code, added, set) and logs it.
-  `set_inviter()` refuses loops (`descendants()`). `tree()` gives the nodes
-  (outfit colour, join day, inviter) and the accepted relationships with
-  both sides' words. `timeline.story()` adds `tree` and `counts` and tells
-  "invited by" in the day's lines. `static/js/time3d.js` draws the tree
-  (`treeG`: time runs up a twisted trunk, a radial layout by family size,
-  branches and ribbons grown with `setDrawRange`) and golden arcs over the
-  vine.
+  `set_inviter()` refuses loops (`descendants()`). `tree()` is the invite
+  tree in the graph-theory sense: the nodes (outfit colour, join day,
+  inviter `by`, generation `gen`, `kids`), loops cut if the data ever has
+  one, and `generations`; no family links. `timeline.story()` adds `tree`
+  and `counts` and tells "invited by" in the day's lines.
+  `static/js/time3d.js` draws the tree as an SVG over the sky (`ROOT` the
+  farm, `layout()`: generations in columns, every leaf a row, an inviter
+  level with the middle of their heroes; under 700 px an indented list),
+  grows it with the story (`stepTree()` eases each hero out of their
+  inviter), pans and zooms it, lights up a hero's path from the root
+  (`pathTo()`), and draws golden arcs over the vine.
   `invites.community()` turns heroes, invites, connections and groups into
   a bloom level (`1 - e^(-score/40)`) and the wonders it unlocks
   (`BLOOM`). The farm gets it as `data.community`: `PG` makes the plants
