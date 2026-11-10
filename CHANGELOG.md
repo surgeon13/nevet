@@ -1,5 +1,22 @@
 # Changelog
 
+## A village view, like a village game
+
+- **The farm opens as a village**, seen from high up in the south like a
+  painted map: the mud arena and the rave in the middle, the farmyard
+  behind. **🏘️ Village** and **🌾 Fields** (all the farming lands round it)
+  sit at the start of the activity bar (or press V and F).
+- **Every building and field has a level** in a round bubble: the mud
+  arena, the rave stage, the garden beds, the barn, the worm bins, the
+  pond, the planting field, the greenhouse, the windmill, the play park
+  and the mother tree; the orchard, the market garden, the polytunnels,
+  the sunflowers, the vineyard, the beehives, the pumpkins, the wheat, the
+  corn and the hay barn. Levels only grow from what really happens (plants,
+  harvests, feedings, waterings, bouts, events, invites, XP...), up to 20.
+  Tap a bubble for what grows it and how far the next level is.
+- An activity goes back to its own camera; the farm remembers the view you
+  like, and opens on an event or a linked activity when there is one.
+
 ## Nevet on the Pi's own screen, by itself
 
 - **The Pi's little screen shows Nevet now, not a bare login prompt**:

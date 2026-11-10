@@ -16,6 +16,7 @@ import about
 import activity_views as av
 import auth
 import farm_db
+import farm_levels
 import bulk
 import extras
 import events
@@ -2103,6 +2104,7 @@ def farm_page():
         "start": request.args.get("act") if request.args.get("act") in FARM_ACTS else None,
         "world": farm_world(),                    # the land around the farm (see FARM_WORLDS)
         "community": invites.community(),         # how far the farm has bloomed with its people (invites.py)
+        "levels": farm_levels.levels(),           # the village view's levels on every building and field (farm_levels.py)
         "event": (lambda e: {"id": e["id"], "title": e["title"], "emoji": e["kind_info"]["emoji"], "act": e["farm_act"] or e["kind_info"]["act"],
                              "ends": e["end"].isoformat(timespec="minutes"), "here": len(here) + max(0, e["walk_ins"]),
                              "lineup": [{"at": s["at"].isoformat(timespec="minutes"), "end": s["end"].isoformat(timespec="minutes"),

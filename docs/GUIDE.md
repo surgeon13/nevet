@@ -248,6 +248,24 @@ sea, pines in the snow...), and gaps where the paths go through. You walk
 from the yard to the arena under a wooden arch with roses and the farm's
 name. Heroes jog when they have a long way to go.
 
+**The village view** 🏘️: the farm opens like a village game, seen from
+high up in the south as one big map: the mud arena and the rave in the
+middle, the farmyard behind them. Every building wears a round bubble with
+its **level**: the mud arena, the rave stage, the garden beds, the barn,
+the worm bins, the pond, the planting field, the greenhouse, the windmill,
+the play park and the mother tree. **🌾 Fields** shows all the farming lands
+round the village with theirs: the orchard, the market garden, the
+polytunnels, the sunflowers, the vineyard, the beehives, the pumpkins, the
+wheat, the corn and the hay barn. Tap a bubble to see what grows that
+level and how far it is to the next. Levels only grow from what really
+happens: plants added, kilograms harvested, worm feedings, waterings,
+bouts in the arena, events, friends who joined through an invite, the XP
+everyone earns, and so on (up to level 20, each level a bit more work than
+the one before). The heroes keep doing their activity while you look; tap
+an activity to go back to its own camera, or press V or F. The farm
+remembers which view you like. When an event is on, or a link asks for
+an activity, the farm opens on that instead.
+
 **How to look around:** drag to turn, pinch to zoom, tap a hero to follow
 them (they wave at you, and you see their powers), tap the ground to let
 go. The camera button saves a picture. On a phone, the farm's tools

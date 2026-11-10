@@ -278,6 +278,15 @@ A Flask app served by waitress on port 8000:
   `D.event` and the garden as a faded `D.background`, saving through
   `/api/events/<id>/map/*`. `today.py`, `timeline.py` and the farm page
   (`data.event`) read events too.
+- **The village view's levels** — `farm_levels.py`. `PLACES` gives every
+  building and field one measure from the records (plants added, kg
+  harvested, feedings, bouts, events, invites, XP...); `level_of()` gives
+  level 1 at `first` and every next level at `GROW` (1.6) times as much, up
+  to `MAX` (20), so levels never drop. `levels()` goes to the farm page as
+  `data.levels`; farm3d.js's 'village view' draws a bubble on each place
+  (`BUBBLES`, sized to the camera so they stay readable), frames the
+  village or the fields (`VIEW`, `viewPose()`: a long lens from high in the
+  south) and shows a card on a tap (`showLevel()`).
 - **Invites and the mother tree** — `invites.py`. Every player has an
   `invite_code` (made when first needed, renewable). `/i/<code>` stores it
   in the session and logs an `opened` row in `invite_events`. Sign-up

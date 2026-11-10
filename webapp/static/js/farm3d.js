@@ -5430,6 +5430,7 @@
   var focusTarget = null, focusUntil = 0, follow = null;
   function viewDistance() { return (camera.aspect < 0.8 ? 27 : camera.aspect < 1.2 ? 22 : 17) * ((ACTS && ACTS[current] && ACTS[current].view) || 1); }   // (the arena and the stage need a wider look)
   function stepCamera(now, dt) {
+    if (VIEW && !follow) { stepView(now, dt); return; }
     var want = follow ? follow.root.position.clone().setY(1.2) : (focusTarget && now < focusUntil + 3 ? focusTarget : null);
     if (want) controls.target.lerp(want, Math.min(1, dt * (follow ? 3 : 1.6)));
     if (!follow && focusTarget && now < focusUntil + 3 && now - userTouched > 3) {     // glide to a comfortable distance
@@ -5442,6 +5443,127 @@
     controls.update();
   }
 
+
+  // ---------------------------------------------------------------- the village view, like a village game's
+  // Two fixed views over the farm, the way a village game shows a village: 🏘️ Village (the mud arena and the rave in
+  // the middle, the big farmyard behind) and 🌾 Fields (all the farming lands round it), seen from high up in the
+  // south through a long lens, so it looks like a painted map. Every building and field wears a bubble with its level
+  // (farm_levels.py: levels only grow from real work, invites and games); tap one to see what grows it and how far it
+  // is to the next level. The heroes keep going about their activity. An activity button goes back to its own camera.
+  var LEVELS = {};
+  (D.levels || []).forEach(function (l) { LEVELS[l.id] = l; });
+  var VIEW = null, VIEW_FOV = 34, BASE_FOV = camera.fov, BASE_FOG = [scene.fog.near, scene.fog.far], BASE_MAXD = controls.maxDistance;
+  var VIEW_BOX = { village: { x0: -34, x1: 34, z0: FARM_W.minZ - 2, z1: STAGE_N + 2 * STAGE_HZ + 4 },
+                   fields: { x0: LAND.minX - 1, x1: LAND.maxX + 1, z0: LAND.minZ - 1, z1: LAND.maxZ + 1 } };
+  var VIEW_UP = 0.96;                                   // the view's angle above the ground (radians, ~55 degrees)
+  var BUBBLES = [];
+  (function () {
+    function fc(kind) { var f = FIELDS.filter(function (x) { return x[0] === kind; })[0]; return f ? [(f[1] + f[2]) / 2, (f[3] + f[4]) / 2] : [0, 0]; }
+    var worms = ANIMALS.filter(function (a) { return a.kind === 'worms'; })[0];
+    var gc = YV(GARDEN_CENTRE);
+    var at = {
+      arena: V(FIRE.x, 7, FIRE.z), stage: V(PARTY_C.x, 9.5, STAGE_N - 2.5), garden: V(gc.x, 4.5, gc.z),
+      barn: V(yx(-15.5), 10.5, yz(-9.5)), worms: worms ? V(worms.pos.x, 3.4, worms.pos.z) : YV(V(-10.4, 2.2, 2)),
+      pond: V(POND_W.x, 3, POND_W.z), field: YV(V(15.2, 2.2, -8.5)), greenhouse: YV(V(-15, 3.8, 5.5)),
+      windmill: V(yx(13.5), 15.5, yz(-17.5)), park: V(0, 4, (PLAY.minZ + PLAY.maxZ) / 2), mother: V(MOTHER.x, (MOTHER.top || 8) + 1.5, MOTHER.z)
+    };
+    ['orchard', 'market', 'tunnels', 'sunflowers', 'vineyard', 'hives', 'pumpkins', 'wheat', 'corn', 'haybarn'].forEach(function (k) {
+      var c = fc(k), far = k === 'wheat' || k === 'corn' || k === 'haybarn';     // (the far fields: their bubble near the track, in view)
+      at[k] = V(c[0], k === 'haybarn' ? 7.5 : k === 'orchard' ? 6.5 : 4, far ? 92 : c[1]);
+    });
+    (D.levels || []).forEach(function (l) {
+      if (!at[l.id]) return;
+      var tier = l.level >= 20 ? 5 : l.level >= 15 ? 4 : l.level >= 10 ? 3 : l.level >= 5 ? 2 : l.level >= 1 ? 1 : 0;
+      var ring = ['#9aa29a', '#a8743f', '#3f9b58', '#2f7fc1', '#8a4fd1', '#d9a21b'][tier];
+      var c = document.createElement('canvas'); c.width = c.height = 128;
+      var g = c.getContext('2d');
+      g.beginPath(); g.arc(64, 66, 54, 0, TAU); g.fillStyle = 'rgba(40, 24, 10, 0.35)'; g.fill();          // (a soft shadow)
+      g.beginPath(); g.arc(64, 62, 54, 0, TAU); g.fillStyle = ring; g.fill();
+      g.beginPath(); g.arc(64, 62, 42, 0, TAU); g.fillStyle = tier === 5 ? '#ffe9a8' : l.level ? '#fff6dc' : '#e9ece8'; g.fill();
+      g.lineWidth = 3; g.strokeStyle = 'rgba(255,255,255,0.7)'; g.beginPath(); g.arc(64, 62, 48, PI * 1.1, PI * 1.6); g.stroke();
+      g.fillStyle = l.level ? '#4a2a10' : '#7d857d'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = '800 ' + (l.level >= 10 ? 50 : 58) + 'px -apple-system, Segoe UI, Roboto, sans-serif';
+      g.fillText(String(l.level), 64, 65);
+      var disc = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, depthWrite: false, transparent: true }));
+      disc.renderOrder = 30; disc.position.copy(at[l.id]); disc.visible = false; disc.userData.level = l;
+      var nc = textCanvas(l.emoji + ' ' + l.name, { px: 30, pad: 14, bg: 'rgba(255, 246, 220, 0.95)', color: '#4a2a10', radius: 14, stroke: ring });
+      var name = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(nc), depthTest: false, depthWrite: false, transparent: true }));
+      name.renderOrder = 29; name.position.copy(at[l.id]); name.visible = false; name.userData.aspect = nc.width / nc.height;
+      scene.add(disc); scene.add(name);
+      BUBBLES.push({ l: l, disc: disc, name: name });
+    });
+  })();
+  function viewPose(name) {                             // where to stand to see the whole village (or all the fields) through the long lens
+    var b = VIEW_BOX[name], t = Math.tan(VIEW_FOV * PI / 360), a = camera.aspect || 1.5;
+    var halfW = (b.x1 - b.x0) / 2, halfD = (b.z1 - b.z0) / 2 * Math.sin(VIEW_UP);
+    var H = wrap.clientHeight || 800, free = Math.max(0.5, (H - 160) / H);          // (the title above and the buttons below)
+    var fitW = halfW / (t * a) * (a < 0.8 ? 0.9 : 1), fitD = halfD / (t * free);    // (a phone held upright: nearly all of it, turn for the edges)
+    var dist = Math.max(fitW, fitD) * 1.04 + halfD * Math.cos(VIEW_UP) * 0.5;
+    var target = V((b.x0 + b.x1) / 2, 0, (b.z0 + b.z1) / 2 + (b.z1 - b.z0) * 0.05);
+    return { target: target, pos: target.clone().add(V(0, Math.sin(VIEW_UP), Math.cos(VIEW_UP)).multiplyScalar(dist)), dist: dist };
+  }
+  var viewCard = document.getElementById('farm-level-card'), viewChips = document.querySelectorAll('[data-view]');
+  function setView(name, byUser) {
+    VIEW = name || null;
+    if (byUser) { try { localStorage.setItem('nevet-farm-view', VIEW || 'none'); } catch (e) { /* private mode */ } }
+    if (VIEW) { setFollow(null); controls.autoRotate = false; viewGlide = 1; }
+    else {
+      camera.fov = BASE_FOV; camera.updateProjectionMatrix();
+      scene.fog.near = BASE_FOG[0]; scene.fog.far = BASE_FOG[1]; controls.maxDistance = BASE_MAXD;
+      focusTarget = ACTS[current].centre.clone(); focusUntil = clockNow() + 2.2;
+    }
+    showLevel(null);
+    viewChips.forEach(function (c) { c.classList.toggle('active', c.dataset.view === VIEW); c.setAttribute('aria-pressed', c.dataset.view === VIEW); });
+    updateUI();
+  }
+  var viewGlide = 0;
+  function stepView(now, dt) {
+    var pose = viewPose(VIEW), k = Math.min(1, dt * (viewGlide ? 2.2 : 1.2));
+    if (Math.abs(camera.fov - VIEW_FOV) > 0.05) { camera.fov += (VIEW_FOV - camera.fov) * k; camera.updateProjectionMatrix(); }
+    controls.maxDistance = Math.max(BASE_MAXD, pose.dist * 1.6);
+    scene.fog.near += (pose.dist * 0.9 - scene.fog.near) * k; scene.fog.far += (pose.dist * 2.6 - scene.fog.far) * k;
+    if (viewGlide || now - userTouched > 20) {          // (glide there; after a look round of your own, glide back)
+      controls.target.lerp(pose.target, k); camera.position.lerp(pose.pos, k);
+      if (camera.position.distanceTo(pose.pos) < 0.5) viewGlide = 0;
+    }
+    controls.autoRotate = false;
+    controls.update();
+  }
+  function stepBubbles() {
+    var show = !!VIEW && !TV;
+    BUBBLES.forEach(function (b) {
+      var on = show && b.l.view === VIEW;
+      b.disc.visible = on; b.name.visible = on && showNames;
+      if (!on) return;
+      var d = camera.position.distanceTo(b.disc.position), s = d * Math.tan(camera.fov * PI / 360) * 0.085 * (camera.aspect < 0.8 ? 1.3 : 1);
+      b.disc.scale.set(s, s, 1);
+      b.name.scale.set(s * 0.5 * b.name.userData.aspect, s * 0.5, 1);
+      b.name.position.copy(b.disc.position); b.name.position.y -= s * 0.68;
+    });
+  }
+  function showLevel(l) {                               // the card for a building or field: its level and what grows it
+    if (!viewCard) return;
+    if (!l) { viewCard.hidden = true; return; }
+    viewCard.innerHTML = '';
+    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; viewCard.appendChild(e); return e; }
+    var close = el('button', 'farm-level-x', '×'); close.type = 'button'; close.setAttribute('aria-label', 'Close');
+    close.addEventListener('click', function () { showLevel(null); });
+    el('div', 'farm-level-name', l.emoji + ' ' + l.name);
+    el('div', 'farm-level-lv', 'Level ' + l.level + (l.level >= 20 ? ' · the top!' : ''));
+    var bar = el('div', 'farm-level-bar'), fill = document.createElement('i'); fill.style.width = Math.round((l.level >= 20 ? 1 : l.pct) * 100) + '%'; bar.appendChild(fill);
+    el('div', 'farm-level-now', l.next_shown ? l.shown + ' · level ' + (l.level + 1) + ' at ' + l.next_shown : l.shown);
+    el('div', 'farm-level-grows', 'Grows with ' + l.grows + '.');
+    viewCard.hidden = false;
+  }
+  viewChips.forEach(function (c) { c.addEventListener('click', function () { setView(VIEW === c.dataset.view ? null : c.dataset.view, true); }); });
+  function pickBubble(e) {
+    if (!VIEW) return null;
+    var r = canvas.getBoundingClientRect(), rc = new THREE.Raycaster();
+    rc.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
+    var hit = rc.intersectObjects(BUBBLES.filter(function (b) { return b.disc.visible; }).map(function (b) { return b.disc; }), false)[0];
+    return hit ? hit.object.userData.level : null;
+  }
+  function totalLevel(view) { return (D.levels || []).filter(function (l) { return l.view === view; }).reduce(function (a, l) { return a + l.level; }, 0); }
   // ---------------------------------------------------------------- UI
   var showNames = true;
   var ui = {
@@ -5465,13 +5587,13 @@
     ui.sound.classList.toggle('active', on); ui.sound.setAttribute('aria-pressed', on);
   });
   function updateUI() {
-    if (ui.name) ui.name.textContent = actTitle();
+    if (ui.name) ui.name.textContent = VIEW ? (VIEW === 'village' ? '🏘️ Nevet village' : '🌾 Nevet fields') : actTitle();
     ui.chips.forEach(function (c) { c.classList.toggle('active', c.dataset.act === current); c.setAttribute('aria-pressed', c.dataset.act === current); });
     if (ui.auto) { ui.auto.classList.toggle('active', auto); ui.auto.setAttribute('aria-pressed', auto); }
     if (ui.sound) ui.sound.hidden = current !== 'party';
     if (acidPanel) acidPanel.show(current === 'party');
   }
-  ui.chips.forEach(function (c) { c.addEventListener('click', function () { setActivity(c.dataset.act, clockNow(), true); }); });
+  ui.chips.forEach(function (c) { c.addEventListener('click', function () { if (VIEW) setView(null, true); setActivity(c.dataset.act, clockNow(), true); }); });
   if (ui.auto) ui.auto.addEventListener('click', function () { auto = !auto; if (auto) actStarted = clockNow(); updateUI(); });
   if (ui.names) ui.names.addEventListener('click', function () { showNames = !showNames; ui.names.classList.toggle('active', showNames); ui.names.setAttribute('aria-pressed', showNames); });
   if (ui.photo) ui.photo.addEventListener('click', function () {
@@ -5496,8 +5618,11 @@
   // keyboard / USB button boxes: 1-7 pick an activity, A toggles auto, Esc goes back
   document.addEventListener('keydown', function (e) {
     var k = e.key;
-    if (k >= '1' && k <= String(ORDER.length)) setActivity(ORDER[+k - 1], clockNow(), true);
+    if (k >= '1' && k <= String(ORDER.length)) { if (VIEW) setView(null, true); setActivity(ORDER[+k - 1], clockNow(), true); }
     else if (k === 'a' || k === 'A') { auto = !auto; if (auto) actStarted = clockNow(); updateUI(); }
+    else if (k === 'v' || k === 'V') setView(VIEW === 'village' ? null : 'village', true);
+    else if (k === 'f' || k === 'F') setView(VIEW === 'fields' ? null : 'fields', true);
+    else if (k === 'Escape' && VIEW) setView(null, true);
     else if (k === 'Escape') { var back = document.querySelector('.farm-close'); if (back) location.href = back.href; }
   });
   var down = null;
@@ -5505,6 +5630,9 @@
   canvas.addEventListener('pointerup', function (e) {
     if (!down || Math.abs(e.clientX - down.x) + Math.abs(e.clientY - down.y) > 8) { down = null; return; }
     down = null;
+    var lv = pickBubble(e);
+    if (lv) { showLevel(lv); return; }
+    if (VIEW) showLevel(null);
     var hit = Nevet3D.pick(e, canvas, camera, heroes.map(function (h) { return h.root; }), 'heroIndex');
     setFollow(hit ? heroes.filter(function (h) { return h.root === hit; })[0] || null : null);
   });
@@ -5595,6 +5723,11 @@
     camera.position.copy(controls.target).addScaledVector(dir, viewDistance() * 1.1);
     focusTarget = c.clone(); focusUntil = 6;
   })();
+  (function () {                                       // the village view first (like a village game), unless an activity or the live view was asked for
+    var saved = null;
+    try { saved = localStorage.getItem('nevet-farm-view'); } catch (e) { /* private mode */ }
+    if (!TV && !D.start && !EVENT && saved !== 'none') setView(saved === 'fields' ? 'fields' : 'village', false);
+  })();
   var lastDraw = 0;
   function loop() {
     if (!running) return;
@@ -5606,7 +5739,8 @@
     last = real;
     if (TV) stepTV(simNow);
     step(dt);
-    if (ui.stat) ui.stat.textContent = ACTS[current].stat();
+    if (ui.stat) ui.stat.textContent = VIEW ? 'Total level ' + totalLevel(VIEW) + ' · tap a bubble' : ACTS[current].stat();
+    stepBubbles();
     stepCamera(simNow, dt);
     renderer.render(scene, camera);
     if (ui.loading && !ui.loading.hidden && simNow > 0.3) ui.loading.hidden = true;
@@ -5632,6 +5766,7 @@
     blocked: function (x, z, pad) { return blockedAt(x, z, pad); },
     party: function () { return { dance: dance.cur.id, name: dance.cur.name, form: form.on ? form.kind : null, moving: form.moving }; },
     debugFold: function () { return FOLD; },
+    view: function (n) { if (n !== undefined) setView(n || null, false); return { view: VIEW, bubbles: BUBBLES.filter(function (b) { return b.disc.visible; }).length }; },
     floorSlots: function () { return heroes.slice(1).map(function (h, k) { var v = floorSlot(h, k); return [+v.x.toFixed(2), +v.z.toFixed(2)]; }); },
     ring: function () {
       return { phase: RING.phase, bout: RING.bout && RING.bout.id, style: ringStyle().id, winner: RING.winner && RING.winner.name, points: RING.points,

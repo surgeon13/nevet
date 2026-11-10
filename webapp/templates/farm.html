@@ -123,7 +123,10 @@
   <section class="farm-synth-dock" id="farm-synth-dock" aria-label="Party synth: TB-303 bass line and TR-909 drums" hidden></section>
   {% endif %}
 
+  <div class="farm-level-card" id="farm-level-card" role="status" aria-live="polite" hidden></div>
   <div class="farm-acts" role="group" aria-label="Group activity">
+    <button type="button" class="farm-chip farm-view" data-view="village" aria-pressed="false" title="The village: every building and its level (V)">🏘️ <span>Village</span></button>
+    <button type="button" class="farm-chip farm-view farm-view-last" data-view="fields" aria-pressed="false" title="The farming lands and their levels (F)">🌾 <span>Fields</span></button>
     <button type="button" class="farm-chip" data-act="harvest" aria-pressed="false">🍅 <span>Harvest</span></button>
     <button type="button" class="farm-chip" data-act="water" aria-pressed="false">💧 <span>Watering</span></button>
     <button type="button" class="farm-chip" data-act="plant" aria-pressed="false">🌱 <span>Planting</span></button>

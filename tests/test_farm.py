@@ -40,6 +40,17 @@ def test_farm_runs_every_activity(server):
         page.wait_for_url(lambda u: "/login" not in u)
         page.goto(server + "/farm")
         page.wait_for_function("window.NevetFarm && NevetFarm.heroes && NevetFarm.heroes.length > 0", timeout=60000)
+        page.evaluate("NevetFarm.simulate(1)")
+        page.wait_for_timeout(300)
+        page.evaluate("NevetFarm.view('village')")                            # (the test farm has an event on, so it opens on that)
+        page.wait_for_timeout(300)
+        assert page.evaluate("NevetFarm.view().view") == "village"              # the village view, with its level bubbles
+        assert page.evaluate("NevetFarm.view().bubbles") >= 8
+        page.click("[data-view=fields]")
+        page.wait_for_timeout(300)
+        assert page.evaluate("NevetFarm.view().view") == "fields"
+        page.click("[data-act=harvest]")                                       # an activity: its own camera again
+        assert page.evaluate("NevetFarm.view().view") is None
         for act in ["harvest", "water", "plant", "animals", "play", "campfire", "party", "campfire"]:
             page.evaluate(f"NevetFarm.setActivity('{act}'); NevetFarm.simulate(12)")
         assert page.evaluate("NevetFarm.debugFold().t") == 0          # back at the campfire: the arena is open again
