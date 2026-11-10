@@ -202,12 +202,19 @@ A Flask app served by waitress on port 8000:
   `POST /farm/world` and passed as `data.world` (`?world=` previews one);
   it picks the ground, sky, fog, ground cover and the scenery builder, and
   little moving things register a step function in `WORLD_ANIM`. The
-  layout lives at the top of farm3d.js: `LAND` is the outer fence, about
-  4.2 times the old farm's ground. Inside it are the farmyard (`FARM`, its
-  fence along the play park with the gate), the campfire field to the east
-  (`FIRE`, `ARENA_W`, `CAMP_R`), the party field to the west (`PARTY_C`,
-  `STAGE_HX`/`STAGE_HZ`, `STAGE`, the big wheel `WHEEL`) and the play park
-  (`PLAY`, `HEDGE_X`). `BOX`, 1 m beyond the fence, is what the scenery
+  layout lives at the top of farm3d.js: `LAND` is the farm's edge
+  (124 x 155 m), centred on the mud pit (`FIRE`, `ARENA_W`, `CAMP_R`) and
+  the rave's dance field round it (`PARTY_C`, `STAGE_HX`/`STAGE_HZ`,
+  `STAGE`). The farmyard is built at its first size in yard metres (`FARM`)
+  into the `YARD` group, which scales it up `YS` times round the arch; while
+  it is built `statics` is `YARD`, and anything heroes walk to is turned
+  into farm metres with `yx`/`yz`/`YV` (plants keep `lpos`, their yard
+  position). The farming lands round the middle are `FIELDS` (orchard,
+  market garden, polytunnels, sunflowers, vineyard, beehives, pumpkins,
+  wheat, corn, hay barn), built in 'the farming lands' with instanced crops
+  that sway in the vertex shader (`SWAY_T`); their obstacles are
+  `FIELD_OBST`. The big wheel is `WHEEL`, the play park `PLAY`, the hedge
+  rows `HEDGE_X` and `YARD_X`. `BOX`, 1 m beyond the fence, is what the scenery
   goes round: farm-worlds.js gets it and places its trees, animals and
   props outside it. The navigation grid covers the whole farm. Each
   obstacle has a bounding box, and `buildNav()` marks only the cells it

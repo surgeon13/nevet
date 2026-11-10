@@ -45,6 +45,12 @@ def test_farm_runs_every_activity(server):
         assert page.evaluate("NevetFarm.debugFold().t") == 0          # back at the campfire: the arena is open again
         page.evaluate("NevetFarm.setActivity('party'); NevetFarm.simulate(8)")
         assert page.evaluate("NevetFarm.debugFold().t") == 1          # the party: folded into the fire tower
+        # the farming lands: heroes walk round the crops, and from the yard (through the arch) to the mud pit
+        assert page.evaluate("NevetFarm.blocked(-30, 100, 0.3)")       # the wheat
+        assert page.evaluate("NevetFarm.blocked(46, 37, 0.3)")         # the vineyard
+        assert not page.evaluate("NevetFarm.blocked(0, 81.6, 0.3)")    # the farm track
+        route = page.evaluate("NevetFarm.path([0, -6], [0, 30])")
+        assert route and abs(route[-1][0]) < 1 and abs(route[-1][1] - 30) < 1, route
         assert not errors, errors
         browser.close()
 

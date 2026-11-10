@@ -230,11 +230,19 @@ just for fun.
 
 **The farm's layout:** the **mud arena** is the heart of the farm, right in
 the middle, with the rave's dance field round it and the stage on its north
-side. The **farmyard** is to the north (beds, barn, pond, windmill, and a
-signpost in the yard), the **play park** to the south, and open meadows to
-the east (the gladiators' tents) and the west (the big wheel and the mother
-tree). There are no fences: the farm is open to everyone, and wild rabbits
-hop in from the meadows. The areas are divided by nature, with low hedges
+side. All round it lie the farming lands. The big **farmyard** is to the
+north (five raised beds or your garden map, the planting field, the barn,
+the greenhouse, the pond, the windmill, the worm bins and a signpost),
+with the **orchard** and the farm's mother tree west of it and the
+**market garden** (vegetable rows, sprinklers and polytunnels) east of it.
+Beside the dance field are the big wheel and a **sunflower field** to the
+west, and the gladiators' tents and the **vineyard** to the east. The
+**play park** is south of the dance field, with the **beehives** in a
+wildflower meadow and the **pumpkin patch** either side of it. Furthest
+south, past the farm track where a little tractor drives up and down, are
+the **wheat**, the **corn** and the **hay barn** with its pond. The crops
+sway in the wind. There are no fences: the farm is open to everyone, and
+wild rabbits hop in from the meadows. The areas are divided by nature, with low hedges
 dotted with flowers and rows of trees in the farm's setting (palms by the
 sea, pines in the snow...), and gaps where the paths go through. You walk
 from the yard to the arena under a wooden arch with roses and the farm's

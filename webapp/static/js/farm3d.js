@@ -28,15 +28,18 @@
   };                                                   // (the settings live in farm-worlds.js)
   var WORLD = WORLDS[D.world] ? D.world : 'classic', WD = WORLDS[WORLD];
   // The farm is open: no fences round it, and its areas are divided by nature (hedges and rows of trees, with gaps
-  // where the paths go through). The mud pit is its heart: the arena stands in the middle of the farm with the rave's
-  // dance field round it and the stage to the north. The farmyard (beds, barn, pond, windmill) is to the north, the
-  // play park to the south, and open meadows east and west (the gladiators' tents, the big wheel, the mother tree).
-  // When the party starts, the arena folds itself up into a fire tower in the middle of the dance field.
+  // where the paths go through). The mud pit is its heart: the arena stands in the very middle of the farm with the
+  // rave's dance field round it and the stage to the north. All round it lie the farming lands: the big farmyard
+  // (beds, garden, barn, pond, windmill) to the north, with the orchard and the mother tree west of it and the market
+  // garden east; the big wheel and a sunflower field west of the dance field, the gladiators' tents and the vineyard
+  // east; the play park south, with the beehives and the pumpkin patch beside it; and wheat, corn and the hay barn
+  // furthest south. When the party starts, the arena folds itself up into a fire tower in the middle of the dance field.
   // (metres, x to the east, z to the south)
   var PLAY = { minX: -19.6, maxX: 19.6, minZ: 60, maxZ: 78.4 };      // the play park, south of the dance field
   var PDZ = PLAY.minZ - 16;                                         // (how far south the park moved; its pieces are placed from the old spots)
-  var LAND = { minX: -55, maxX: 55, minZ: -20, maxZ: PLAY.maxZ + 1 }; // where heroes go (no fence: just the farm's edge)
-  var HEDGE_X = 20.5;                                  // the rows of hedges and trees between the middle and the meadows
+  var LAND = { minX: -62, maxX: 62, minZ: -40, maxZ: 115 };          // where heroes go (no fence: just the farm's edge), centred on the mud pit
+  var HEDGE_X = 20.5;                                  // the rows of hedges and trees between the dance field and the meadows
+  var YARD_X = 31;                                     // ... and between the big farmyard and the orchard and market garden
   var FIRE = V(0, 0, 37.5);                           // the fire pit in the middle of the farm (the mud arena is built round it)
   var FIRE_K = 1.6;                                   // the fire pit, its flames and its glow, bigger than the old yard fire
   var ARENA_N = (D.heroes || []).length;
@@ -45,15 +48,25 @@
   var STAGE_HX = 14.5, STAGE_HZ = 14;                  // the rave's dance field round the arena (29 x 28 m)
   var PARTY_C = V(FIRE.x, 0, FIRE.z), STAGE_N = PARTY_C.z - STAGE_HZ;  // the field's middle (the fire) and its north edge (the stage)
   var WHEEL = { x: -34, z: 24, r: 6.2 };               // the big wheel in the west meadow, beside the stage
-  var PATH_E = 4.5, PATH_W = 10;                       // the paths from the yard out to the east and west meadows
+  // The farmyard is built at its first size (FARM, in yard metres) and then scaled up YS times round the middle of its
+  // south side, where the arch is: the beds, the garden, the barn, the pond and everything in it are YS times bigger and
+  // further apart. Anything heroes walk to is turned into farm metres with yx / yz / YV.
+  var FARM = { minX: -20, maxX: 20, minZ: -20, maxZ: 16 };     // the farmyard (a hedge along its south side, with the arch, faces the stage)
+  var YS = 1.5, YO = FARM.maxZ;
+  function yx(x) { return x * YS; }
+  function yz(z) { return YO + (z - YO) * YS; }
+  function YV(v) { return V(yx(v.x), (v.y || 0) * YS, yz(v.z)); }
+  var FARM_W = { minX: yx(FARM.minX), maxX: yx(FARM.maxX), minZ: yz(FARM.minZ), maxZ: FARM.maxZ };   // the yard on the farm (-30..30, -38..16)
+  var PATH_E = yz(4.5), PATH_W = yz(10);               // the tracks from the yard out to the market garden and the orchard
   var PATHS = [                                        // every path: [x0, x1, z0, z1]
-    [-1.5, 1.5, 5.75, 18.7],                           // from the yard's middle through the arch
+    [-1.5 * YS, 1.5 * YS, yz(5.75), 18.7],             // from the yard's middle through the arch
     [-18.4, 18.4, 16.7, 18.7],                         // the lane behind the stage
     [-18.4, -16.4, 16.7, 53.5], [16.4, 18.4, 16.7, 53.5],    // down both sides of the dance field
-    [-1.3, 1.3, STAGE_N + 2 * STAGE_HZ, PLAY.maxZ],    // from the dance field on through the play park
-    [-30, -1.4, PATH_W - 1.2, PATH_W + 1.2], [5.4, 30, PATH_E - 1.2, PATH_E + 1.2],   // the meadows, from the yard
+    [-1.3, 1.3, STAGE_N + 2 * STAGE_HZ, LAND.maxZ - 1],      // from the dance field on through the play park to the wheat and the corn
+    [LAND.minX + 1.5, -1.4 * YS, PATH_W - 1.6, PATH_W + 1.6], [5.4 * YS, LAND.maxX - 1.5, PATH_E - 1.6, PATH_E + 1.6],   // the yard's tracks east and west
     [-29.5, -18.4, WHEEL.z - 1, WHEEL.z + 1],          // to the big wheel
-    [18.4, 23.6, FIRE.z - 1, FIRE.z + 1]               // to the gladiators' tents
+    [18.4, 23.6, FIRE.z - 1, FIRE.z + 1],              // to the gladiators' tents
+    [-60.5, 60.5, 80.6, 82.6]                          // the farm track past the beehives and the pumpkins, between the park and the far fields
   ];
   function onPath(x, z, m) { m = m || 0; return PATHS.some(function (p) { return x > p[0] - m && x < p[1] + m && z > p[2] - m && z < p[3] + m; }); }
   // The farm blooms with its people (invites.community on the station): the more heroes join, invite friends and
@@ -61,7 +74,16 @@
   var BLOOM = D.community || { level: 0, unlocked: [] }, BL = Math.max(0, Math.min(1, +BLOOM.level || 0));
   function blooms(k) { return (BLOOM.unlocked || []).indexOf(k) >= 0; }
   var PG = { x: 1 + 0.1 * BL, y: 1 + 0.45 * BL };      // how much taller (and a little wider) the plants grow
-  var MOTHER = { x: -30.5, z: -13 };                   // the farm's mother tree, in the west meadow by the yard (never in the way)
+  var MOTHER = { x: -46, z: -15 };                     // the farm's mother tree, in a clearing in the orchard west of the yard (never in the way)
+  // The farming lands round the middle (see 'the farming lands' below): [kind, x0, x1, z0, z1]. Heroes walk round the
+  // crops (each field is an obstacle, the orchard's trees one by one).
+  var FIELDS = [
+    ['orchard', -60, -33.5, -38, 3.4], ['market', 33.5, 60, -38, -4.8], ['tunnels', 33.5, 60, 2.4, 13.8],
+    ['sunflowers', -60, -24, 33, 56.6], ['vineyard', 33, 60, 18.6, 56.6],
+    ['hives', -60, -23, 61.5, 78], ['pumpkins', 23, 60, 61.5, 78],
+    ['wheat', -60, -3.4, 84.6, 113], ['corn', 3.4, 34, 84.6, 113], ['haybarn', 37.5, 60, 84.6, 113]
+  ];
+  function inField(x, z, m) { m = m || 0; return FIELDS.some(function (f) { return x > f[1] - m && x < f[2] + m && z > f[3] - m && z < f[4] + m; }); }
 
   // seeded random, so the farm looks the same on every visit
   function rng(seed) {
@@ -83,7 +105,7 @@
   controls.dampingFactor = 0.08;
   controls.enablePan = false;
   controls.minDistance = 5;
-  controls.maxDistance = 115;
+  controls.maxDistance = 165;                          // (far enough to see the whole farm, its fields and all)
   controls.maxPolarAngle = 1.36;
   controls.autoRotate = !calm;
   controls.autoRotateSpeed = 0.35;
@@ -195,7 +217,7 @@
   });
   var sky = new THREE.Mesh(new THREE.SphereGeometry(300, 24, 16), skyMat);
   scene.add(sky);
-  scene.fog = new THREE.Fog(SKY.dayHorizon.clone(), WD.fog[0] + 30, WD.fog[1] + 45);   // (the farm is wide: the far field stays clear)
+  scene.fog = new THREE.Fog(SKY.dayHorizon.clone(), WD.fog[0] + 50, WD.fog[1] + 70);   // (the farm is wide: the far fields stay clear)
 
   var hemi = new THREE.HemisphereLight(0xffffff, WD.hemi, 0.62);
   scene.add(hemi);
@@ -240,10 +262,14 @@
   // handful of meshes once built (see the end of the world section).
   var statics = new THREE.Group(), movers = new Set();
   scene.add(statics);
+  // The farmyard's things are built in yard metres into YARD, which scales them up (see FARM above). While the yard is
+  // built, `statics` is YARD; the farm's own statics are FARM_STATICS.
+  var FARM_STATICS = statics, YARD = group([0, 0, YO * (1 - YS)]);
+  YARD.scale.setScalar(YS);
+  statics.add(YARD);
 
   // ---------------------------------------------------------------- ground
-  var FARM = { minX: -20, maxX: 20, minZ: -20, maxZ: 16 };     // the farmyard (a hedge along its south side, with the arch, faces the stage)
-  var POND = { x: 15.6, z: 10.5 };                    // out east, by the path to the east meadow
+  var POND = { x: 15.6, z: 10.5 };                    // out east in the yard, by the track to the market garden (yard metres)
   var ANIMALS = [];                                   // worm bins & beds, hives, the chickens, the ducks: 'Animal care' visits them all
   var SEA_Y = -0.38;                                  // the sea's level (the seaside's beach and the island's lagoon)
   // the box the land around the farm is built round (1 m beyond the farm's edge; farm-worlds.js gets it too)
@@ -266,12 +292,13 @@
       else h = k * k * (6 + Math.sin(x * 0.07) * 4 + Math.cos(z * 0.06 + 1) * 4) * (WORLD === 'forest' ? 1.25 : WD.hills || 1)
              + (WORLD === 'snow' ? k * k * k * Math.max(0, Math.sin(x * 0.11 + 2) * Math.cos(z * 0.09)) * 9 : 0);
     }
-    if (WORLD === 'seaside' && z < -23) { var b = Math.min(1, (-23 - z) / 4); h = h * (1 - b) - Math.min(3.2, (-23 - z) * 0.075); }
+    var sz = BOX.z0 - 2 - z;                           // (the seaside: the beach north of the farm, then the sea)
+    if (WORLD === 'seaside' && sz > 0) { var b = Math.min(1, sz / 4); h = h * (1 - b) - Math.min(3.2, sz * 0.075); }
     return h;
   }
   (function () {
-    var geo = new THREE.PlaneGeometry(420, 420, 105, 105);
-    geo.rotateX(-PI / 2);
+    var geo = new THREE.PlaneGeometry(440, 440, 110, 110);
+    geo.rotateX(-PI / 2); geo.translate(0, 0, FIRE.z);   // (centred on the mud pit, like the farm)
     var pos = geo.attributes.position, cols = [], c = new THREE.Color();
     var g1 = new THREE.Color(WD.ground[0]), g2 = new THREE.Color(WD.ground[1]), g3 = new THREE.Color(WD.ground[2]);
     var sand = new THREE.Color('#f0dcaa'), wet = new THREE.Color('#c9ad78'), dune = new THREE.Color('#e6b878'), sea1 = new THREE.Color('#e9dcae'),
@@ -281,7 +308,7 @@
       pos.setY(i, y - 0.02);
       var n = Math.sin(x * 0.21) * Math.cos(z * 0.17) * 0.5 + 0.5;
       c.copy(g1).lerp(n > 0.5 ? g3 : g2, Math.abs(n - 0.5) * 1.2);
-      if (WORLD === 'seaside' && z < -20) { c.lerp(sand, Math.min(1, (-20 - z) / 2.5)); if (y < SEA_Y + 0.2) c.lerp(wet, 0.7); }
+      if (WORLD === 'seaside' && z < BOX.z0 + 1) { c.lerp(sand, Math.min(1, (BOX.z0 + 1 - z) / 2.5)); if (y < SEA_Y + 0.2) c.lerp(wet, 0.7); }
       if (WORLD === 'desert' && y > 1) c.lerp(dune, Math.min(0.55, (y - 1) / 9));
       if (WORLD === 'island') {
         var bd = boxDist(x, z, 0.5);
@@ -300,16 +327,16 @@
   })();
   // trodden yard and the path from the gate
   var yard = mesh(new THREE.CircleGeometry(6.5, 40), WD.yard);
-  yard.rotation.x = -PI / 2; yard.position.set(0, 0.012, 1);
-  statics.add(yard);
+  yard.rotation.x = -PI / 2; yard.position.set(0, 0.012 / YS, 1);
+  YARD.add(yard);
   PATHS.forEach(function (p, k) {                      // the paths (a hair apart in height where they cross)
     var pm = mesh(new THREE.PlaneGeometry(p[1] - p[0], p[3] - p[2]), WD.path);
     pm.rotation.x = -PI / 2; pm.position.set((p[0] + p[1]) / 2, 0.008 + k * 0.0004, (p[2] + p[3]) / 2);
     statics.add(pm);
   });
-  var lane = mesh(new THREE.PlaneGeometry(26, 2.2), WD.path);        // the lane in front of the beds
-  lane.rotation.x = -PI / 2; lane.position.set(3.5, 0.011, -4.1);
-  statics.add(lane);
+  var lane = mesh(new THREE.PlaneGeometry(30, 2.2), WD.path);        // the lane in front of the beds
+  lane.rotation.x = -PI / 2; lane.position.set(2.5, 0.011 / YS, -4.1);
+  YARD.add(lane);
 
   // grass tufts and wild flowers (instanced: one draw call each); by setting: desert shrubs, dune grass
   // by the sea, ferns and toadstools in the forest
@@ -328,6 +355,7 @@
     else if (WORLD === 'seaside') { tuftGeo = new THREE.ConeGeometry(0.055, 0.6, 4); tuftGeo.translate(0, 0.3, 0); tuftN = 930; }
     else { tuftGeo = new THREE.ConeGeometry(0.09, 0.32, 5); tuftGeo.translate(0, 0.16, 0); }
     if (WD.sparse) { tuftN = 290; flowerN = 160; }
+    tuftN = Math.round(tuftN * 1.3); flowerN = Math.round(flowerN * 1.3);        // (a bigger farm)
     flowerN = Math.round(flowerN * (1 + 1.6 * BL));                 // the community's bloom: more wild flowers
     if (WD.flowers === false) flowerN = 0;
     var tufts = new THREE.InstancedMesh(tuftGeo, mat(WD.tuft), tuftN);
@@ -340,17 +368,17 @@
     var PETALS = WD.petals;
     function freeSpot() {
       for (var tries = 0; tries < 30; tries++) {
-        var x = rr(LAND.minX - 22, LAND.maxX + 22), z = rr(-44, LAND.maxZ + 12);
-        var inYard = x > -9.8 && x < 17 && z > (MAPG ? -19.5 : -13.5) && z < 9;
+        var x = rr(LAND.minX - 22, LAND.maxX + 22), z = rr(LAND.minZ - 24, LAND.maxZ + 12);
+        var inYard = x > yx(-12) && x < yx(19.5) && z > yz(MAPG ? -20 : -16) && z < yz(9);         // (the beds, the garden and the planting field)
         var onAPath = onPath(x, z, 0.4);
         var onStage = x > PARTY_C.x - STAGE_HX - 1.6 && x < PARTY_C.x + STAGE_HX + 1.6 && z > STAGE_N - 4.6 && z < PARTY_C.z + STAGE_HZ + 5.4;   // the dance field, its stage, towers and sound desk
         var byTents = x > 22 && x < 30 && Math.abs(z - FIRE.z) < 11;
         var inArena = Math.hypot(x - FIRE.x, z - FIRE.z) < CAMP_R + 1.4 || Math.hypot(x - WHEEL.x, z - WHEEL.z) < 3.2 || Math.hypot(x - MOTHER.x, z - MOTHER.z) < 2.2;
-        var inPond = Math.hypot(x - POND.x, z - POND.z) < 4.3;
-        var wet = (WORLD === 'seaside' && z < -21.5) || (WORLD === 'island' && hillH(x, z) < 0.02) || (WORLD === 'city' && boxDist(x, z, 0) > 0);
-        if (!inYard && !onAPath && !onStage && !byTents && !inArena && !inPond && !wet && !parkBusy(x, z)) return [x, z];
+        var inPond = Math.hypot(x - yx(POND.x), z - yz(POND.z)) < 4.3 * YS;
+        var wet = (WORLD === 'seaside' && z < BOX.z0 - 0.5) || (WORLD === 'island' && hillH(x, z) < 0.02) || (WORLD === 'city' && boxDist(x, z, 0) > 0);
+        if (!inYard && !onAPath && !onStage && !byTents && !inArena && !inPond && !wet && !parkBusy(x, z) && !inField(x, z, 0.3)) return [x, z];
       }
-      return WORLD === 'city' || WORLD === 'island' ? [rr(-18, 18), rr(-19, -14)] : [rr(LAND.maxX + 3, LAND.maxX + 20), rr(-18, 30)];
+      return WORLD === 'city' || WORLD === 'island' ? [rr(-58, -40), rr(17, 30)] : [rr(LAND.maxX + 3, LAND.maxX + 20), rr(-18, 30)];
     }
     for (var i = 0; i < tuftN; i++) {
       var f = freeSpot();
@@ -375,11 +403,18 @@
   var PARK_N = PLAY.minZ - 0.6;                         // the hedge between the dance field and the play park
   var DIVIDE_OBST = [], DIVIDE_TREES = [];
   (function () {
+    var SIDE_S = 79.6;                                 // the hedge south of the park and the fields beside it
     var rows = [                                       // [x0, z0, x1, z1, gaps: [from, to] along the row]
-      [-HEDGE_X, LAND.minZ + 0.8, -HEDGE_X, LAND.maxZ - 0.6, [[PATH_W - 1.7, PATH_W + 1.7], [WHEEL.z - 1.7, WHEEL.z + 1.7]]],
-      [HEDGE_X, LAND.minZ + 0.8, HEDGE_X, LAND.maxZ - 0.6, [[PATH_E - 1.7, PATH_E + 1.7], [FIRE.z - 1.7, FIRE.z + 1.7]]],
-      [-HEDGE_X + 0.9, FARM.maxZ, HEDGE_X - 0.9, FARM.maxZ, [[-2.5, 2.5]]],      // the yard's south side (the arch in the gap)
-      [-HEDGE_X + 0.9, PARK_N, HEDGE_X - 0.9, PARK_N, [[-2.0, 2.0]]]             // between the dance field and the play park
+      [-YARD_X, LAND.minZ + 0.8, -YARD_X, FARM.maxZ - 0.6, [[PATH_W - 2.1, PATH_W + 2.1]]],     // the yard's west side (the orchard beyond)
+      [YARD_X, LAND.minZ + 0.8, YARD_X, FARM.maxZ - 0.6, [[PATH_E - 2.1, PATH_E + 2.1]]],       // its east side (the market garden)
+      [-YARD_X + 0.9, FARM.maxZ, YARD_X - 0.9, FARM.maxZ, [[-2.5, 2.5]]],                         // its south side (the arch in the gap)
+      [LAND.minX + 1, FARM.maxZ, -YARD_X - 0.9, FARM.maxZ, [[-47.7, -44.3]]],                      // the orchard / the big wheel's meadow
+      [YARD_X + 0.9, FARM.maxZ, LAND.maxX - 1, FARM.maxZ, [[44.3, 47.7]]],                         // the market garden / the vineyard
+      [-HEDGE_X, FARM.maxZ + 0.6, -HEDGE_X, SIDE_S - 0.6, [[WHEEL.z - 1.7, WHEEL.z + 1.7], [68, 71.4]]],   // the dance field and the park, west
+      [HEDGE_X, FARM.maxZ + 0.6, HEDGE_X, SIDE_S - 0.6, [[FIRE.z - 1.7, FIRE.z + 1.7], [68, 71.4]]],       // ... and east
+      [-HEDGE_X + 0.9, PARK_N, HEDGE_X - 0.9, PARK_N, [[-2.0, 2.0]]],                                   // between the dance field and the play park
+      [LAND.minX + 1, 58.9, -HEDGE_X - 0.9, 58.9, [[-41.7, -38.3]]], [HEDGE_X + 0.9, 58.9, LAND.maxX - 1, 58.9, [[38.3, 41.7]]],   // the sunflowers / the beehives, the vineyard / the pumpkins
+      [LAND.minX + 1, SIDE_S, LAND.maxX - 1, SIDE_S, [[-41.7, -38.3], [-2.0, 2.0], [38.3, 41.7]]]       // the park and the beehives and pumpkins / the farm track and the far fields
     ];
     var bushes = [], blooms2 = [];
     rows.forEach(function (row, ri) {
@@ -388,7 +423,7 @@
       var trees = [];
       if (alongZ) for (var t = a0 + 3; t < a1 - 1; t += 9) {        // a tree every 9 m on the long rows (not by the barn, the gaps or the tents)
         var nearGap = row[4].some(function (g) { return t > g[0] - 2.6 && t < g[1] + 2.6; });
-        var byBarn = fixed < 0 && t > -15 && t < -4, byTents = fixed > 0 && Math.abs(t - FIRE.z) < 9;
+        var byBarn = fixed < 0 && t > yz(-15) && t < yz(-4), byTents = fixed > 0 && Math.abs(t - FIRE.z) < 9;
         if (!nearGap && !byBarn && !byTents) { trees.push(t); DIVIDE_TREES.push([fixed, t]); }
       }
       var seg0 = null;
@@ -445,6 +480,7 @@
   })();
 
   // ---------------------------------------------------------------- plants
+  statics = YARD;                                      // (from here to the barn's worm bins: the farmyard, in yard metres)
   var LEAF = '#5fae48', LEAF2 = '#4c9a3c', LEAF3 = '#7cc35a';
   // Plant models come from plants3d.js (static/assets/plants/catalog.json).
   var NP = window.NevetPlants;
@@ -476,7 +512,7 @@
   })()) });
 
   // ---------------------------------------------------------------- beds
-  var BED_X = [-6, -2, 2, 6], BED_Z0 = -5.2, SLOTS = 7, SLOT_STEP = 1.0, BED_W = 1.7;
+  var BED_X = [-9, -5, -1, 3, 7], BED_Z0 = -5.2, SLOTS = 8, SLOT_STEP = 1.0, BED_W = 1.7;
   var plants = [];                                     // every plant on the farm
   function signMesh(text, max) {
     max = max || 14;
@@ -518,38 +554,38 @@
     var young = stage === 'seed' || stage === 'germination';
     var model = plantModel(species, stage, Math.round(pos.x * 100 + pos.z * 7 + 1000), opts.fit);
     var base = 1;
-    var holder = group([pos.x, pos.y, pos.z]);
+    var holder = group([pos.x, pos.y, pos.z]);         // (in the yard, in yard metres: p.pos is where it stands on the farm)
     holder.add(model);
     model.scale.setScalar(base);
     holder.rotation.y = rr(0, TAU);
-    scene.add(holder);
+    YARD.add(holder);
     var soil = mesh(new THREE.CircleGeometry(0.38, 14), new THREE.MeshBasicMaterial({ color: 0x3b2716, transparent: true, opacity: 0 }));
     soil.rotation.x = -PI / 2; soil.position.set(pos.x, pos.y + 0.011, pos.z);
-    scene.add(soil);
-    var p = { species: species, pos: pos, holder: holder, model: model, base: base, name: name, where: where,
+    YARD.add(soil);
+    var p = { species: species, pos: YV(pos), lpos: pos, holder: holder, model: model, base: base, name: name, where: where,
               ripe: !young && stage !== 'seedling' && stage !== 'harvested' && stage !== 'archived', ripeK: 1, regrowAt: 0, claimed: null,
-              wateredAt: -999, perk: 0, soil: soil, color: model.userData.color || LEAF3, height: model.userData.height || 0.6 };
+              wateredAt: -999, perk: 0, soil: soil, color: model.userData.color || LEAF3, height: (model.userData.height || 0.6) * YS };
     // not watered for 3+ days (a whole-garden watering counts): droops, and gets watered first
     var info = opts.info;
     if (info && info.dry >= 3 && !young && stage !== 'harvested' && stage !== 'archived' && where !== 'greenhouse') {
       p.thirsty = true;
       p.drop = new THREE.Sprite(DROP_ICON);
-      p.drop.scale.setScalar(0.42);
-      p.drop.position.set(pos.x, pos.y + Math.min(2.2, p.height) + 0.45, pos.z);
+      p.drop.scale.setScalar(0.42 * 1.3);
+      p.drop.position.set(p.pos.x, p.pos.y + Math.min(2.2 * YS, p.height) + 0.45, p.pos.z);
       scene.add(p.drop);
     }
     if (name) {
       var sign = signMesh(name);
       sign.position.set(pos.x + 0.62, pos.y, pos.z + 0.28);
       sign.rotation.y = 0.25;
-      scene.add(sign);
+      YARD.add(sign);
     }
     plants.push(p);
     return p;
   }
 
   // ---------------------------------------------------------------- planting field
-  var FIELD = { xs: [10.4, 12.4, 14.4], z0: -5.4, n: 5, step: 1.45 };
+  var FIELD = { xs: [12.2, 14.2, 16.2, 18.2], z0: -5.4, n: 6, step: 1.45 };
   var spots = [];
   (function () {
     FIELD.xs.forEach(function (x) {
@@ -558,9 +594,9 @@
       row.rotation.x = -PI / 2;
       row.scale.set(1, 1, 0.42);
       statics.add(row);
-      for (var k = 0; k < FIELD.n; k++) spots.push({ pos: V(x, 0.19, FIELD.z0 - k * FIELD.step), state: 'empty', claimed: null, plant: null, t0: 0 });
+      for (var k = 0; k < FIELD.n; k++) spots.push({ pos: YV(V(x, 0.19, FIELD.z0 - k * FIELD.step)), state: 'empty', claimed: null, plant: null, t0: 0 });
     });
-    var fs = signMesh('New field'); fs.position.set(16.2, 0, -4.8); statics.add(fs);
+    var fs = signMesh('Planting field'); fs.position.set(15.2, 0, -4.1); statics.add(fs);
   })();
 
   // ---------------------------------------------------------------- the garden from the map
@@ -571,8 +607,8 @@
   // walkways, fences, irrigation lines, taps, hives, trees, the Nevet node...
   // all turned and scaled to fit. Unpinned plants fill the beds, then pots.
   var MAP_OBST = [], MAP_TAPS = [], mapWorms = [], mapBees = [], mapLeds = [], PINNED = {};
-  var REGION = { x0: -9.2, x1: 8.6, z0: -18.8, z1: -6.9 };
-  var GARDEN_CENTRE = MAPG ? V((REGION.x0 + REGION.x1) / 2, 0.6, (REGION.z0 + REGION.z1) / 2 + 1.5) : V(0, 0.6, -5.5);
+  var REGION = { x0: -11, x1: 10, z0: -19.6, z1: -6.6 };
+  var GARDEN_CENTRE = MAPG ? V((REGION.x0 + REGION.x1) / 2, 0.6, (REGION.z0 + REGION.z1) / 2 + 1.5) : V(-1, 0.6, -7);
   function shapeOf(pts) {
     var sh = new THREE.Shape();
     pts.forEach(function (p, i) { if (i) sh.lineTo(p[0], -p[1]); else sh.moveTo(p[0], -p[1]); });
@@ -653,7 +689,7 @@
     MAP_OBST.push(['c', x, z, 0.35 * k]);
   }
   function wormBinAt(x, z, info) {
-    ANIMALS.push({ kind: 'worms', pos: V(x, 0, z), name: info.name || 'Worm bin', r: 1.2 });
+    ANIMALS.push({ kind: 'worms', pos: YV(V(x, 0, z)), name: info.name || 'Worm bin', r: 1.2 * YS });
     var bg = group([x, 0, z]);
     bg.add(box(1.2, 0.8, 1.0, '#9c6b3c', [0, 0.4, 0]));
     bg.add(box(1.3, 0.1, 1.1, '#7a5233', [0, 0.85, 0]));
@@ -699,14 +735,17 @@
           break;
         }
         case 'worm_bed': {                              // a long worm trough: the more feedings this month, the busier
-          (function () { var cc = polyCentre(pts); ANIMALS.push({ kind: 'worms', pos: V(cc[0], 0, cc[1]), name: f.name || 'Worm bed', r: 1.0, around: pts }); })();
+          (function () {
+            var cc = polyCentre(pts);
+            ANIMALS.push({ kind: 'worms', pos: YV(V(cc[0], 0, cc[1])), name: f.name || 'Worm bed', r: 1.0 * YS, around: pts.map(function (q) { return [yx(q[0]), yz(q[1])]; }) });
+          })();
           slabPoly(pts, 0.36, '#3b2a1e');
           polyEdges(pts, 0.44, 0.16, '#8a5f3a');
           var nw = Math.min(28, 6 + 2 * (D.monthFeedings || 0));
           for (k = 0; k < nw; k++) {
             var at = randomIn(pts, rnd, 0.2); if (!at) continue;
             var wm = wormMesh(rnd); wm.position.set(at[0], 0.37, at[1]); wm.userData.ph = rnd() * TAU;
-            scene.add(wm); mapWorms.push(wm);
+            YARD.add(wm); mapWorms.push(wm);
           }
           for (k = 0; k < 10; k++) {
             var sc = randomIn(pts, rnd, 0.15); if (!sc) continue;
@@ -821,7 +860,7 @@
           g.add(rot(cyl(0.04, 0.04, 0.22, '#c0c4c8', [0, 0.8, 0.1], 6), PI / 2));
           g.add(cyl(0.07, 0.07, 0.04, '#d9534f', [0, 0.9, 0.12], 8));
           g.add(cyl(0.3, 0.26, 0.12, '#9a9a96', [0, 0.06, 0.25], 12));
-          MAP_TAPS.push(V(x, 0, z));
+          MAP_TAPS.push(YV(V(x, 0, z)));
           MAP_OBST.push(['c', x, z + 0.15, 0.3]);
           break;
         case 'compost':
@@ -841,10 +880,10 @@
           MAP_OBST.push(['r', x, z, 0.7, 0.25, 0]);
           break;
         case 'hive':
-          ANIMALS.push({ kind: 'bees', pos: V(x, 0, z), name: f.name || 'Beehive', r: 1.5 });
+          ANIMALS.push({ kind: 'bees', pos: YV(V(x, 0, z)), name: f.name || 'Beehive', r: 1.5 * YS });
           if (NP) { var hv = NP.build('bees', 'mature'); hv.scale.setScalar(1.8); g.add(hv); }
           else g.add(box(0.7, 0.9, 0.6, '#f2c94c', [0, 0.45, 0]));
-          for (var b = 0; b < 5; b++) { var bee = sphere(0.05, '#f2c230', [0, 0, 0], [1.4, 1, 1], 6); bee.userData = { c: V(x, 0.9, z), ph: b * 1.3, r: 0.5 + b * 0.12 }; scene.add(bee); mapBees.push(bee); }
+          for (var b = 0; b < 5; b++) { var bee = sphere(0.05, '#f2c230', [0, 0, 0], [1.4, 1, 1], 6); bee.userData = { c: V(x, 0.9, z), ph: b * 1.3, r: 0.5 + b * 0.12 }; YARD.add(bee); mapBees.push(bee); }
           MAP_OBST.push(['c', x, z, 0.5]);
           break;
         case 'rain':
@@ -895,7 +934,7 @@
     });
     // orchards without trees get a few
     (houses.orchards || []).forEach(function (pts) {
-      var has = plants.some(function (q) { return pointInPoly(q.pos.x, q.pos.z, pts); });
+      var has = plants.some(function (q) { return pointInPoly(q.lpos.x, q.lpos.z, pts); });
       if (has) return;
       for (var k = 0; k < 3; k++) { var tp = randomIn(pts, rnd, 0.8); if (tp) treeAt(tp[0], tp[1], 0.7); }
     });
@@ -904,7 +943,7 @@
       var bb = polyBox(b.pts), list = [];
       for (var x = bb.x0 + 0.45; x < bb.x1; x += 0.9) for (var z = bb.z0 + 0.45; z < bb.z1; z += 0.9) {
         if (!pointInPoly(x, z, b.pts) || polyDist(x, z, b.pts) < 0.3) continue;
-        if (plants.some(function (q) { return Math.hypot(q.pos.x - x, q.pos.z - z) < 0.75; })) continue;
+        if (plants.some(function (q) { return Math.hypot(q.lpos.x - x, q.lpos.z - z) < 0.75; })) continue;
         list.push({ x: x, z: z, y: b.y });
       }
       return list;
@@ -954,7 +993,7 @@
     easel.add(rot(box(0.08, 2.0, 0.08, '#8a5f3a', [0, 0.95, -0.45]), 0.3));
     easel.add(box(1.9, 0.07, 0.12, '#8a5f3a', [0, 0.72, 0.18]));
     statics.add(easel);
-    CHALK = { x: -6.6, z: 5.0 };
+    CHALK = { x: yx(-6.6), z: yz(5.0) };
   })();
 
   // ---------------------------------------------------------------- buildings
@@ -1064,16 +1103,20 @@
       duck.add(rot(cone(0.12, 0.25, '#fbfaf5', [0, 0.32, -0.5], 6), -1.1));
       outline(duck, 1.05);
       if (NevetHero.merge) NevetHero.merge(duck, function () { return false; });
-      duck.userData = { cx: cx, cz: cz, r: 1.6 + dk * 0.9, speed: 0.22 + dk * 0.08, ph: dk * 2.4 };
+      duck.userData = { cx: yx(cx), cz: yz(cz), r: (1.6 + dk * 0.9) * YS, speed: 0.22 + dk * 0.08, ph: dk * 2.4 };   // (they swim on the farm)
+      duck.scale.setScalar(YS);
       ducks.push(duck);
       scene.add(duck);
     }
   })();
+  var POND_W = { x: yx(POND.x), z: yz(POND.z) };       // the pond on the farm
 
   // ---------------------------------------------------------------- trees and the land around the farm (by setting)
   var WORLD_ANIM = [];                                 // little things that move (boats, gulls, tumbleweeds, the lighthouse...)
   // the trees on the farm (heroes walk round them): two in the yard, some in the meadows, and the rows between the areas
-  var INNER_TREES = [[17, -2], [-18, -16], [51, -16.5], [51, 31], [-51, 31], [-50, 66], [49, 64], [38, 48], [-42, 50]];
+  statics = FARM_STATICS;
+  var INNER_TREES = [[yx(9), yz(9.5)], [yx(-18), yz(-16)],                        // two in the yard, and the farm's corners
+                     [-61, 31], [61, 31], [-61, 59.6], [61, 59.6], [-61, 113.4], [61, 113.4], [-61.2, -39.2], [61.2, -39.2]];
   DIVIDE_TREES.forEach(function (t) { if (INNER_TREES.every(function (o) { return Math.hypot(o[0] - t[0], o[1] - t[1]) > 4.5; })) INNER_TREES.push(t); });
   var EXTRA_OBST = [];                                 // more things heroes walk round (the oasis palms)
   if (window.NevetWorlds) NevetWorlds.build({
@@ -1082,7 +1125,8 @@
     WORLD_ANIM: WORLD_ANIM, EXTRA_OBST: EXTRA_OBST, INNER_TREES: INNER_TREES, textCanvas: textCanvas, merge: NevetHero.merge
   });
 
-  // Harvest cart, hay bales, hand pump, scarecrow, compost / worm bins
+  // Harvest cart, hay bales, hand pump, scarecrow, compost / worm bins (in the yard again)
+  statics = YARD;
   var BARN_BINS = (D.plants || []).filter(function (q) { return q.type === 'worm_bin' && !PINNED[q.id]; }).slice(0, 4);
   var CART = V(-6, 0, -1.2), cartPile = [], PUMP = V(-9.4, 0, -2.6);
   (function () {
@@ -1102,7 +1146,7 @@
     for (var i = 0; i < 24; i++) {
       var c = sphere(0.16, '#e0402f', [CART.x + rr(-0.42, 0.42), 1.35 + Math.floor(i / 8) * 0.17, CART.z + rr(-0.85, 0.85)], null, 8);
       c.visible = false;
-      scene.add(c);
+      YARD.add(c);
       cartPile.push(c);
     }
     // hay bales by the barn
@@ -1120,7 +1164,7 @@
     p.add(cyl(0.38, 0.32, 0.4, '#7a5233', [0, 0.2, 0.75], 12));
     statics.add(outline(p));
     // scarecrow behind the beds
-    var sc = group(MAPG ? [12.4, 0, -14.3] : [0, 0, -13.6]);      // with a map garden it guards the new field
+    var sc = group(MAPG ? [15.2, 0, -14.6] : [1, 0, -15]);        // with a map garden it guards the planting field
     sc.add(cyl(0.06, 0.06, 2.4, '#7a5233', [0, 1.2, 0], 6));
     sc.add(box(1.8, 0.1, 0.1, '#7a5233', [0, 1.75, 0]));
     sc.add(cyl(0.32, 0.38, 0.9, '#5d82b8', [0, 1.55, 0], 10));
@@ -1133,7 +1177,7 @@
     if (!bins.length && !MAPG) bins = [{ name: 'Compost' }];
     bins.slice(0, 4).forEach(function (b, i) {
       var bg = group([-11.2 + (i % 2) * 1.6, 0, 1.2 + Math.floor(i / 2) * 1.6]);
-      ANIMALS.push({ kind: 'worms', pos: bg.position.clone(), name: b.name || 'Worm bin', r: 1.15 });
+      ANIMALS.push({ kind: 'worms', pos: YV(bg.position), name: b.name || 'Worm bin', r: 1.15 * YS });
       bg.add(box(1.2, 0.8, 1.0, '#9c6b3c', [0, 0.4, 0]));
       bg.add(box(1.3, 0.1, 1.1, '#7a5233', [0, 0.85, 0]));
       bg.add(box(1.1, 0.06, 0.06, '#7a5233', [0, 0.5, 0.52]));
@@ -1144,6 +1188,372 @@
       statics.add(outline(bg));
       var sg = signMesh(b.name); sg.position.set(bg.position.x + 0.7, 0, bg.position.z + 0.6); statics.add(sg);
     });
+  })();
+  statics = FARM_STATICS;                              // (the yard is built: from here on the cart and the pump are where they stand on the farm)
+  CART = YV(CART); PUMP = YV(PUMP);
+
+  // ---------------------------------------------------------------- the farming lands
+  // Round the mud pit and the dance field: the orchard (with the mother tree) and the market garden beside the yard,
+  // the sunflowers and the vineyard beside the dance field, the beehives and the pumpkin patch beside the play park,
+  // and the wheat, the corn and the hay barn furthest south (see FIELDS). The crops are instanced (one draw call each)
+  // and sway in the wind in the vertex shader; the hedges between them are in 'hedges and trees between the areas'.
+  var FIELD_OBST = [];                                 // what heroes walk round: ['c', x, z, r] / ['r', x, z, hw, hd, rotY]
+  var SWAY_T = { value: 0 };                           // the wind's clock (the crops' vertex shader)
+  WORLD_ANIM.push(function (now) { SWAY_T.value = now; });
+  (function () {
+    function F(kind) { return FIELDS.filter(function (f) { return f[0] === kind; })[0]; }
+    function fieldRect(f, pad) { FIELD_OBST.push(['r', (f[1] + f[2]) / 2, (f[3] + f[4]) / 2, (f[2] - f[1]) / 2 + (pad || 0), (f[4] - f[3]) / 2 + (pad || 0), 0]); }
+    function patch(f, color, inset, y) {               // the field's ground (soil, stubble, a meadow)
+      inset = inset || 0;
+      var pm = mesh(new THREE.PlaneGeometry(f[2] - f[1] - 2 * inset, f[4] - f[3] - 2 * inset), color);
+      pm.rotation.x = -PI / 2; pm.position.set((f[1] + f[2]) / 2, y || 0.006, (f[3] + f[4]) / 2);
+      statics.add(pm);
+    }
+    function bigSign(text, x, z, rotY) {               // a field's name board, on two posts
+      var c = textCanvas(text, { px: 46, bg: '#f3e6c8', color: '#4a321c', radius: 12, pad: 24, stroke: '#8a5f3a' });
+      var w = 0.62 * c.width / c.height, g = group([x, 0, z], rotY || 0);
+      [-1, 1].forEach(function (s) { g.add(cyl(0.06, 0.07, 1.75, '#8a5f3a', [s * (w / 2 - 0.12), 0.87, 0], 6)); });
+      var board = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.62), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), side: THREE.DoubleSide }));
+      board.position.set(0, 1.45, 0.07); g.add(board);
+      statics.add(g);
+    }
+    var UP = V(0, 1, 0), m4 = new THREE.Matrix4(), qq = new THREE.Quaternion(), sv = V(1, 1, 1), pv = V(0, 0, 0), cc = new THREE.Color();
+    function instanced(geo, material, list, colorOf) { // list: [x, y, z, rotY, scale or [sx, sy, sz]]
+      var im = new THREE.InstancedMesh(geo, material, Math.max(1, list.length));
+      list.forEach(function (it, i) {
+        qq.setFromAxisAngle(UP, it[3] || 0);
+        var s = it[4] === undefined ? 1 : it[4];
+        if (Array.isArray(s)) sv.set(s[0], s[1], s[2]); else sv.setScalar(s);
+        m4.compose(pv.set(it[0], it[1], it[2]), qq, sv); im.setMatrixAt(i, m4);
+        if (colorOf) im.setColorAt(i, cc.set(colorOf(it, i)));
+      });
+      im.count = list.length;
+      scene.add(im);
+      return im;
+    }
+    function mergeGeos(parts) {                        // [[geometry, x, y, z, rotX, rotY, rotZ, sx, sy, sz]] -> one geometry
+      var P = [], N = [], mm = new THREE.Matrix4(), e = new THREE.Euler(), v = V(0, 0, 0), nm = new THREE.Matrix3();
+      parts.forEach(function (p) {
+        var g = p[0].index ? p[0].toNonIndexed() : p[0];
+        e.set(p[4] || 0, p[5] || 0, p[6] || 0);
+        mm.compose(V(p[1], p[2], p[3]), qq.setFromEuler(e), V(p[7] || 1, p[8] || p[7] || 1, p[9] || p[7] || 1));
+        nm.getNormalMatrix(mm);
+        var pa = g.attributes.position, na = g.attributes.normal;
+        for (var i = 0; i < pa.count; i++) {
+          v.fromBufferAttribute(pa, i).applyMatrix4(mm); P.push(v.x, v.y, v.z);
+          v.fromBufferAttribute(na, i).applyMatrix3(nm).normalize(); N.push(v.x, v.y, v.z);
+        }
+      });
+      var out = new THREE.BufferGeometry();
+      out.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+      out.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+      return out;
+    }
+    // crops sway in the wind: a slow wave across the field (on the farm's own x and z, so neighbours sway together)
+    function swayCompile(sh) {
+      sh.uniforms.uSwayT = SWAY_T;
+      sh.vertexShader = 'uniform float uSwayT;\n' + sh.vertexShader.replace('#include <project_vertex>', [
+        'vec4 mvPosition = vec4( transformed, 1.0 );',
+        '#ifdef USE_INSTANCING',
+        'mvPosition = instanceMatrix * mvPosition;',
+        '#endif',
+        'float swH = max( 0.0, mvPosition.y );',
+        'float sw = sin( uSwayT * 1.3 + mvPosition.x * 0.21 + mvPosition.z * 0.13 ) + 0.35 * sin( uSwayT * 2.1 + mvPosition.x * 0.45 );',
+        'mvPosition.x += sw * 0.045 * swH; mvPosition.z += sw * 0.03 * swH;',
+        'mvPosition = modelViewMatrix * mvPosition;',
+        'gl_Position = projectionMatrix * mvPosition;'].join('\n'));
+    }
+    function swayMat(color) {
+      var m = new THREE.MeshToonMaterial({ color: new THREE.Color(color || '#ffffff') });
+      if (!calm) m.onBeforeCompile = swayCompile;
+      return m;
+    }
+    var rnd = rng(9090);
+    function rj(a) { return (rnd() - 0.5) * 2 * a; }  // a little jitter
+    var WHITE = 0xffffff;
+
+    // ---- the orchard and the mother tree's clearing (west of the yard)
+    (function () {
+      var f = F('orchard');
+      patch(f, '#8fc267', 0.6);
+      var fruitCols = ['#e0402f', '#f29a2e', '#d8cf3a', '#c7323c'], fruits = [];
+      for (var x = f[1] + 2.5, col = 0; x < f[2] - 1.5; x += 5.4, col++) for (var z = f[3] + 2.6, row = 0; z < f[4] - 1.2; z += 5, row++) {
+        var tx = x + rj(0.4), tz = z + (col % 2) * 2.5 + rj(0.4);
+        if (tz > f[4] - 1.2 || Math.hypot(tx - MOTHER.x, tz - MOTHER.z) < 8.5) continue;     // (the mother tree's clearing)
+        var k = 0.85 + rnd() * 0.3, t = group([tx, 0, tz]), hT = 1.5 * k;
+        t.add(cyl(0.14 * k, 0.2 * k, hT, '#7a5233', [0, hT / 2, 0], 7));
+        t.add(sphere(1.25 * k, col % 2 ? '#4f9a3e' : '#5aa845', [0, hT + 0.75 * k, 0], [1, 0.85, 1], 9));
+        t.add(sphere(0.8 * k, '#4a8f3a', [0.55 * k, hT + 0.35 * k, 0.3 * k], null, 8));
+        t.add(sphere(0.75 * k, '#5fae48', [-0.5 * k, hT + 0.45 * k, -0.35 * k], null, 8));
+        statics.add(outline(t, 1.03));
+        statics.add(blobShadow(1.5 * k, tx, tz));
+        FIELD_OBST.push(['c', tx, tz, 0.45]);
+        var fc = fruitCols[(row + col) % fruitCols.length];
+        for (var fi = 0; fi < 7; fi++) {
+          var a = rnd() * TAU, el = rnd() * 0.9 - 0.15, rr2 = 1.22 * k;
+          fruits.push([tx + Math.cos(a) * Math.cos(el) * rr2, hT + 0.75 * k + Math.sin(el) * rr2 * 0.85, tz + Math.sin(a) * Math.cos(el) * rr2, 0, 1, fc]);
+        }
+      }
+      instanced(new THREE.SphereGeometry(0.13, 7, 5), new THREE.MeshToonMaterial({ color: WHITE }), fruits, function (it) { return it[5]; });
+      // fruit crates and a ladder against a tree, by the track
+      [[-36.2, 1.6], [-37.3, 1.9], [-36.7, 1.6, 0.44]].forEach(function (c) {
+        var cr = box(0.7, 0.42, 0.5, '#b07a44', [c[0], (c[2] || 0) + 0.21, c[1]]);
+        statics.add(outline(cr));
+        statics.add(sphere(0.2, '#e0402f', [c[0], (c[2] || 0) + 0.42, c[1]], [1.4, 0.45, 1], 7));
+      });
+      FIELD_OBST.push(['r', -36.7, 1.75, 0.9, 0.4, 0]);
+      bigSign('🍎 Orchard', f[2] - 3, f[4] + 1.4, 0.35);
+    })();
+
+    // ---- the market garden (east of the yard): rows of vegetables, sprinklers
+    (function () {
+      var f = F('market');
+      patch(f, '#7a5236', 0);
+      fieldRect(f, 0.2);
+      var rounds = [], talls = [], z, k = 0;
+      var ROWS = [['round', '#7cc35a', 0.8], ['round', '#9a3f6a', 0.75], ['tall', '#5ab04a', 0.9], ['round', '#5d8f7e', 1.05], ['tall', '#b9d98a', 1.25], ['round', '#a6d26a', 0.85]];
+      for (z = f[3] + 1.2; z < f[4] - 0.8; z += 1.65, k++) {
+        statics.add(box(f[2] - f[1] - 1.6, 0.18, 0.8, '#6b452c', [(f[1] + f[2]) / 2, 0.09, z]));     // the ridge
+        var R0 = ROWS[k % ROWS.length];
+        for (var x = f[1] + 1.3; x < f[2] - 1.1; x += 0.95) (R0[0] === 'round' ? rounds : talls).push([x + rj(0.1), 0.17, z + rj(0.08), rnd() * TAU, R0[2] * (0.85 + rnd() * 0.3), R0[1]]);
+      }
+      var rg = new THREE.IcosahedronGeometry(0.3, 1); rg.scale(1, 0.62, 1); rg.translate(0, 0.16, 0);
+      instanced(rg, swayMat(), rounds, function (it) { return it[5]; });
+      var tg = mergeGeos([[new THREE.ConeGeometry(0.07, 0.62, 4), 0, 0.31, 0], [new THREE.ConeGeometry(0.07, 0.55, 4), 0.09, 0.27, 0.04, 0, 0, -0.35],
+                          [new THREE.ConeGeometry(0.07, 0.55, 4), -0.08, 0.27, -0.05, 0, 0, 0.35]]);
+      instanced(tg, swayMat(), talls, function (it) { return it[5]; });
+      // sprinklers that turn and spray
+      [[f[1] + 7, (f[3] + f[4]) / 2], [(f[1] + f[2]) / 2 + 3, f[3] + 8], [f[2] - 6, f[4] - 7]].forEach(function (sp, i) {
+        statics.add(cyl(0.05, 0.06, 1.1, '#8a8f94', [sp[0], 0.55, sp[1]], 6));
+        var head = group([sp[0], 1.12, sp[1]]);
+        head.add(rot(cyl(0.03, 0.03, 1.1, '#5c7a8f', [0, 0, 0], 5), 0, 0, PI / 2));
+        var spray = new THREE.MeshBasicMaterial({ color: 0x9fdcff, transparent: true, opacity: 0.6, depthWrite: false });
+        [-1, 1].forEach(function (s) {
+          for (var d = 1; d <= 7; d++) { var t = d / 7; head.add(mesh(new THREE.SphereGeometry(0.06 + t * 0.05, 5, 4), spray, [s * (0.5 + t * 2.6), Math.sin(t * PI * 0.8) * 1.2 - t * 0.3, 0])); }
+        });
+        if (NevetHero.merge) NevetHero.merge(head, function () { return false; });
+        scene.add(head);
+        WORLD_ANIM.push(function (now) { head.rotation.y = now * (0.6 + i * 0.15) + i; });
+      });
+      bigSign('🥬 Market garden', f[1] + 3.2, f[4] + 1.5, -0.35);
+    })();
+
+    // ---- polytunnels (tomatoes, peppers, cucumbers), south of the market garden's track
+    (function () {
+      var f = F('tunnels'), L = f[2] - f[1] - 2, cx = (f[1] + f[2]) / 2, R2 = 1.65;
+      var film = new THREE.MeshToonMaterial({ color: 0xf2f6f2, transparent: true, opacity: 0.42, depthWrite: false, side: THREE.DoubleSide });
+      var inside = [], fruit = [];
+      [f[3] + 1.85, (f[3] + f[4]) / 2, f[4] - 1.85].forEach(function (tz, ti) {
+        var cover = mesh(new THREE.CylinderGeometry(R2, R2, L, 16, 1, true, 0, PI), film, [cx, 0, tz]);
+        cover.rotation.z = PI / 2;                       // (the half-round on its side: along the tunnel, the open half down)
+        scene.add(cover);
+        for (var hx = -L / 2; hx <= L / 2 + 0.01; hx += 2.2) {
+          var hoop = mesh(new THREE.TorusGeometry(R2, 0.035, 4, 16, PI), '#dfe5e2', [cx + hx, 0, tz]);
+          hoop.rotation.y = PI / 2; statics.add(hoop);
+        }
+        statics.add(box(L - 0.6, 0.12, 0.5, '#5b3d27', [cx, 0.06, tz - 0.55])); statics.add(box(L - 0.6, 0.12, 0.5, '#5b3d27', [cx, 0.06, tz + 0.55]));
+        for (var x = cx - L / 2 + 0.8; x < cx + L / 2 - 0.6; x += 0.85) [-0.55, 0.55].forEach(function (dz) {
+          inside.push([x + rj(0.08), 0.1, tz + dz, rnd() * TAU, 0.8 + rnd() * 0.35]);
+          if (rnd() < 0.7) fruit.push([x + rj(0.15), 0.55 + rnd() * 0.5, tz + dz + rj(0.15), 0, 1, ['#e0402f', '#e0402f', '#f2c230', '#5aa845'][(ti + Math.floor(x)) % 4]]);
+        });
+        FIELD_OBST.push(['r', cx, tz, L / 2 + 0.1, R2 + 0.05, 0]);
+      });
+      var pg = new THREE.IcosahedronGeometry(0.32, 0); pg.scale(1, 1.6, 1); pg.translate(0, 0.45, 0);
+      instanced(pg, mat('#4f9a3e'), inside);
+      instanced(new THREE.SphereGeometry(0.08, 6, 4), new THREE.MeshToonMaterial({ color: WHITE }), fruit, function (it) { return it[5]; });
+      bigSign('🍅 Polytunnels', f[1] + 3, f[3] - 1.2, 0.3);
+    })();
+
+    // ---- sunflowers (west of the dance field, south of the big wheel)
+    (function () {
+      var f = F('sunflowers'), stems = [], heads = [], hearts = [];
+      patch(f, '#86b85e', 0.4);
+      fieldRect(f, 0.1);
+      for (var x = f[1] + 0.9; x < f[2] - 0.6; x += 1.15) for (var z = f[3] + 0.9; z < f[4] - 0.6; z += 1.2) {
+        var px = x + rj(0.2), pz = z + rj(0.2), h = 1.5 + rnd() * 0.6, face = -0.6 + rj(0.35);   // (they face the sun, south-east)
+        stems.push([px, 0, pz, face, [1, h / 1.8, 1]]);
+        heads.push([px, h, pz, face, 0.9 + rnd() * 0.25]);
+      }
+      var sg = mergeGeos([[new THREE.CylinderGeometry(0.035, 0.05, 1.8, 5), 0, 0.9, 0],
+                          [new THREE.ConeGeometry(0.16, 0.42, 4), 0.14, 0.75, 0, 0, 0, -1.2, 1, 1, 0.25], [new THREE.ConeGeometry(0.15, 0.4, 4), -0.13, 1.1, 0, 0, 0, 1.2, 1, 1, 0.25]]);
+      instanced(sg, swayMat('#4e8f36'), stems);
+      // the heads: petals and a brown heart, tilted towards the sun (baked so they sway with their stems)
+      var petals = new THREE.CylinderGeometry(0.3, 0.3, 0.05, 12); petals.rotateX(PI / 2 - 0.35); petals.translate(0.04, 0.05, 0.12);
+      var heart = new THREE.CylinderGeometry(0.16, 0.16, 0.08, 10); heart.rotateX(PI / 2 - 0.35); heart.translate(0.04, 0.06, 0.15);
+      [petals, heart].forEach(function (g) { g.rotateY(PI / 2); });
+      instanced(petals, swayMat('#f6c623'), heads);
+      instanced(heart, swayMat('#6b3f1f'), heads);
+      bigSign('🌻 Sunflowers', f[2] - 3, f[3] - 1.3, -0.2);
+    })();
+
+    // ---- the vineyard (east of the dance field, behind the gladiators' tents)
+    (function () {
+      var f = F('vineyard'), leaves = [], grapes = [];
+      patch(f, '#a3a55f', 0.3);
+      fieldRect(f, 0.1);
+      for (var x = f[1] + 1.4, r2 = 0; x < f[2] - 0.8; x += 2.7, r2++) {
+        var z0 = f[3] + 1.2, z1 = f[4] - 1.2;
+        for (var z = z0; z <= z1 + 0.01; z += 4.3) statics.add(cyl(0.06, 0.07, 1.6, '#7a5233', [x, 0.8, z], 5));
+        [0.75, 1.35].forEach(function (y) { statics.add(box(0.025, 0.025, z1 - z0, '#5a5a52', [x, y, (z0 + z1) / 2])); });
+        statics.add(box(0.5, 0.75, z1 - z0, '#4f8a37', [x, 1.05, (z0 + z1) / 2]));          // the vines along the wires
+        for (var zz = z0 + 0.3; zz < z1; zz += 0.75) {
+          [-1, 1].forEach(function (s) { leaves.push([x + s * (0.22 + rnd() * 0.08), 0.8 + rnd() * 0.65, zz + rj(0.2), rnd() * TAU, 0.8 + rnd() * 0.4, ['#5aa845', '#4f9a3e', '#6db552'][Math.floor(rnd() * 3)]]); });
+          if (rnd() < 0.55) grapes.push([x + (rnd() < 0.5 ? -1 : 1) * 0.3, 0.72 + rnd() * 0.25, zz + rj(0.2), rnd() * TAU, 0.9 + rnd() * 0.3, r2 % 3 === 2 ? '#c9d65a' : '#6a2f7a']);
+        }
+      }
+      instanced(new THREE.IcosahedronGeometry(0.26, 0), swayMat(), leaves, function (it) { return it[5]; });
+      var bunch = mergeGeos([[new THREE.ConeGeometry(0.12, 0.3, 6), 0, -0.1, 0, PI], [new THREE.SphereGeometry(0.1, 6, 4), 0, 0.02, 0]]);
+      instanced(bunch, new THREE.MeshToonMaterial({ color: WHITE }), grapes, function (it) { return it[5]; });
+      bigSign('🍇 Vineyard', f[1] + 3, f[3] - 1.2, 0.25);
+    })();
+
+    // ---- the beehives in a wildflower meadow (west of the play park)
+    var HIVES = [];
+    (function () {
+      var f = F('hives'), blooms3 = [], stalks = [];
+      patch(f, '#9ccb72', 0.4);
+      for (var i = 0; i < 520; i++) {
+        var x = f[1] + 1 + rnd() * (f[2] - f[1] - 2), z = f[3] + 1 + rnd() * (f[4] - f[3] - 2);
+        if (Math.abs(z - 69.5) < 2.2) continue;            // (the hives' row)
+        stalks.push([x, 0, z, rnd() * TAU, 0.8 + rnd() * 0.6]);
+        blooms3.push([x, 0.42 + rnd() * 0.2, z, 0, 0.8 + rnd() * 0.5, ['#f29bc0', '#f6d743', '#c9a7f2', '#ffffff', '#ff8a65', '#7fb2ff'][i % 6]]);
+      }
+      var stg = new THREE.ConeGeometry(0.05, 0.5, 4); stg.translate(0, 0.25, 0);
+      instanced(stg, swayMat('#5f9e46'), stalks);
+      instanced(new THREE.SphereGeometry(0.09, 6, 4), swayMat(), blooms3, function (it) { return it[5]; });
+      for (var h = 0; h < 7; h++) {
+        var hx = f[1] + 4 + h * ((f[2] - f[1] - 8) / 6), hz = 69.5, g = group([hx, 0, hz], rj(0.15));
+        g.add(box(1.0, 0.3, 0.8, '#6b4a2b', [0, 0.15, 0]));
+        g.add(box(0.85, 0.45, 0.7, ['#f6f1e4', '#f2d16b', '#cfe3f2', '#f6f1e4'][h % 4], [0, 0.53, 0]));
+        g.add(box(0.85, 0.4, 0.7, ['#f2d16b', '#f6f1e4', '#f6f1e4', '#f7c6d9'][h % 4], [0, 0.96, 0]));
+        g.add(box(1.0, 0.1, 0.85, '#8a8f94', [0, 1.21, 0]));
+        g.add(box(0.3, 0.05, 0.04, '#3c2a1e', [0, 0.38, 0.36]));
+        statics.add(outline(g));
+        FIELD_OBST.push(['c', hx, hz, 0.75]);
+        HIVES.push(V(hx, 0, hz));
+      }
+      bigSign('🐝 Beehives', f[2] - 3, f[3] - 1.2, -0.25);
+    })();
+    var beeMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.06, 5, 4), mat('#f2c230'), HIVES.length * 4);
+    scene.add(beeMesh);
+    WORLD_ANIM.push(function (now, dt, n) {
+      beeMesh.visible = n < 0.6;
+      if (!beeMesh.visible) return;
+      for (var i = 0; i < HIVES.length * 4; i++) {
+        var hv = HIVES[i >> 2], a = now * (1.6 + (i % 4) * 0.35) + i * 1.7, r = 0.7 + (i % 4) * 0.35;
+        m4.makeTranslation(hv.x + Math.cos(a) * r, 1.0 + Math.sin(a * 1.9 + i) * 0.35, hv.z + Math.sin(a) * r);
+        beeMesh.setMatrixAt(i, m4);
+      }
+      beeMesh.instanceMatrix.needsUpdate = true;
+    });
+
+    // ---- the pumpkin patch (east of the play park)
+    (function () {
+      var f = F('pumpkins'), pumpkins = [], leaves = [];
+      patch(f, '#6e5236', 0.2);
+      fieldRect(f, 0.1);
+      for (var i = 0; i < 380; i++) {
+        var x = f[1] + 0.8 + rnd() * (f[2] - f[1] - 1.6), z = f[3] + 0.8 + rnd() * (f[4] - f[3] - 1.6);
+        leaves.push([x, 0.08, z, rnd() * TAU, 0.8 + rnd() * 0.6]);
+        if (i % 3 === 0) pumpkins.push([x + rj(0.4), 0, z + rj(0.4), rnd() * TAU, 0.75 + rnd() * 0.7, ['#f08a24', '#e9771a', '#f4a13a', '#f6d743', '#7fae5a'][Math.floor(rnd() * rnd() * 5)]]);
+      }
+      var lg = new THREE.IcosahedronGeometry(0.42, 0); lg.scale(1, 0.32, 1);
+      instanced(lg, swayMat('#5a9e3e'), leaves);
+      var pg = new THREE.SphereGeometry(0.34, 12, 8); pg.scale(1, 0.72, 1); pg.translate(0, 0.24, 0);
+      instanced(pg, new THREE.MeshToonMaterial({ color: WHITE }), pumpkins, function (it) { return it[5]; });
+      instanced(new THREE.CylinderGeometry(0.03, 0.04, 0.14, 5).translate(0, 0.52, 0), mat('#5a3d22'), pumpkins);
+      var sc = group([(f[1] + f[2]) / 2 + 4, 0, (f[3] + f[4]) / 2]);          // a scarecrow keeps the crows off
+      sc.add(cyl(0.06, 0.06, 2.4, '#7a5233', [0, 1.2, 0], 6)); sc.add(box(1.8, 0.1, 0.1, '#7a5233', [0, 1.75, 0]));
+      sc.add(cyl(0.32, 0.38, 0.9, '#c0503a', [0, 1.55, 0], 10)); sc.add(sphere(0.3, '#f08a24', [0, 2.3, 0]));
+      sc.add(cone(0.42, 0.55, '#3c2a1e', [0, 2.75, 0], 10));
+      statics.add(outline(sc));
+      bigSign('🎃 Pumpkin patch', f[1] + 3.5, f[3] - 1.2, 0.25);
+    })();
+
+    // ---- wheat and corn (furthest south, either side of the path), and the hay barn with its pond
+    (function () {
+      var w = F('wheat'), c = F('corn'), clumps = [], corn = [], cobs = [];
+      patch(w, '#cfa955', 0.2); patch(c, '#6e5236', 0.2);
+      fieldRect(w, 0.1); fieldRect(c, 0.1);
+      for (var x = w[1] + 0.6; x < w[2] - 0.4; x += 1.05) for (var z = w[3] + 0.6; z < w[4] - 0.4; z += 1.05)
+        clumps.push([x + rj(0.25), 0, z + rj(0.25), rnd() * TAU, [1, 0.85 + rnd() * 0.35, 1], ['#e3c25a', '#d9b24a', '#eccf6e', '#cfa54a'][Math.floor(rnd() * 4)]]);
+      var parts = [];
+      [[0, 0], [0.16, 0.1], [-0.1, 0.15]].forEach(function (o, i) {
+        parts.push([new THREE.ConeGeometry(0.03, 1.0, 3), o[0], 0.5, o[1], 0, 0, (i - 1) * 0.1]);
+        parts.push([new THREE.OctahedronGeometry(0.06, 0), o[0] - (i - 1) * 0.05, 1.02, o[1], 0, 0, 0, 1, 2.6, 1]);
+      });
+      instanced(mergeGeos(parts), swayMat(), clumps, function (it) { return it[5]; });
+      for (var cx = c[1] + 0.8; cx < c[2] - 0.5; cx += 1.25) for (var cz = c[3] + 0.7; cz < c[4] - 0.5; cz += 0.95) {
+        var hh = 0.9 + rnd() * 0.25, ry = rnd() * TAU, kx = cx + rj(0.12), kz = cz + rj(0.12);
+        corn.push([kx, 0, kz, ry, [1, hh, 1]]);
+        if (rnd() < 0.6) cobs.push([kx, 0, kz, ry, [1, hh, 1]]);
+      }
+      var cg = mergeGeos([[new THREE.CylinderGeometry(0.035, 0.05, 2.1, 5), 0, 1.05, 0],
+                          [new THREE.ConeGeometry(0.12, 0.9, 4), 0.22, 0.95, 0, 0, 0, -1.0, 1, 1, 0.3], [new THREE.ConeGeometry(0.12, 0.9, 4), -0.22, 1.35, 0, 0, 0, 1.0, 1, 1, 0.3],
+                          [new THREE.ConeGeometry(0.1, 0.8, 4), 0, 1.6, 0.2, 1.0, 0, 0, 1, 1, 0.3], [new THREE.ConeGeometry(0.06, 0.45, 4), 0, 2.3, 0]]);
+      instanced(cg, swayMat('#5d9c3e'), corn);
+      var cob = mergeGeos([[new THREE.CylinderGeometry(0.06, 0.05, 0.32, 6), 0.09, 1.25, 0, 0, 0, -0.35]]);
+      instanced(cob, swayMat('#f2cf43'), cobs);
+      bigSign('🌾 Wheat', w[2] - 3, w[3] - 1.2, 0.1);
+      bigSign('🌽 Corn', c[1] + 3, c[3] - 1.2, -0.1);
+      // the hay barn: a big roof on posts over the hay, round bales, a pond with a wind pump
+      var hb = F('haybarn'), bx = (hb[1] + hb[2]) / 2, bz = hb[3] + 6.5, g = group([bx, 0, bz]), BW = 15, BD = 8, BH = 4.2;
+      for (var px = -BW / 2; px <= BW / 2 + 0.01; px += BW / 4) [-1, 1].forEach(function (s) { g.add(box(0.28, BH, 0.28, '#7a5233', [px, BH / 2, s * BD / 2])); });
+      [-1, 1].forEach(function (s) { g.add(rot(box(BW + 1.2, 0.18, BD / 2 + 1.0, '#a8423a', [0, BH + 0.9, s * (BD / 4 + 0.35)]), s * 0.42, 0, 0)); });
+      for (var hx = -BW / 2 + 1.3; hx < BW / 2 - 1; hx += 2.05) for (var hy = 0; hy < 3 - (Math.abs(hx) > 4 ? 1 : 0); hy++) g.add(box(1.9, 0.85, 3.4, hy % 2 ? '#e1c25f' : '#d6b450', [hx, 0.43 + hy * 0.86, -0.4 + (hy % 2) * 0.3]));
+      statics.add(outline(g));
+      statics.add(blobShadow(7.5, bx, bz));
+      FIELD_OBST.push(['r', bx, bz, BW / 2 + 0.4, BD / 2 + 0.4, 0]);
+      for (var b = 0; b < 9; b++) {
+        var ba = rnd() * TAU, bxx = bx - 6 + rnd() * 12, bzz = bz + 7 + rnd() * 6;
+        var bale = cyl(0.75, 0.75, 1.2, '#e1c25f', [bxx, 0.75, bzz], 14); bale.rotation.set(0, ba, PI / 2); bale.rotation.order = 'YXZ';
+        statics.add(outline(bale));
+        FIELD_OBST.push(['c', bxx, bzz, 0.95]);
+      }
+      var pondX = bx + 2, pondZ = hb[4] - 6.5;
+      var shore = mesh(new THREE.CircleGeometry(5.2, 30), '#d9c79a'); shore.rotation.x = -PI / 2; shore.position.set(pondX, 0.012, pondZ); statics.add(shore);
+      var water = mesh(new THREE.CircleGeometry(4.6, 30), '#5fb3e0'); water.rotation.x = -PI / 2; water.position.set(pondX, 0.028, pondZ); statics.add(water);
+      for (var r3 = 0; r3 < 12; r3++) { var ra = r3 / 12 * TAU + rj(0.2); statics.add(cyl(0.03, 0.04, 1.1 + rnd() * 0.4, '#6d9a3c', [pondX + Math.cos(ra) * 4.8, 0.55, pondZ + Math.sin(ra) * 4.8], 5)); }
+      FIELD_OBST.push(['c', pondX, pondZ, 5.0]);
+      var wp = group([pondX - 6.8, 0, pondZ - 1.5]);              // the wind pump that fills the pond
+      [[-0.6, -0.6], [0.6, -0.6], [-0.6, 0.6], [0.6, 0.6]].forEach(function (l) { wp.add(rot(box(0.1, 6.2, 0.1, '#8a8f94', [l[0] * 0.55, 3.1, l[1] * 0.55]), l[1] * 0.1, 0, -l[0] * 0.1)); });
+      var fan = group([0, 6.3, 0.35]);
+      for (var bl = 0; bl < 12; bl++) { var arm = group(); arm.rotation.z = bl / 12 * TAU; arm.add(box(0.14, 1.1, 0.03, '#f4efe4', [0, 0.75, 0])); fan.add(arm); }
+      fan.add(rot(cyl(0.12, 0.12, 0.2, '#5a3d22', [0, 0, 0], 8), PI / 2));
+      wp.add(fan); wp.add(box(0.06, 0.6, 1.0, '#c0503a', [0, 6.3, -0.6]));
+      outline(wp);
+      if (NevetHero.merge) NevetHero.merge(wp, function (o) { return o === fan; });
+      scene.add(wp);
+      FIELD_OBST.push(['c', pondX - 6.8, pondZ - 1.5, 0.7]);
+      WORLD_ANIM.push(function (now) { fan.rotation.z = -now * 1.1; });
+      bigSign('🏚️ Hay barn', hb[1] + 3, hb[3] - 1.2, -0.15);
+    })();
+
+    // ---- a little tractor going up and down the farm track between the park and the far fields
+    (function () {
+      var t = group(), body = group(); t.add(body);
+      body.add(box(1.5, 0.7, 0.95, '#d8402f', [0.2, 0.85, 0]));
+      body.add(box(0.75, 0.9, 0.95, '#d8402f', [-0.45, 1.6, 0]));
+      body.add(box(0.7, 0.55, 0.85, '#bfe6f0', [-0.45, 1.65, 0]));
+      body.add(box(0.85, 0.08, 1.05, '#2f3a40', [-0.45, 2.1, 0]));
+      body.add(cyl(0.06, 0.06, 0.6, '#2f3a40', [0.7, 1.5, 0.25], 6));
+      var wheels = [];
+      [[-0.55, 0.62, 0.6], [0.75, 0.38, 0.42]].forEach(function (w2) {
+        [-1, 1].forEach(function (s) { var wh = cyl(w2[1], w2[1], 0.28, '#2f3a40', [w2[0], w2[1], s * w2[2]], 14); wh.rotation.x = PI / 2; t.add(wh); wheels.push(wh);
+                                       t.add(rot(cyl(w2[1] * 0.45, w2[1] * 0.45, 0.3, '#f2c230', [w2[0], w2[1], s * w2[2]], 8), PI / 2)); });
+      });
+      outline(body, 1.03);
+      if (NevetHero.merge) NevetHero.merge(t, function (o) { return o === body || wheels.indexOf(o) >= 0; });
+      scene.add(t);
+      var T0 = -54, T1 = 54, Z = 81.6;
+      WORLD_ANIM.push(function (now) {
+        var L = T1 - T0, u = (now * 2.2) % (2 * L), back = u > L, x = back ? T1 - (u - L) : T0 + u;
+        t.position.set(x, 0, Z + (back ? 0.45 : -0.45));
+        t.rotation.y = back ? PI : 0;
+        wheels.forEach(function (wh, i) { wh.rotation.y = 0; wh.rotation.z = 0; wh.rotation.x = PI / 2; wh.rotateY(-now * 2.2 / (i < 2 ? 0.62 : 0.38)); });
+        body.position.y = Math.abs(Math.sin(now * 9)) * 0.03;
+      });
+    })();
   })();
 
   // The campfire in the middle of the farm (the mud arena is built round it): a ring of big stones, a tepee
@@ -2179,7 +2589,8 @@
   var chickens = [];
   (function () {
     for (var i = 0; i < 4; i++) {
-      var c = group([rr(-12.5, -8.5), 0, rr(-7, -1)]);
+      var c = group([yx(rr(-13.2, -10.8)), 0, yz(rr(-4.5, 0))]);   // (round the barn door, in the yard)
+      c.scale.setScalar(YS);
       var body = group(); c.add(body);
       body.add(sphere(0.28, i === 3 ? '#b8743c' : '#fbfaf5', [0, 0.35, 0], [0.9, 0.8, 1.15]));
       var head = group([0, 0.62, 0.22]); body.add(head);
@@ -2194,7 +2605,7 @@
       c.userData = { head: head, target: c.position.clone(), next: 0, peck: 0 };
       chickens.push(c);
       scene.add(c);
-      scene.add(c.userData.shadow = blobShadow(0.3));
+      scene.add(c.userData.shadow = blobShadow(0.3 * YS));
     }
   })();
 
@@ -2202,9 +2613,9 @@
   // scamper off when a hero comes close.
   var rabbits = [];
   (function () {
-    var homes = [[-53, -24, -17, LAND.maxZ - 2], [24, 53, -17, LAND.maxZ - 2]];
-    for (var i = 0; i < 7; i++) {
-      var hm = homes[i % 2], fur = ['#f4efe6', '#b08a62', '#8f7a66'][i % 3], rb = group([rr(hm[0], hm[1]), 0, rr(hm[2], hm[3])]);
+    var homes = [[-60, -22, 17, 32], [22, 32, 17, 58], [-60, -22, 57.5, 60.6], [22, 60, 57.5, 60.6]];    // the meadows and the field edges
+    for (var i = 0; i < 8; i++) {
+      var hm = homes[i % 4], fur = ['#f4efe6', '#b08a62', '#8f7a66'][i % 3], rb = group([rr(hm[0], hm[1]), 0, rr(hm[2], hm[3])]);
       var body = group(); rb.add(body);
       body.add(sphere(0.2, fur, [0, 0.2, -0.02], [0.9, 0.85, 1.2], 9));
       body.add(sphere(0.13, fur, [0, 0.37, 0.18], null, 9));
@@ -2245,12 +2656,13 @@
     });
   }
 
-  ANIMALS.push({ kind: 'chickens', pos: V(-10.6, 0, -3.9), name: 'Chickens', r: 1.9 });
-  ANIMALS.push({ kind: 'ducks', pos: V(POND.x, 0, POND.z), name: 'Ducks', r: 4.25, arc: [PI * 0.75, PI * 1.6] });   // stand on the west and north shore
+  ANIMALS.push({ kind: 'chickens', pos: YV(V(-12, 0, -2.3)), name: 'Chickens', r: 1.9 * YS });
+  ANIMALS.push({ kind: 'ducks', pos: V(POND_W.x, 0, POND_W.z), name: 'Ducks', r: 4.25 * YS, arc: [PI * 0.75, PI * 1.6] });   // stand on the west and north shore
 
   // a signpost in the middle of the yard, in a ring of flowers: the mud arena and the rave south, the meadows east and west
-  var SIGNPOST = V(0, 0, 1.4);
+  var SIGNPOST = V(0, 0, 1.4);                         // (yard metres; on the farm once built)
   (function () {
+    var statics = YARD;
     var g = group([SIGNPOST.x, 0, SIGNPOST.z]);
     g.add(cyl(0.09, 0.11, 2.9, '#8a5f3a', [0, 1.45, 0], 8));
     g.add(cone(0.16, 0.25, '#8a5f3a', [0, 3.02, 0], 8));
@@ -2258,7 +2670,7 @@
     g.add(cyl(0.9, 0.9, 0.18, '#5b3d27', [0, 0.1, 0], 20));
     statics.add(outline(g));
     for (var f = 0; f < 14; f++) { var fa = f / 14 * TAU; statics.add(sphere(0.12, WD.petals[f % WD.petals.length], [SIGNPOST.x + Math.cos(fa) * 0.62, 0.3, SIGNPOST.z + Math.sin(fa) * 0.62], [1, 0.7, 1], 8)); }
-    [['🔥 Mud arena & rave', '🔥 Mud arena & rave', 0, 2.45], ['Tents & meadow  →', '←  Tents & meadow', 1, 1.85], ['←  Mother tree', 'Mother tree  →', -1, 1.85]].forEach(function (b) {
+    [['🔥 Mud arena & rave', '🔥 Mud arena & rave', 0, 2.45], ['Market garden  →', '←  Market garden', 1, 1.85], ['←  Orchard & mother tree', 'Orchard & mother tree  →', -1, 1.85]].forEach(function (b) {
       var o = { px: 40, bg: '#f3e6c8', color: '#5a3d22', radius: 10, stroke: '#8a5f3a' }, cv = textCanvas(b[0], o), w = 0.48 * cv.width / cv.height;
       var tex = [new THREE.CanvasTexture(cv), new THREE.CanvasTexture(textCanvas(b[1], o))];     // (seen from the north, the arrow points the other way)
       b.splice(0, 2);
@@ -2269,6 +2681,7 @@
       });
     });
   })();
+  SIGNPOST = YV(SIGNPOST);
 
   // Butterflies (day) and fireflies (night)
   var butterflies = [];
@@ -2283,14 +2696,14 @@
       l.position.x = -0.12; r.position.x = 0.12;
       var lw = group(), rw = group(); lw.add(l); rw.add(r);
       b.add(lw); b.add(rw);
-      var bc = i % 2 === 0 ? V(rr(-14, 16), 0, rr(-14, 12)) : V((i % 4 === 1 ? 1 : -1) * rr(24, 50), 0, rr(-17, LAND.maxZ - 4));    // the yard and the meadows
+      var bc = i % 2 === 0 ? V(rr(FARM_W.minX + 4, FARM_W.maxX - 4), 0, rr(FARM_W.minZ + 4, FARM_W.maxZ - 3)) : V((i % 4 === 1 ? 1 : -1) * rr(24, 58), 0, rr(LAND.minZ + 3, LAND.maxZ - 4));    // the yard and the farming lands
       b.userData = { lw: lw, rw: rw, c: bc, r: rr(1.2, 3), h: rr(0.8, 1.8), sp: rr(0.4, 0.9), ph: rr(0, TAU) };
       butterflies.push(b);
       scene.add(b);
     }
   })();
   var fireflyGeo = new THREE.BufferGeometry(), fireflyPos = new Float32Array(150 * 3), fireflySeeds = [];
-  for (var fi = 0; fi < 150; fi++) fireflySeeds.push(fi < 60 ? [rr(-18, 18), rr(0.5, 2.8), rr(-18, 14), rr(0, TAU)] : [(fi % 2 ? 1 : -1) * rr(22, 53), rr(0.5, 3.2), rr(-18, LAND.maxZ - 3), rr(0, TAU)]);
+  for (var fi = 0; fi < 150; fi++) fireflySeeds.push(fi < 60 ? [rr(FARM_W.minX + 3, FARM_W.maxX - 3), rr(0.5, 2.8), rr(FARM_W.minZ + 3, FARM_W.maxZ - 2), rr(0, TAU)] : [(fi % 2 ? 1 : -1) * rr(22, 60), rr(0.5, 3.2), rr(LAND.minZ + 2, LAND.maxZ - 3), rr(0, TAU)]);
   fireflyGeo.setAttribute('position', new THREE.BufferAttribute(fireflyPos, 3));
   var fireflies = new THREE.Points(fireflyGeo, new THREE.PointsMaterial({ color: 0xe8ff7a, size: 0.16, transparent: true, opacity: 0, depthWrite: false }));
   fireflies.frustumCulled = false;
@@ -2397,8 +2810,8 @@
     var bm = new THREE.InstancedMesh(disc, new THREE.MeshToonMaterial({ color: 0xffffff }), n), cm = new THREE.InstancedMesh(core, mat('#ffd84d'), n), col = new THREE.Color();
     list.forEach(function (p, i) {
       for (var j = 0; j < 3; j++) {
-        var a = rs() * TAU, rr3 = (p.model.userData.radius || 0.3) * (0.3 + rs() * 0.5);
-        BLOOMFX.bPlants.push({ p: p, ox: Math.cos(a) * rr3, oz: Math.sin(a) * rr3, oy: 0.75 + rs() * 0.3, ph: rs() * TAU, s: 0.8 + rs() * 0.5 });
+        var a = rs() * TAU, rr3 = (p.model.userData.radius || 0.3) * YS * (0.3 + rs() * 0.5);
+        BLOOMFX.bPlants.push({ p: p, ox: Math.cos(a) * rr3, oz: Math.sin(a) * rr3, oy: 0.75 + rs() * 0.3, ph: rs() * TAU, s: (0.8 + rs() * 0.5) * 1.3 });
         bm.setColorAt(i * 3 + j, col.set(WD.petals[(i + j) % WD.petals.length] === '#ffffff' && j === 1 ? '#ffb3d1' : WD.petals[(i + j) % WD.petals.length]));
       }
     });
@@ -2737,29 +3150,33 @@
   }
 
   (function () {                                       // what heroes walk around
-    if (!MAPG) BED_X.forEach(function (bx) { obstacleRect(bx, BED_Z0 - (SLOTS - 1) * SLOT_STEP / 2 - 0.5, BED_W / 2 + 0.05, (SLOTS * SLOT_STEP + 0.4) / 2); });
+    // the yard's things (built in yard metres): yC / yR take yard metres
+    function yC(x, z, r) { return obstacleCircle(yx(x), yz(z), r * YS); }
+    function yR(x, z, hw, hd, rotY) { return obstacleRect(yx(x), yz(z), hw * YS, hd * YS, rotY); }
+    if (!MAPG) BED_X.forEach(function (bx) { yR(bx, BED_Z0 - (SLOTS - 1) * SLOT_STEP / 2 - 0.5, BED_W / 2 + 0.05, (SLOTS * SLOT_STEP + 0.4) / 2); });
     MAP_OBST.forEach(function (o) {
-      if (o[0] === 'p') obstaclePoly(o[1]);
-      else if (o[0] === 'c') obstacleCircle(o[1], o[2], o[3]);
-      else obstacleRect(o[1], o[2], o[3], o[4], o[5]);
+      if (o[0] === 'p') obstaclePoly(o[1].map(function (q) { return [yx(q[0]), yz(q[1])]; }));
+      else if (o[0] === 'c') yC(o[1], o[2], o[3]);
+      else yR(o[1], o[2], o[3], o[4], o[5]);
     });
-    if (CHALK) obstacleRect(CHALK.x, CHALK.z, 1.0, 0.45, 0.55);
-    obstacleRect(CART.x, CART.z + 0.35, 0.75, 1.65);
-    obstacleCircle(PUMP.x, PUMP.z + 0.3, 0.55);
+    if (CHALK) obstacleRect(CHALK.x, CHALK.z, 1.0 * YS, 0.45 * YS, 0.55);
+    obstacleRect(CART.x, CART.z + 0.35 * YS, 0.75 * YS, 1.65 * YS);
+    obstacleCircle(PUMP.x, PUMP.z + 0.3 * YS, 0.55 * YS);
     obstacleCircle(FIRE.x, FIRE.z, 1.0 * FIRE_K);
-    obstacleCircle(SIGNPOST.x, SIGNPOST.z, 1.05);              // the signpost's flower ring
+    obstacleCircle(SIGNPOST.x, SIGNPOST.z, 1.05 * YS);         // the signpost's flower ring
     ARENA_OBST.forEach(function (o) { obstacleCircle(o[0], o[1], o[2]).open = o[3] === 'open'; });     // the arena's wall, columns and braziers (while it's open)
     obstacleCircle(FIRE.x, FIRE.z, TOWER_R + 0.4).party = true;                // the fire tower, when it's folded for the party
     DIVIDE_OBST.forEach(function (o) { obstacleRect(o[0], o[1], o[2], o[3]); });   // the hedges between the areas
     [-1.9, 1.9].forEach(function (x) { obstacleCircle(x, FARM.maxZ, 0.3); });    // the arch's posts
-    obstacleRect(-15.5, -9.5, 3.2, 3.7);                     // barn
-    obstacleRect(-15, 5.5, 1.75, 2.45);                      // greenhouse
-    obstacleCircle(13.5, -17.5, 1.9);                        // windmill
-    obstacleCircle(POND.x, POND.z, 3.55);                    // pond
-    if (MAPG) obstacleCircle(12.4, -14.3, 0.35); else obstacleCircle(0, -13.6, 0.35);   // scarecrow
-    [[-11, -4.2], [-11.4, -2.8], [-11.2, -3.5]].forEach(function (b) { obstacleCircle(b[0], b[1], 0.75); });
+    yR(-15.5, -9.5, 3.2, 3.7);                               // barn
+    yR(-15, 5.5, 1.75, 2.45);                                // greenhouse
+    yC(13.5, -17.5, 1.9);                                    // windmill
+    yC(POND.x, POND.z, 3.55);                                // pond
+    if (MAPG) yC(15.2, -14.6, 0.35); else yC(1, -15, 0.35);     // scarecrow
+    [[-11, -4.2], [-11.4, -2.8], [-11.2, -3.5]].forEach(function (b) { yC(b[0], b[1], 0.75); });
     for (var i = 0; i < (BARN_BINS.length || (MAPG ? 0 : 1)); i++)
-      obstacleRect(-11.2 + (i % 2) * 1.6, 1.2 + Math.floor(i / 2) * 1.6, 0.65, 0.55);
+      yR(-11.2 + (i % 2) * 1.6, 1.2 + Math.floor(i / 2) * 1.6, 0.65, 0.55);
+    FIELD_OBST.forEach(function (o) { if (o[0] === 'c') obstacleCircle(o[1], o[2], o[3]); else obstacleRect(o[1], o[2], o[3], o[4], o[5]); });   // the farming lands
     INNER_TREES.forEach(function (t) { obstacleCircle(t[0], t[1], 0.9); });
     EXTRA_OBST.forEach(function (t) { obstacleCircle(t[0], t[1], 0.55); });
     PLAY_OBST.forEach(function (o) { if (o[0] === 'c') obstacleCircle(o[1], o[2], o[3]); else obstacleRect(o[1], o[2], o[3], o[4]); });
@@ -2773,7 +3190,8 @@
     plants.forEach(function (p) {
       if (p.where !== 'bed' && p.where !== 'map' && p.where !== 'pot' || !MAPG) return;
       var st = [];
-      [0.95, 1.3, 1.7, 2.2, 2.8].forEach(function (r) {
+      [0.95, 1.3, 1.7, 2.2, 2.8].forEach(function (r0) {
+        var r = r0 * YS;
         if (st.length >= 4) return;
         for (var k = 0; k < 12; k++) { var a = k / 12 * TAU, c = V(p.pos.x + Math.cos(a) * r, 0, p.pos.z + Math.sin(a) * r); if (!blockedAt(c.x, c.z, 0.42)) st.push(c); }
       });
@@ -2904,7 +3322,7 @@
   }
   function face(h, p) { h.wantFacing = Math.atan2(p.x - h.root.position.x, p.z - h.root.position.z); }
   function workSpot(p, h) {                           // where to stand to tend a plant (a free one, or null)
-    return pickSpot(h, p.stands || [V(p.pos.x - 1.35, 0, p.pos.z), V(p.pos.x + 1.35, 0, p.pos.z)]);
+    return pickSpot(h, p.stands || [V(p.pos.x - 1.35 * YS, 0, p.pos.z), V(p.pos.x + 1.35 * YS, 0, p.pos.z)]);
   }
   function nearest(h, list, ok) {
     var best = null, bd = Infinity, hp = h.root.position;
@@ -2942,7 +3360,7 @@
       for (var e = 0; e < a.around.length; e++) {
         var p = a.around[e], q = a.around[(e + 1) % a.around.length], mx = (p[0] + q[0]) / 2, mz = (p[1] + q[1]) / 2;
         var dx = mx - cc[0], dz = mz - cc[1], d = Math.hypot(dx, dz) || 1;
-        out.push(V(mx + dx / d * 0.8, 0, mz + dz / d * 0.8));
+        out.push(V(mx + dx / d * 0.8 * YS, 0, mz + dz / d * 0.8 * YS));
       }
     } else {
       var lo = a.arc ? a.arc[0] : 0, hi = a.arc ? a.arc[1] : TAU, n = a.arc ? 6 : 8;
@@ -2953,16 +3371,16 @@
   function nearestChicken(p) {
     var best = null, bd = Infinity;
     chickens.forEach(function (c) { var d = c.position.distanceToSquared(p); if (d < bd) { bd = d; best = c; } });
-    return best ? best.position.clone() : V(-10.6, 0, -3.9);
+    return best ? best.position.clone() : YV(V(-12, 0, -2.3));
   }
   ACTS = {
     harvest: {
-      name: 'Harvest festival', tool: 'none', night: 0, centre: GARDEN_CENTRE,
+      name: 'Harvest festival', tool: 'none', night: 0, centre: YV(GARDEN_CENTRE), view: 1.3,
       stat: function () { return stats.harvest + ' picked'; },
       next: function harvestNext(h, now) {
         var stand = null;
         var p = nearest(h, plants, function (q) { return q.ripe && !q.claimed && TENDED[q.where] && (stand = workSpot(q, h)) && (q.stand = stand); });
-        if (!p) return wanderNear(h, V(2, 0, 3), 4, now, function () { harvestNext(h, clockNow()); });
+        if (!p) return wanderNear(h, YV(V(2, 0, 3)), 4 * YS, now, function () { harvestNext(h, clockNow()); });
         p.claimed = h;
         goTo(h, p.stand, function () {
           face(h, p.pos);
@@ -2971,7 +3389,7 @@
             carryItem(h, p.color);
             var col = p.color;
             var drop = pickSpot(h, CART_SPOTS);
-            if (!drop) return wanderNear(h, CART, 3.5, clockNow(), function () { dropCarry(h); addToCart(col); stats.harvest++; harvestNext(h, clockNow()); });
+            if (!drop) return wanderNear(h, CART, 3.5 * YS, clockNow(), function () { dropCarry(h); addToCart(col); stats.harvest++; harvestNext(h, clockNow()); });
             goTo(h, drop, function () {
               face(h, CART);
               doAct(h, 'drop', 0.7, function () {
@@ -2986,12 +3404,12 @@
       }
     },
     water: {
-      name: 'Watering round', tool: 'watering_can', night: 0, centre: MAPG ? GARDEN_CENTRE : V(-1, 0.6, -6),
+      name: 'Watering round', tool: 'watering_can', night: 0, centre: YV(MAPG ? GARDEN_CENTRE : V(-1, 0.6, -6)), view: 1.3,
       stat: function () { return stats.water + ' watered'; },
       next: function waterNext(h, now) {
         if (h.watered >= 3) {                          // can's empty: refill at the pump (or a garden tap)
           var at = pickSpot(h, REFILL_SPOTS);
-          if (!at) return wanderNear(h, PUMP, 3, now, function () { waterNext(h, clockNow()); });
+          if (!at) return wanderNear(h, PUMP, 3 * YS, now, function () { waterNext(h, clockNow()); });
           var src = at.src || PUMP;
           return goTo(h, at, function () {
             face(h, src);
@@ -3001,7 +3419,7 @@
         }
         var thirsty = plants.some(function (q) { return q.thirsty && !q.claimed && TENDED[q.where]; });
         var p = nearest(h, plants, function (q) { return !q.claimed && (thirsty ? q.thirsty : clockNow() - q.wateredAt > 25) && TENDED[q.where] && (q.stand = workSpot(q, h)); });
-        if (!p) return wanderNear(h, V(-2, 0, 2), 4, now, function () { waterNext(h, clockNow()); });
+        if (!p) return wanderNear(h, YV(V(-2, 0, 2)), 4 * YS, now, function () { waterNext(h, clockNow()); });
         p.claimed = h;
         goTo(h, p.stand, function () {
           face(h, p.pos);
@@ -3016,11 +3434,11 @@
       }
     },
     plant: {
-      name: 'Planting day', tool: 'seed_bag', night: 0, centre: V(12.4, 0.5, -8),
+      name: 'Planting day', tool: 'seed_bag', night: 0, centre: YV(V(15.2, 0.5, -8.5)), view: 1.2,
       stat: function () { return stats.plant + ' planted'; },
       next: function plantNext(h, now) {
-        var s = nearest(h, spots, function (q) { return q.state === 'empty' && !q.claimed && (q.stand = pickSpot(h, [V(q.pos.x - 0.95, 0, q.pos.z), V(q.pos.x + 0.95, 0, q.pos.z)])); });
-        if (!s) return wanderNear(h, V(11, 0, -2.6), 3, now, function () { plantNext(h, clockNow()); });
+        var s = nearest(h, spots, function (q) { return q.state === 'empty' && !q.claimed && (q.stand = pickSpot(h, [V(q.pos.x - 0.95 * YS, 0, q.pos.z), V(q.pos.x + 0.95 * YS, 0, q.pos.z)])); });
+        if (!s) return wanderNear(h, YV(V(15, 0, -2.6)), 3 * YS, now, function () { plantNext(h, clockNow()); });
         s.claimed = h;
         goTo(h, s.stand, function () {
           face(h, s.pos);
@@ -3034,13 +3452,13 @@
       }
     },
     animals: {
-      name: 'Animal care', tool: 'basket', night: 0, centre: V(-3, 0.6, 0),
+      name: 'Animal care', tool: 'basket', night: 0, centre: YV(V(-3, 0.6, 0)), view: 1.35,
       stat: function () { return stats.animals + ' fed · ' + ANIMALS.length + ' animal spots'; },
       next: function animalNext(h, now) {
         // go to the animals that had the fewest visits (not the ones you just fed), so every animal gets cared for
         var options = ANIMALS.filter(function (a) { return a !== h.lastAnimal && (a.busy || 0) < (a.kind === 'ducks' || a.kind === 'chickens' ? 4 : 2); });
         if (!options.length) options = ANIMALS.filter(function (a) { return (a.busy || 0) < 4; });
-        if (!options.length) return wanderNear(h, V(-6, 0, 0), 4, now, function () { animalNext(h, clockNow()); });
+        if (!options.length) return wanderNear(h, YV(V(-6, 0, 0)), 4 * YS, now, function () { animalNext(h, clockNow()); });
         var hp = h.root.position;
         options.sort(function (a, b) { return ((a.visits || 0) + a.pos.distanceTo(hp) * 0.04 + R() * 0.6) - ((b.visits || 0) + b.pos.distanceTo(hp) * 0.04 + R() * 0.6); });
         var a = null, at = null;
@@ -3048,7 +3466,7 @@
         if (!at) return wanderNear(h, options[0].pos, 3, now, function () { animalNext(h, clockNow()); });
         a.busy = (a.busy || 0) + 1;
         goTo(h, at, function () {
-          var look = a.kind === 'ducks' ? V(POND.x, 0, POND.z) : a.kind === 'chickens' ? nearestChicken(h.root.position) : a.pos;
+          var look = a.kind === 'ducks' ? V(POND_W.x, 0, POND_W.z) : a.kind === 'chickens' ? nearestChicken(h.root.position) : a.pos;
           face(h, look);
           h.animal = a;
           doAct(h, { worms: 'feedworms', chickens: 'scatter', ducks: 'bread', bees: 'smoke' }[a.kind], a.kind === 'bees' ? 3.6 : 3.2, function () {
@@ -3108,12 +3526,12 @@
   var ORDER = ['harvest', 'water', 'plant', 'animals', 'play', 'campfire', 'party'];
   var EVENT = D.event && ACTS[D.event.act] ? D.event : null;      // an event on the farm right now (events.py): the heroes join in
   var current = D.start && ACTS[D.start] ? D.start : EVENT ? EVENT.act : 'harvest';
-  var CART_SPOTS = [V(CART.x - 1.3, 0, CART.z - 0.4), V(CART.x + 1.3, 0, CART.z - 0.4), V(CART.x - 1.3, 0, CART.z + 1.0),
-                    V(CART.x + 1.3, 0, CART.z + 1.0), V(CART.x, 0, CART.z - 1.75)];
-  var PUMP_SPOTS = [V(PUMP.x + 1.05, 0, PUMP.z + 0.1), V(PUMP.x - 1.05, 0, PUMP.z + 0.1), V(PUMP.x, 0, PUMP.z - 1.05)];
+  function around(c, list) { return list.map(function (o) { return V(c.x + o[0] * YS, 0, c.z + o[1] * YS); }); }   // (offsets in yard metres)
+  var CART_SPOTS = around(CART, [[-1.3, -0.4], [1.3, -0.4], [-1.3, 1.0], [1.3, 1.0], [0, -1.75]]);
+  var PUMP_SPOTS = around(PUMP, [[1.05, 0.1], [-1.05, 0.1], [0, -1.05]]);
   var REFILL_SPOTS = PUMP_SPOTS.slice();
   MAP_TAPS.forEach(function (t) {
-    [V(t.x + 0.9, 0, t.z + 0.3), V(t.x - 0.9, 0, t.z + 0.3), V(t.x, 0, t.z + 1.0)].forEach(function (sp) { sp.src = t; REFILL_SPOTS.push(sp); });
+    around(t, [[0.9, 0.3], [-0.9, 0.3], [0, 1.0]]).forEach(function (sp) { sp.src = t; REFILL_SPOTS.push(sp); });
   });
   var TENDED = { bed: 1, map: 1, pot: 1 };            // plants heroes can reach (not the greenhouse or the new field)
   function assign(h, now) {
@@ -3136,10 +3554,11 @@
     s.state = 'growing';
     s.t0 = now;
     var species = ['lettuce', 'carrot', 'basil', 'strawberry', 'radish', 'spinach', 'parsley'][Math.floor(R() * 7)];
-    var holder = group([s.pos.x, s.pos.y, s.pos.z]);
+    var holder = group([s.pos.x, s.pos.y, s.pos.z]), inner = group();
     var sprout = plantModel(species, 'germination', Math.round(now * 100)), grown = plantModel(species, 'mature', Math.round(now * 100) + 1, { r: 0.55, h: 1 });
     grown.scale.setScalar(0.001);
-    holder.add(sprout); holder.add(grown);
+    inner.scale.setScalar(YS);                         // (the yard's plants are YS times bigger)
+    inner.add(sprout); inner.add(grown); holder.add(inner);
     holder.rotation.y = rr(0, TAU);
     scene.add(holder);
     s.plant = { holder: holder, sprout: sprout, grown: grown };
@@ -4011,7 +4430,7 @@
       case 'refill':
         if (arms[1]) arms[1].rotation.x = -0.6 + Math.sin(p * 8) * 0.5;
         if (PUMP_HANDLE && !(h.refillAt && h.refillAt !== PUMP)) PUMP_HANDLE.rotation.z = Math.sin(p * 8) * 0.3;
-        if (Math.random() < dt * 12) emit(h.refillAt && h.refillAt !== PUMP ? h.refillAt.clone().add(V(0, 0.8, 0.2)) : PUMP.clone().add(V(0, 1.1, 0.5)), V(rr(-0.1, 0.1), -0.5, 0.3), DROP_MAT, 0.5);
+        if (Math.random() < dt * 12) emit(h.refillAt && h.refillAt !== PUMP ? h.refillAt.clone().add(V(0, 0.8 * YS, 0.2 * YS)) : PUMP.clone().add(V(0, 1.1 * YS, 0.5 * YS)), V(rr(-0.1, 0.1), -0.5, 0.3), DROP_MAT, 0.5);
         break;
       case 'feedworms':                                // kneel at the bin and drop in kitchen scraps
         u.hero.position.y -= 0.22; u.hero.rotation.x = 0.45;
@@ -4948,7 +5367,7 @@
       var u = d.userData, a = now * u.speed + u.ph;
       if (u.cx0 === undefined) { u.cx0 = u.cx; u.cz0 = u.cz; u.r0 = u.r; }
       var gx = u.cx0, gz = u.cz0, gr = u.r0;                // swim over to whoever throws bread
-      if (thrower) { var tp = thrower.root.position, dx2 = tp.x - POND.x, dz2 = tp.z - POND.z, dl = Math.hypot(dx2, dz2) || 1; gx = POND.x + dx2 / dl * 2.2; gz = POND.z + dz2 / dl * 2.2; gr = 0.7; }
+      if (thrower) { var tp = thrower.root.position, dx2 = tp.x - POND_W.x, dz2 = tp.z - POND_W.z, dl = Math.hypot(dx2, dz2) || 1; gx = POND_W.x + dx2 / dl * 2.2 * YS; gz = POND_W.z + dz2 / dl * 2.2 * YS; gr = 0.7 * YS; }
       u.cx += (gx - u.cx) * Math.min(1, dt * 0.6); u.cz += (gz - u.cz) * Math.min(1, dt * 0.6); u.r += (gr - u.r) * Math.min(1, dt * 0.6);
       d.position.set(u.cx + Math.cos(a) * u.r, 0.02 + Math.sin(now * 2 + u.ph) * 0.02, u.cz + Math.sin(a) * u.r);
       d.rotation.y = -a;
@@ -4969,7 +5388,7 @@
         var fr = feeder.root, ang = fr.rotation.y + rr(-0.7, 0.7), dist = rr(0.9, 1.9);
         u.target.set(fr.position.x + Math.sin(ang) * dist, 0, fr.position.z + Math.cos(ang) * dist);
         u.fedNext = now + rr(1, 2); u.next = now + 3; u.peck = now + rr(0.2, 0.8);
-      } else if (now > u.next) { u.target.set(rr(-13, -8.2), 0, rr(-7.2, -0.6)); u.next = now + rr(3, 7); u.peck = now + rr(0.5, 2); }
+      } else if (now > u.next) { u.target.set(yx(rr(-13.5, -10.6)), 0, yz(rr(-5, 0.4))); u.next = now + rr(3, 7); u.peck = now + rr(0.5, 2); }
       tmp.subVectors(u.target, c.position); tmp.y = 0;
       var d = tmp.length();
       if (d > 0.1) { c.position.addScaledVector(tmp, Math.min(1, 0.9 * dt / d)); c.rotation.y = Math.atan2(tmp.x, tmp.z); c.position.y = Math.abs(Math.sin(now * 12)) * 0.04; }
@@ -4995,7 +5414,7 @@
       p.holder.scale.set(PG.x, PG.y * (1 + Math.sin(p.perk * PI) * 0.18 - p.droop * 0.16), PG.x);   // (taller as the community blooms)
       p.holder.rotation.z = calm ? 0 : Math.sin(now * 1.2 + p.pos.x + p.pos.z) * 0.03;
       p.holder.rotation.x = p.droop * 0.2;
-      if (p.drop) p.drop.position.y = p.pos.y + Math.min(2.2, p.height) * PG.y + 0.45 + Math.sin(now * 3 + p.pos.x) * 0.06;
+      if (p.drop) p.drop.position.y = p.pos.y + Math.min(2.2 * YS, p.height) * PG.y + 0.45 + Math.sin(now * 3 + p.pos.x) * 0.06;
       var wet = Math.max(0, 1 - (now - p.wateredAt) / 40);
       p.soil.material.opacity = wet * 0.55;
       p.soil.visible = wet > 0.01;

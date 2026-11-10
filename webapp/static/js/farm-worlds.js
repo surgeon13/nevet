@@ -48,6 +48,7 @@
     // the box the scenery goes round: 1 m beyond the farm's edge (it grew: the meadows, the dance field, the play park)
     BOX = K.BOX || { x0: -21, x1: 21, z0: -21, z1: PLAY.maxZ + 1.2 };
     var EAST = BOX.x1 - 21, WEST = BOX.x0 + 21;         // how far the east and west edges moved out (hand-placed scenery moves with them)
+    var NORTH = BOX.z0 + 21;                             // ... and the north edge (the lake's waterfall, the seaside's beach and sea)
     var SPREAD = ((BOX.x1 - BOX.x0) + (BOX.z1 - BOX.z0)) / 98.6;     // more round a bigger farm, as thick as before
   function roundTree(x, z, apple, k) {
     var t = group([x, hillH(x, z), z]);
@@ -315,12 +316,12 @@
   }
   function jungle() {
     INNER_TREES.forEach(function (t) { palmTree(t[0], t[1], 1, 0.6); });
-    var clear = function (x, z) { return !(Math.abs(x) < 24 && z < -42 && z > -70); };
+    var clear = function (x, z) { return !(Math.abs(x) < 24 && z < -42 + NORTH && z > -70 + NORTH); };
     outsideSpots(80, 2, 48, 5, 71, clear).forEach(function (s) { jungleTree(s[0], s[1], rr(0.9, 1.35), s[2] < 12); });
     outsideSpots(22, 0.8, 14, 3.5, 72, clear).forEach(function (s) { palmTree(s[0], s[1]); });
     outsideSpots(45, 0.6, 22, 2.4, 73, clear).forEach(function (s) { bananaPlant(s[0], s[1]); });
-    waterfall(0, -58, 8, 15);
-    ruins(-48, -40, 0.7);
+    waterfall(0, -58 + NORTH, 8, 15);
+    ruins(-48, -40 + NORTH, 0.7);
     peaks(8, '#3f7a3a', null, 74, -PI * 0.95, PI * 0.25, 30, 50);
     flyers(8, ['#e53935', '#1e88e5', '#fdd835', '#43a047'], V(0, 0, -6), 26, 11, 1.1);
   }
@@ -616,28 +617,28 @@
       // tumbleweeds rolling by
       for (var tw = 0; tw < 3; tw++) {
         var weed = mesh(new THREE.IcosahedronGeometry(0.45, 1), mat('#a8834f', { wireframe: true }));
-        weed.userData = { z: [-30, 42, -36][tw], sp: rr(1.6, 2.6), ph: rr(0, 120) };
+        weed.userData = { z: [-30 + NORTH, 42, -36 + NORTH][tw], sp: rr(1.6, 2.6), ph: rr(0, 140) };
         scene.add(weed);
-        WORLD_ANIM.push(function (now) { var u = weed.userData, x = ((now * u.sp + u.ph) % 120) - 60; weed.position.set(x, hillH(x, u.z) + 0.45 + Math.abs(Math.sin(now * 3 + u.ph)) * 0.3, u.z); weed.rotation.z = -now * u.sp / 0.45; });
+        WORLD_ANIM.push(function (now) { var u = weed.userData, x = ((now * u.sp + u.ph) % 140) - 70; weed.position.set(x, hillH(x, u.z) + 0.45 + Math.abs(Math.sin(now * 3 + u.ph)) * 0.3, u.z); weed.rotation.z = -now * u.sp / 0.45; });
       }
     } else if (WORLD === 'seaside') {
       INNER_TREES.forEach(function (t, i) { palmTree(t[0], t[1], 1, [0.8, 0.5][i % 2]); });
-      var dry = function (x, z) { return z > -22; };
+      var dry = function (x, z) { return z > -22 + NORTH; };
       outsideSpots(14, 1.5, 14, 3.5, 41, dry).forEach(function (s2) { palmTree(s2[0], s2[1]); });
       outsideSpots(22, 4, 38, 4.5, 42, dry).forEach(function (s2) { pine(s2[0], s2[1], rr(0.9, 1.3), s2[2] < 14); });
       // the sea, with waves rolling onto the beach
       var sea = mesh(new THREE.PlaneGeometry(900, 400), new THREE.MeshToonMaterial({ color: 0x3f9bd8 }));
-      sea.rotation.x = -PI / 2; sea.position.set(0, SEA_Y, -26 - 200); scene.add(sea);
+      sea.rotation.x = -PI / 2; sea.position.set(0, SEA_Y, -26 - 200 + NORTH); scene.add(sea);
       var shallow = mesh(new THREE.PlaneGeometry(900, 7), new THREE.MeshBasicMaterial({ color: 0x8fd6ee, transparent: true, opacity: 0.55, depthWrite: false }));
-      shallow.rotation.x = -PI / 2; shallow.position.set(0, SEA_Y + 0.01, -31.5); scene.add(shallow);
+      shallow.rotation.x = -PI / 2; shallow.position.set(0, SEA_Y + 0.01, -31.5 + NORTH); scene.add(shallow);
       for (var wv = 0; wv < 6; wv++) {
         var foam = mesh(new THREE.PlaneGeometry(260, 0.45), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }));
         foam.rotation.x = -PI / 2; foam.userData.ph = wv / 6;
         scene.add(foam);
-        WORLD_ANIM.push(function (now) { var f = foam, k = (now * 0.07 + f.userData.ph) % 1; f.position.set(0, SEA_Y + 0.02, -28.6 - (1 - k) * 14); f.material.opacity = Math.sin(k * PI) * 0.75; f.scale.y = 1 + k * 1.5; });
+        WORLD_ANIM.push(function (now) { var f = foam, k = (now * 0.07 + f.userData.ph) % 1; f.position.set(0, SEA_Y + 0.02, -28.6 + NORTH - (1 - k) * 14); f.material.opacity = Math.sin(k * PI) * 0.75; f.scale.y = 1 + k * 1.5; });
       }
       // the lighthouse on a rocky point, with a beam that sweeps round at night
-      var LH = V(-27, 0, -31);
+      var LH = V(-27, 0, -31 + NORTH);
       for (var rk = 0; rk < 9; rk++) rock(LH.x + rr(-3.5, 3.5), LH.z + rr(-3, 3), rr(1.2, 2.2), '#8f8a80');
       var lh = group([LH.x, 0.6, LH.z]);
       for (var band = 0; band < 6; band++) lh.add(cyl(1.25 - band * 0.12, 1.37 - band * 0.12, 1.5, band % 2 ? '#d8402f' : '#f6f1e4', [0, 0.75 + band * 1.5, 0], 14));
@@ -653,7 +654,7 @@
       scene.add(beam);
       WORLD_ANIM.push(function (now, dt, n) { beam.rotation.y = now * 0.8; beam.children.forEach(function (b2) { b2.material.opacity = 0.015 + n * 0.11; }); });
       // a wooden pier, beach umbrellas and towels
-      var pier = group([7, 0, -21.5]);
+      var pier = group([7, 0, -21.5 + NORTH]);
       for (var pk = 0; pk < 10; pk++) {
         var pz = -pk * 2.2;
         pier.add(box(2.2, 0.16, 2.1, pk % 2 ? '#b98b5a' : '#a57849', [0, 0.35, pz - 1.1]));
@@ -661,6 +662,7 @@
       }
       statics.add(pier);
       [[-6, -24.2, '#ff5e7a'], [-1.5, -23.8, '#ffd84d'], [2.8, -24.6, '#4fc3f7']].forEach(function (u2) {
+        u2[1] += NORTH;
         var um = group([u2[0], hillH(u2[0], u2[1]), u2[1]]);
         um.add(cyl(0.05, 0.05, 2.3, '#f4efe4', [0, 1.15, 0], 6));
         um.add(cone(1.4, 0.6, u2[2], [0, 2.4, 0], 12));
@@ -676,7 +678,7 @@
         boat.add(cyl(0.06, 0.06, 4.2, '#7a5233', [0, 2.4, 0], 6));
         var sail = new THREE.Shape(); sail.moveTo(0, 0); sail.lineTo(0, 3.6); sail.lineTo(-2.2, 0); sail.lineTo(0, 0);
         boat.add(mesh(new THREE.ShapeGeometry(sail), mat('#ffffff', { side: THREE.DoubleSide }), [-0.1, 0.8, 0]));
-        boat.userData = { x0: b2[0], z: b2[1], sp: b2[2], ph: i * 2 };
+        boat.userData = { x0: b2[0], z: b2[1] + NORTH, sp: b2[2], ph: i * 2 };
         scene.add(boat);
         WORLD_ANIM.push(function (now) { var u = boat.userData, x = ((u.x0 + now * u.sp + 150) % 300) - 150; boat.position.set(x, SEA_Y + 0.1 + Math.sin(now * 1.2 + u.ph) * 0.08, u.z); boat.rotation.z = Math.sin(now * 0.9 + u.ph) * 0.05; });
       });
@@ -684,7 +686,7 @@
         var gull = group(), wingL = group(), wingR = group();
         wingL.add(box(0.7, 0.04, 0.18, '#ffffff', [-0.35, 0, 0])); wingR.add(box(0.7, 0.04, 0.18, '#ffffff', [0.35, 0, 0]));
         gull.add(wingL); gull.add(wingR); gull.add(sphere(0.12, '#ffffff', [0, 0, 0], [1, 0.8, 1.8], 8));
-        gull.userData = { c: V(rr(-20, 20), rr(7, 13), rr(-34, -24)), r: rr(4, 9), sp: rr(0.25, 0.45) * (gl % 2 ? 1 : -1), ph: rr(0, TAU), l: wingL, rr: wingR };
+        gull.userData = { c: V(rr(-20, 20), rr(7, 13), rr(-34, -24) + NORTH), r: rr(4, 9), sp: rr(0.25, 0.45) * (gl % 2 ? 1 : -1), ph: rr(0, TAU), l: wingL, rr: wingR };
         scene.add(gull);
         WORLD_ANIM.push(function (now) { var u = gull.userData, a = now * u.sp + u.ph, fl = Math.sin(now * 5 + u.ph) * 0.45; gull.position.set(u.c.x + Math.cos(a) * u.r, u.c.y + Math.sin(now * 0.7 + u.ph) * 0.6, u.c.z + Math.sin(a) * u.r); gull.rotation.y = -a + (u.sp > 0 ? 0 : PI); u.l.rotation.z = fl; u.rr.rotation.z = -fl; });
       }

@@ -1,5 +1,26 @@
 # Changelog
 
+## Bigger farming lands round the mud pit
+
+- **The farmyard is half as big again.** Everything in it, the beds or
+  your garden map, the planting field, the barn, the greenhouse, the pond
+  and its ducks, the windmill, the worm bins, the chickens and the
+  signpost, is 1.5 times bigger and further apart, so it's much easier to
+  see. There are five raised beds now (eight plants each), a planting field
+  with four rows, and more room for a garden map.
+- **Farming lands all round the middle.** The mud arena and the rave stay
+  in the very middle of the farm, and round them: the **orchard** with the
+  mother tree and the **market garden** (vegetable rows, turning
+  sprinklers, three polytunnels) beside the yard; a **sunflower field**
+  and the **vineyard** beside the dance field; the **beehives** in a
+  wildflower meadow and the **pumpkin patch** beside the play park; and
+  the **wheat**, the **corn** and the **hay barn** with its pond and wind
+  pump furthest south. The crops sway in the wind, and a little tractor
+  drives up and down the farm track. Heroes walk round the crops.
+- The farm is 124 x 155 m now, with hedges and trees between the lands,
+  and you can zoom out further to see it all. Every setting (seaside,
+  jungle, island...) moved its scenery out with the bigger farm.
+
 ## A safety check, the weekly digest, events on the farm, hero cards
 
 - **A safety check before the Pi updates.** Tests for every page (as a

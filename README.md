@@ -43,12 +43,14 @@ in one go.
 - 🗺️ **A garden map** on real streets or satellite photos, where you draw
   beds, paths, taps and trees.
 - 🚜 **A 3D farm** where all the heroes harvest, water, feed the animals
-  and play football. In a field of its own they dance round the campfire
-  while a mud-wrestling tournament crowns a champion, with flame jets and
-  fireworks. In another they party round a low, open DJ stage with a
-  light-up dance floor, lasers and a big wheel. There are nine different lands (desert, seaside,
-  snowy mountains, jungle, a city...), and it can run as a live channel
-  on a TV.
+  and play football. In the middle of the farm they dance round the mud
+  arena while a mud-wrestling tournament crowns a champion, with flame jets
+  and fireworks, and for the party the arena folds into a fire tower on an
+  outdoor rave floor with a DJ stage, lasers and a big wheel. Round it lie
+  the farming lands: a big farmyard, an orchard, a market garden with
+  polytunnels, sunflowers, a vineyard, beehives, pumpkins, wheat and corn.
+  There are nine different settings (desert, seaside, snowy mountains,
+  jungle, a city...), and it can run as a live channel on a TV.
 - 🎈 **Events** for parties, festivals and work days: the next ones on the
   dashboard with one-tap "Going", a QR code and printable poster to invite
   people, volunteer jobs, a map of the site, check-ins and photos. While
