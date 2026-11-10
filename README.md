@@ -49,7 +49,8 @@ in one go.
   outdoor rave floor with a DJ stage, lasers and a big wheel. Round it lie
   the farming lands: a big farmyard, an orchard, a market garden with
   polytunnels, sunflowers, a vineyard, beehives, pumpkins, wheat and corn.
-  There are nine different settings (desert, seaside, snowy mountains,
+  It opens as a village, like a village game: every building and field
+  has a level that grows only from real garden work. There are nine different settings (desert, seaside, snowy mountains,
   jungle, a city...), and it can run as a live channel on a TV.
 - 🎈 **Events** for parties, festivals and work days: the next ones on the
   dashboard with one-tap "Going", a QR code and printable poster to invite
